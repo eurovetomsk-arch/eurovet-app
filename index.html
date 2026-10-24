@@ -116,7 +116,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.15'
+  appVer:'1.16'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -433,7 +433,8 @@ function setHeader(){
 }
 function netBadge(){
   const q=S.queue.length;
-  return '<button class="pill" data-act="queue"><span class="net'+(S.online?'':' off')+'"></span>'+(S.online?'онлайн':'нет связи')+(q?' · ждёт: '+q:'')+'</button>';
+  const nr=S.queue.some(x=>x.status==='needs_reason');
+  return '<button class="pill" data-act="queue"><span class="net'+(S.online?'':' off')+'"></span>'+(S.online?'онлайн':'нет связи')+(q?' · ждёт: '+q+(nr?' · нужна причина':''):'')+'</button>';
 }
 
 function render(){
@@ -574,10 +575,23 @@ function updateChecks(){
 }
 function viewDone(){
   const d=S.done;
-  let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':'Отчёт сохранён на устройстве')+'</h2>';
-  h+=d.sent?'<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>'
-           :'<div class="chk warn"><i>!</i><div>Пока не отправлен'+((S.online&&!(S.queue.find(x=>x.uid===d.uid)||{}).status.match(/offline|error|need/))?' (идёт отправка…)':' — нет связи с сервером. Отправится сам, когда появится интернет. Не очищайте данные браузера.')+'</div></div>';
-  if(!d.sent)h+='<button class="btn" data-act="flush" style="margin:8px 0 0">Отправить сейчас</button>';
+  const it=S.queue.find(x=>x.uid===d.uid)||{};const st=it.status||'';
+  const needR=!d.sent&&st==='needs_reason';
+  let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':needR?'Нужна причина исправления':'Отчёт сохранён на устройстве')+'</h2>';
+  if(d.sent){
+    h+='<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>';
+  }else if(needR){
+    h+='<div class="chk warn"><i>!</i><div>За '+ruDate(d.date)+' ('+esc(d.branch)+') отчёт уже сдан. Этот будет исправлением. Впишите, что исправили и почему, и отправьте.</div></div>'
+      +'<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'" autocomplete="off"></label>'
+      +'<button class="btn" data-act="setReason" data-id="'+it.uid+'" style="margin:0 0 8px">Отправить с причиной</button>';
+  }else if(st==='error'){
+    h+='<div class="chk bad"><i>✗</i><div>Сервер не принял отчёт ('+esc(it.err||'ошибка')+'). Отчёт цел на устройстве. Нажмите «Отправить сейчас»; если не получится, скопируйте итоги и сообщите руководителю.</div></div>';
+  }else if(st==='need_login'){
+    h+='<div class="chk warn"><i>!</i><div>Сессия закончилась. Войдите заново, отчёт уйдёт сам.</div></div>';
+  }else{
+    h+='<div class="chk warn"><i>!</i><div>Пока не отправлен'+((S.online&&st!=='offline')?' (идёт отправка…)':' — нет связи с сервером. Отправится сам, когда появится интернет (проверка каждые 8 секунд). Не очищайте данные браузера.')+'</div></div>';
+  }
+  if(!d.sent&&!needR)h+='<button class="btn" data-act="flush" style="margin:8px 0 0">Отправить сейчас</button>';
   h+='<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button>';
   h+='<button class="btn" data-act="newrep">Готово</button></div>';
   return h;
@@ -675,7 +689,7 @@ document.addEventListener('click',async e=>{
     case'hint':{const h=HINTS[d.h];if(!h)break;if(isField(document.activeElement))document.activeElement.blur();
       overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
     case'logout':closeOv();if(S.queue.length&&!confirm('Есть неотправленные отчёты. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
-    case'flush':S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();if(flushing){kick()}else await flush();break;
+    case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();if(flushing){kick()}else await flush();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'chpin':showPin();break;
