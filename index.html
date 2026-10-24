@@ -116,7 +116,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.14'
+  appVer:'1.15'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -164,8 +164,8 @@ const ruDate=d=>d.split('-').reverse().join('.');
 const DEV=(()=>{let d=LS.get('ev_dev');if(!d){d=uid();LS.set('ev_dev',d)}return d})();
 
 /* ====== API ====== */
-async function rpc(name,body,ms){
-  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||20000);
+async function rpc(name,body,ms,ref){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||20000);if(ref)ref.c=ctl;
   let r;
   try{
     r=await fetch(CFG.url+'/rest/v1/rpc/'+name,{method:'POST',headers:{'apikey':CFG.key,'Authorization':'Bearer '+CFG.key,'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal});
@@ -303,21 +303,24 @@ function buildData(calc){
 }
 
 /* ====== Отправка и очередь ====== */
-let flushing=false;
-async function flush(){
+let flushing=false,wantAgain=false;const flushRef={c:null};
+async function flush(auto){
   if(flushing||!S.queue.length)return;
   if(!S.token){render();return}
   flushing=true;
+  const sig=()=>S.queue.map(x=>x.uid+(x.status==='new'?'offline':x.status)).join()+S.online;const sig0=sig();
   try{
     for(const it of S.queue.slice()){
       if(it.status==='needs_reason')continue;
+      if(auto&&it.status==='error')continue; // ошибки сервера сами не повторяем, только по кнопке
       let res;
       try{
-        res=await rpc('ev_submit',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_data:it.data,p_device:DEV,p_client_time:it.client_time,p_client_uid:it.uid,p_reason:it.reason||null});
+        res=await rpc('ev_submit',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_data:it.data,p_device:DEV,p_client_time:it.client_time,p_client_uid:it.uid,p_reason:it.reason||null},12000,flushRef);
       }catch(e){
-        if(e.net){it.status='offline';break}
+        if(e.net){it.status='offline';if(S.online){S.online=false;setHeader()}break}
         it.status='error';it.err='HTTP '+e.http;continue;
       }
+      if(!S.online){S.online=true;setHeader()}
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version}
@@ -327,7 +330,19 @@ async function flush(){
       else if(res.error==='conflict'){it.status='offline'}
       else{it.status='error';it.err=res.error}
     }
-  }finally{flushing=false;saveQueue();render()}
+  }finally{
+    flushing=false;saveQueue();
+    // автоповтор не должен перерисовывать форму, пока человек печатает: рисуем только если что-то изменилось
+    if(!auto||sig()!==sig0)render();
+    if(wantAgain){wantAgain=false;setTimeout(()=>{resetOffline();flush()},300)}
+  }
+}
+function resetOffline(){S.queue.forEach(x=>{if(x.status==='offline')x.status='new'})}
+// «пнуть» отправку: вернулась связь, приложение снова на экране, нажата кнопка
+function kick(){
+  if(!S.queue.length)return;
+  if(flushing){wantAgain=true;try{flushRef.c&&flushRef.c.abort()}catch(e){}return}
+  resetOffline();flush();
 }
 
 async function submit(){
@@ -562,6 +577,7 @@ function viewDone(){
   let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':'Отчёт сохранён на устройстве')+'</h2>';
   h+=d.sent?'<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>'
            :'<div class="chk warn"><i>!</i><div>Пока не отправлен'+((S.online&&!(S.queue.find(x=>x.uid===d.uid)||{}).status.match(/offline|error|need/))?' (идёт отправка…)':' — нет связи с сервером. Отправится сам, когда появится интернет. Не очищайте данные браузера.')+'</div></div>';
+  if(!d.sent)h+='<button class="btn" data-act="flush" style="margin:8px 0 0">Отправить сейчас</button>';
   h+='<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button>';
   h+='<button class="btn" data-act="newrep">Готово</button></div>';
   return h;
@@ -659,7 +675,7 @@ document.addEventListener('click',async e=>{
     case'hint':{const h=HINTS[d.h];if(!h)break;if(isField(document.activeElement))document.activeElement.blur();
       overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
     case'logout':closeOv();if(S.queue.length&&!confirm('Есть неотправленные отчёты. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
-    case'flush':S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();await flush();break;
+    case'flush':S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();if(flushing){kick()}else await flush();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'chpin':showPin();break;
@@ -676,9 +692,13 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')doLogin(e.target.value)});
 
-window.addEventListener('online',()=>{S.online=true;setHeader();S.queue.forEach(x=>{if(x.status==='offline')x.status='new'});flush()});
+window.addEventListener('online',()=>{S.online=true;setHeader();kick()});
 window.addEventListener('offline',()=>{S.online=false;setHeader()});
-setInterval(()=>{if(S.queue.length&&navigator.onLine){S.queue.forEach(x=>{if(x.status==='offline')x.status='new'});flush()}},60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')kick()});
+window.addEventListener('pageshow',kick);
+window.addEventListener('focus',kick);
+// пока в очереди есть отчёт — пробуем каждые 8 секунд (не полагаясь на navigator.onLine: на iPhone он врёт)
+setInterval(()=>{if(S.queue.length&&!flushing){resetOffline();flush(true)}},8000);
 
 /* ====== Запуск ====== */
 (async()=>{
