@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ЕВРОВЕТ — вечерний отчёт</title>
+<title>ЕВРОВЕТ · Отчёт администратора</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
@@ -11,28 +11,30 @@
 <meta name="description" content="Сдача вечернего отчёта администратора ЕВРОВЕТ с телефона, онлайн и офлайн">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Отчёт ЕВРОВЕТ">
+<meta name="apple-mobile-web-app-title" content="Отчёт админа">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Вечерний отчёт ЕВРОВЕТ">
 <meta property="og:description" content="Сдача отчёта администратора с телефона, онлайн и офлайн">
-<meta property="og:image" content="https://eurovetomsk-arch.github.io/eurovet-app/og-image.png">
+<meta property="og:image" content="https://eurovetomsk-arch.github.io/eurovet-app/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#2A7D90">
 <meta name="color-scheme" content="light dark">
 <style>
-:root{--bg:#f4f6f5;--card:#fff;--ink:#14201e;--mute:#5b6b68;--line:#d8e0de;--acc:#0f766e;--acc-ink:#fff;--ok:#15803d;--okbg:#e7f5ec;--bad:#b91c1c;--badbg:#fdecec;--warn:#b45309;--warnbg:#fff4e0;--tile:#eef3f2}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1514;--card:#182120;--ink:#e8f0ee;--mute:#9bb0ac;--line:#2a3836;--acc:#2dd4bf;--acc-ink:#04201c;--ok:#4ade80;--okbg:#12301e;--bad:#f87171;--badbg:#3a1717;--warn:#fbbf24;--warnbg:#3a2c10;--tile:#202c2a}}
+:root{--bg:#f1f7f9;--card:#fff;--ink:#1d2b30;--mute:#587078;--line:#d3e2e7;--acc:#2A7D90;--acc-ink:#fff;--ok:#15803d;--okbg:#e7f5ec;--bad:#b91c1c;--badbg:#fdecec;--warn:#b45309;--warnbg:#fff4e0;--tile:#e6f0f3;--brand:#4AA0B4;--coral:#E55661}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1a1e;--card:#15252a;--ink:#e6f1f4;--mute:#9db8c0;--line:#2a424a;--acc:#5DBBD0;--acc-ink:#06262d;--ok:#4ade80;--okbg:#12301e;--bad:#f87171;--badbg:#3a1717;--warn:#fbbf24;--warnbg:#3a2c10;--tile:#1d3036}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
 header{position:sticky;top:0;z-index:5;background:var(--acc);color:var(--acc-ink);padding:10px 16px;display:flex;gap:8px;align-items:center;justify-content:space-between}
 header b{font-size:16px}
 header small{display:block;opacity:.85;font-size:12px}
 header .hb{display:flex;gap:6px;align-items:center}
+header .hl{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:34px;height:34px;flex:none;border-radius:50%;background:#fff;padding:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .pill{background:rgba(255,255,255,.2);color:inherit;border:0;border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
 main{max-width:640px;margin:0 auto;padding:12px 16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
@@ -85,7 +87,7 @@ button{font:inherit;cursor:pointer}
 .net.off{background:#f87171}
 pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;font-size:13px}
 /* цвет блоков: спокойная полоса слева, маленький маркер у заголовка, лёгкий оттенок фона */
-.k-staff{--k0:#64788a}.k-docs{--k0:#0f766e}.k-clinic{--k0:#2f6fa3}.k-pharm{--k0:#7b5ea7}.k-adv{--k0:#b7791f}.k-comp{--k0:#a4524b}.k-cash{--k0:#3f7d4e}.k-assist{--k0:#8a6d4b}.k-misc{--k0:#64788a}.k-check{--k0:#4b5d6b}
+.k-staff{--k0:#64788a}.k-docs{--k0:#2A7D90}.k-clinic{--k0:#2f6fa3}.k-pharm{--k0:#7b5ea7}.k-adv{--k0:#b7791f}.k-comp{--k0:#a4524b}.k-cash{--k0:#3f7d4e}.k-assist{--k0:#8a6d4b}.k-misc{--k0:#64788a}.k-check{--k0:#4b5d6b}
 .card[class*=" k-"]{--k:var(--k0);border-left:5px solid var(--k);background:color-mix(in srgb,var(--k) 5%,var(--card))}
 @media (prefers-color-scheme:dark){.card[class*=" k-"]{--k:color-mix(in srgb,var(--k0) 60%,#fff)}}
 .card[class*=" k-"] h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--k);flex:none}
@@ -118,7 +120,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.17'
+  appVer:'1.18'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -428,9 +430,9 @@ async function openBranch(id){
 /* ====== Отрисовка ====== */
 function setHeader(){
   const h=$('#hdr');
-  if(S.view==='login'){h.innerHTML='<div><b>ЕВРОВЕТ</b><small>вечерний отчёт</small></div>'+netBadge();return}
+  if(S.view==='login'){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>ЕВРОВЕТ</b><small>вечерний отчёт</small></div></div>'+netBadge();return}
   const bt=S.branch&&(BRANCHES.find(b=>b.id===S.branch)||{}).title;
-  h.innerHTML='<div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'ЕВРОВЕТ')+'</small></div><div class="hb">'+netBadge()+
+  h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'ЕВРОВЕТ')+'</small></div></div><div class="hb">'+netBadge()+
     (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
 }
 function netBadge(){
