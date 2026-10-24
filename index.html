@@ -83,13 +83,15 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.1'
+  appVer:'1.2'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
   {id:'70let',title:'70 лет Октября, 20'},
-  {id:'pereleta',title:'Перелёта, 19'}
+  {id:'pereleta',title:'Перелёта, 19'},
+  {id:'test',title:'ТЕСТ (не настоящий филиал)',testOnly:true}
 ];
+const isTester=()=>!!(S.person&&/^ТЕСТ(\s|$)/.test(S.person.name||''));
 
 /* ====== Утилиты ====== */
 const $=(s,r=document)=>r.querySelector(s);
@@ -373,7 +375,7 @@ function viewLogin(){
 function viewBranch(){
   let h='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
-  h+=BRANCHES.map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
+  h+=BRANCHES.filter(b=>!b.testOnly||isTester()).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
   if(S.queue.length)h+='<p class="hint">Не отправлено отчётов: '+S.queue.length+'. Нажмите «'+(S.online?'онлайн':'нет связи')+'» вверху.</p>';
   return h+'</div>';
 }
