@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ЕВРОВЕТ — вечерний отчёт</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#0f766e">
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#14201e;--mute:#5b6b68;--line:#d8e0de;--acc:#0f766e;--acc-ink:#fff;--ok:#15803d;--okbg:#e7f5ec;--bad:#b91c1c;--badbg:#fdecec;--warn:#b45309;--warnbg:#fff4e0;--tile:#eef3f2}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1514;--card:#182120;--ink:#e8f0ee;--mute:#9bb0ac;--line:#2a3836;--acc:#2dd4bf;--acc-ink:#04201c;--ok:#4ade80;--okbg:#12301e;--bad:#f87171;--badbg:#3a1717;--warn:#fbbf24;--warnbg:#3a2c10;--tile:#202c2a}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
+header{position:sticky;top:0;z-index:5;background:var(--acc);color:var(--acc-ink);padding:10px 16px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+header b{font-size:16px}
+header small{display:block;opacity:.85;font-size:12px}
+header .hb{display:flex;gap:6px;align-items:center}
+.pill{background:rgba(255,255,255,.2);color:inherit;border:0;border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
+main{max-width:640px;margin:0 auto;padding:12px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
+.card h2{margin:0 0 10px;font-size:17px}
+.card h3{margin:12px 0 6px;font-size:14px;color:var(--mute);font-weight:600}
+.hint{color:var(--mute);font-size:13px;margin:4px 0 8px}
+.f{display:block;margin:8px 0}
+.f>span{display:block;font-size:13px;color:var(--mute);margin-bottom:3px}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:46px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);border-color:transparent}
+input.bad{border-color:var(--bad)}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>*{flex:1;min-width:0}
+.row>.nf{flex:0 0 auto}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--acc);color:var(--acc-ink);border:0;border-radius:12px;padding:13px 16px;font-weight:600;min-height:48px;width:100%}
+.btn.sec{background:var(--tile);color:var(--ink);border:1px solid var(--line)}
+.btn.small{width:auto;min-height:40px;padding:8px 12px;font-size:14px}
+.btn:disabled{opacity:.5}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{background:var(--tile);border:2px solid transparent;border-radius:12px;padding:10px 12px;text-align:left;color:var(--ink);min-height:52px}
+.tile.on{border-color:var(--acc);background:var(--card);font-weight:600}
+.tile small{display:block;color:var(--mute);font-weight:400;font-size:12px}
+.person{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}
+.person>b{display:block;margin-bottom:2px}
+.step{display:flex;align-items:center;gap:10px;margin:6px 0}
+.step button{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--tile);color:var(--ink);font-size:22px}
+.step output{min-width:34px;text-align:center;font-size:20px;font-weight:600}
+.step span{flex:1}
+.chk{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;margin:6px 0;font-size:14px}
+.chk.ok{background:var(--okbg);color:var(--ok)}
+.chk.bad{background:var(--badbg);color:var(--bad)}
+.chk.wait{background:var(--tile);color:var(--mute)}
+.chk.warn{background:var(--warnbg);color:var(--warn)}
+.chk i{font-style:normal;font-weight:700;width:18px;flex:none}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:6}
+.bar .in{max-width:640px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.bar .st{flex:1;font-size:13px}
+.bar .btn{width:auto;flex:0 0 auto;min-width:150px}
+.big{font-size:18px;padding:18px 16px;text-align:left}
+.toast{position:fixed;left:16px;right:16px;bottom:96px;max-width:608px;margin:0 auto;background:#222;color:#fff;border-radius:12px;padding:12px 14px;z-index:20;font-size:14px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.ov>.card{width:100%;max-width:640px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
+.rm{background:none;border:0;color:var(--bad);font-size:20px;min-width:40px;min-height:46px}
+.sum{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.sum b{font-variant-numeric:tabular-nums}
+.net{display:inline-block;width:9px;height:9px;border-radius:50%;background:#4ade80;margin-right:4px}
+.net.off{background:#f87171}
+pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;font-size:13px}
+</style>
+</head>
+<body>
+<header id="hdr"></header>
+<main id="app"></main>
+<div id="barwrap"></div>
+<div id="toastwrap"></div>
+<div id="ovwrap"></div>
+
+<script>
+(()=>{
+'use strict';
+/* ====== Настройки (публичные по замыслу: доступ к данным только через функции с PIN) ====== */
+const CFG={
+  url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
+  key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
+  tol:1,                 // допуск расхождения, ₽
+  appVer:'1.1'
+};
+const BRANCHES=[
+  {id:'marksa',title:'Маркса, 45'},
+  {id:'70let',title:'70 лет Октября, 20'},
+  {id:'pereleta',title:'Перелёта, 19'}
+];
+
+/* ====== Утилиты ====== */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={
+  get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+const omskToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Omsk'}).format(new Date());
+const nf=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2});
+const money=x=>nf.format(Math.round(x*100)/100)+' ₽';
+const r2=x=>Math.round(x*100)/100;
+function num(s){ // null — пусто; NaN — некорректно
+  if(s==null)return null;
+  const t=String(s).replace(/[\s ]/g,'').replace(',','.');
+  if(t==='')return null;
+  if(!/^-?\d+(\.\d{0,2})?$/.test(t))return NaN;
+  return Number(t);
+}
+const N=s=>{const v=num(s);return(v==null||isNaN(v))?0:v};
+const ruDate=d=>d.split('-').reverse().join('.');
+const DEV=(()=>{let d=LS.get('ev_dev');if(!d){d=uid();LS.set('ev_dev',d)}return d})();
+
+/* ====== API ====== */
+async function rpc(name,body){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),20000);
+  let r;
+  try{
+    r=await fetch(CFG.url+'/rest/v1/rpc/'+name,{method:'POST',headers:{'apikey':CFG.key,'Authorization':'Bearer '+CFG.key,'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal});
+  }catch(e){throw{net:true}}finally{clearTimeout(t)}
+  if(r.status>=500)throw{net:true,status:r.status};
+  if(!r.ok)throw{http:r.status};
+  return r.json();
+}
+
+/* ====== Состояние ====== */
+const S={
+  view:'login',
+  token:LS.get('ev_token'),
+  person:LS.get('ev_person'),
+  branch:null,date:omskToday(),ctx:null,ctxOffline:false,
+  form:null,loginList:LS.get('ev_loginlist',[]),pick:LS.get('ev_last'),
+  queue:LS.get('ev_queue',[]),online:navigator.onLine,done:null,busy:false
+};
+const saveQueue=()=>LS.set('ev_queue',S.queue);
+
+function toast(msg,ms=4000){
+  const w=$('#toastwrap');w.innerHTML='<div class="toast">'+esc(msg)+'</div>';
+  clearTimeout(toast.t);toast.t=setTimeout(()=>{w.innerHTML=''},ms);
+}
+
+/* ====== Форма ====== */
+const emptyForm=()=>({admins:{},doctors:{},others:[],mr:'',total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
+  open:'',expenses:[],close:'',assistants:{},note:'',adv_cash:'',adv_cashless:'',adv_out:'',diff_reason:'',corr_reason:''});
+const draftKey=()=>'ev_draft:'+S.branch+':'+S.date;
+let draftT;
+function saveDraft(){clearTimeout(draftT);draftT=setTimeout(()=>{if(S.form&&S.view==='form')LS.set(draftKey(),S.form)},300)}
+
+function formFromReport(d){ // загрузка ранее сданной версии для исправления
+  const f=emptyForm(),s=v=>(v==null?'':String(v));
+  (d.admins||[]).forEach(a=>f.admins[a.id]={left:a.left||''});
+  (d.doctors||[]).forEach(x=>f.doctors[x.id]={val:s(x.val)});
+  f.others=(d.others||[]).map(o=>({title:o.title||'',val:s(o.val)}));
+  f.mr=s(d.mr);f.total=s(d.total);f.cash=s(d.cash);f.cashless=s(d.cashless);
+  f.ph_val=s(d.pharmacy&&d.pharmacy.val);f.ph_cash=s(d.pharmacy&&d.pharmacy.cash);f.ph_cashless=s(d.pharmacy&&d.pharmacy.cashless);
+  f.open=s(d.cashbox&&d.cashbox.opening);f.close=s(d.cashbox&&d.cashbox.closing);
+  f.expenses=((d.cashbox&&d.cashbox.expenses)||[]).map(e=>({article:e.article||'',amount:s(e.amount),comment:e.comment||''}));
+  (d.assistants||[]).forEach(a=>f.assistants[a.role+':'+a.id]={fn:a.fix_normal||0,fx:a.fix_xray||0,left:a.left||''});
+  f.note=d.note||'';f.adv_cash=s(d.advance_cash);f.adv_cashless=s(d.advance_cashless);f.adv_out=s(d.advance_out);f.diff_reason=d.diff_reason||'';
+  return f;
+}
+
+/* ====== Проверки (только подсвечивают, числа никогда не правят) ====== */
+function compute(){
+  const f=S.form,c=S.ctx;
+  const sumDocs=r2(Object.values(f.doctors).reduce((a,d)=>a+N(d.val),0)+f.others.reduce((a,o)=>a+N(o.val),0));
+  const mr=N(f.mr),total=N(f.total),cash=N(f.cash),cashless=N(f.cashless);
+  const phv=N(f.ph_val),phc=N(f.ph_cash),phn=N(f.ph_cashless);
+  const exp=r2(f.expenses.reduce((a,e)=>a+N(e.amount),0));
+  const open=N(f.open);
+  const advc=N(f.adv_cash);
+  const expected=r2(open-exp+cash+phc+advc);
+  const checks=[];
+  const add=(id,label,diff,ready,detail)=>checks.push({id,label,ready,diff:r2(diff),ok:ready&&Math.abs(diff)<=CFG.tol,detail});
+  add('docs','Врачи + чек МР = Клиника общая',sumDocs+mr-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' + чек МР '+money(mr)+' vs общая '+money(total));
+  add('pay','Нал + безнал = Клиника общая',cash+cashless-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+' vs общая '+money(total));
+  const phAny=f.ph_val!==''||f.ph_cash!==''||f.ph_cashless!=='';
+  add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv));
+  add('box','Итог инкассации = начало − расходы + нал (клиника+аптека) + аванс наличными',N(f.close)-expected,f.close!==''&&f.open!=='','по расчёту '+money(expected)+(advc?' (в т.ч. аванс наличными '+money(advc)+')':'')+', введено '+money(N(f.close)));
+  const prev=c&&c.prev&&c.prev.closing!=null?Number(c.prev.closing):null;
+  if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', введено начало '+money(open));
+  return{checks,sumDocs,exp,expected,total,cash,cashless};
+}
+
+function validate(){
+  const f=S.form,errs=[];
+  const need=(k,l)=>{const v=num(f[k]);if(v==null||isNaN(v))errs.push(l)};
+  if(!Object.keys(f.admins).length)errs.push('Отметьте, кто работал администратором');
+  need('total','«Клиника общая»');need('cash','«Нал клиники»');need('cashless','«Безнал клиники»');need('open','«Начальная инкассация»');need('close','«Итог инкассации»');
+  const LBL={mr:'Чек МР',ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан'};
+  Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
+  Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
+  f.others.forEach((o,i)=>{const v=num(o.val);if(!o.title.trim()||v==null||isNaN(v))errs.push('Строка «вне списка» №'+(i+1)+': нужно название и сумма')});
+  f.expenses.forEach((e,i)=>{const v=num(e.amount);if(!e.article||v==null||isNaN(v))errs.push('Расход №'+(i+1)+': выберите статью и введите сумму')});
+  Object.entries(f.assistants).forEach(([k,a])=>{if(!isFinite(a.fn)||!isFinite(a.fx))errs.push('Фиксации ассистента')});
+  const calc=compute();
+  const red=calc.checks.filter(c=>c.ready&&!c.ok);
+  if(red.length&&!f.diff_reason.trim())errs.push('Есть расхождения — напишите причину внизу формы');
+  if(S.ctx.current&&f.corr_reason.trim().length<3)errs.push('Отчёт уже сдан — укажите причину исправления');
+  return{errs,calc,red};
+}
+const docName=id=>{const d=S.ctx&&S.ctx.doctors.find(x=>String(x.id)===String(id));return d&&d.name};
+
+function buildData(calc){
+  const f=S.form,c=S.ctx;
+  const byId=(arr,id)=>arr.find(x=>String(x.id)===String(id));
+  const admins=Object.keys(f.admins).map(id=>({id:Number(id),name:(byId(c.admins,id)||{}).name,left:f.admins[id].left||null}));
+  const doctors=Object.keys(f.doctors).map(id=>{const d=byId(c.doctors,id)||{};return{id:Number(id),name:d.name,vm_id:d.vm_id,val:N(f.doctors[id].val)}});
+  const assistants=Object.keys(f.assistants).map(k=>{const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{};const v=f.assistants[k];
+    return{id:Number(id),name:a.name,role,fix_normal:v.fn|0,fix_xray:v.fx|0,left:v.left||null}});
+  return{
+    schema:1,app:CFG.appVer,branch:S.branch,date:S.date,
+    admins,doctors,
+    others:f.others.map(o=>({title:o.title.trim(),val:N(o.val)})),
+    mr:N(f.mr),total:N(f.total),cash:N(f.cash),cashless:N(f.cashless),
+    pharmacy:{val:N(f.ph_val),cash:N(f.ph_cash),cashless:N(f.ph_cashless)},
+    cashbox:{opening:N(f.open),
+      expenses:f.expenses.map(e=>({article:e.article,amount:N(e.amount),comment:(e.comment||'').trim()||null})),
+      closing:N(f.close),expected_closing:calc.expected,prev_closing:(c.prev&&c.prev.closing!=null)?Number(c.prev.closing):null},
+    assistants,
+    fix_totals:{normal:assistants.reduce((a,x)=>a+x.fix_normal,0),xray:assistants.reduce((a,x)=>a+x.fix_xray,0)},
+    advance_cash:f.adv_cash===''?null:N(f.adv_cash),advance_cashless:f.adv_cashless===''?null:N(f.adv_cashless),advance_out:f.adv_out===''?null:N(f.adv_out),
+    note:f.note.trim()||null,diff_reason:f.diff_reason.trim()||null,
+    checks:calc.checks.filter(x=>x.ready).map(x=>({id:x.id,ok:x.ok,diff:x.diff}))
+  };
+}
+
+/* ====== Отправка и очередь ====== */
+let flushing=false;
+async function flush(){
+  if(flushing||!S.queue.length)return;
+  if(!S.token){render();return}
+  flushing=true;
+  try{
+    for(const it of S.queue.slice()){
+      if(it.status==='needs_reason')continue;
+      let res;
+      try{
+        res=await rpc('ev_submit',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_data:it.data,p_device:DEV,p_client_time:it.client_time,p_client_uid:it.uid,p_reason:it.reason||null});
+      }catch(e){
+        if(e.net){it.status='offline';break}
+        it.status='error';it.err='HTTP '+e.http;continue;
+      }
+      if(res.ok){
+        S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
+        if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version}
+      }else if(res.error==='session'){
+        S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
+      }else if(res.error==='reason_required'){it.status='needs_reason'}
+      else if(res.error==='conflict'){it.status='offline'}
+      else{it.status='error';it.err=res.error}
+    }
+  }finally{flushing=false;saveQueue();render()}
+}
+
+async function submit(){
+  const v=validate();
+  if(v.errs.length){toast(v.errs[0],5000);return}
+  const data=buildData(v.calc);
+  const it={uid:uid(),branch:S.branch,date:S.date,data,reason:S.ctx.current?S.form.corr_reason.trim():null,
+    client_time:new Date().toISOString(),status:'new',branchTitle:(BRANCHES.find(b=>b.id===S.branch)||{}).title,
+    summary:summaryText(data)};
+  S.queue.push(it);
+  if(!saveQueue()){toast('Не удалось сохранить на устройстве! Скопируйте итоги вручную.',8000)}
+  LS.del(draftKey());
+  S.done={uid:it.uid,sent:false,version:null,summary:it.summary,branch:it.branchTitle,date:S.date};
+  S.view='done';render();
+  await flush();
+}
+
+function summaryText(d){
+  const L=[];const bt=(BRANCHES.find(b=>b.id===d.branch)||{}).title;
+  L.push('ЕВРОВЕТ '+bt+' — '+ruDate(d.date));
+  L.push('Админ: '+d.admins.map(a=>a.name+(a.left?' (ушёл '+a.left+')':'')).join(', '));
+  d.doctors.forEach(x=>L.push(x.name+': '+x.val));
+  d.others.forEach(x=>L.push(x.title+': '+x.val));
+  L.push('Чек МР: '+d.mr);L.push('Клиника общая: '+d.total);L.push('Нал: '+d.cash+'  Безнал: '+d.cashless);
+  L.push('Аптека: вал '+d.pharmacy.val+', нал '+d.pharmacy.cash+', безнал '+d.pharmacy.cashless);
+  L.push('Инкасс. начало: '+d.cashbox.opening);
+  d.cashbox.expenses.forEach(e=>L.push('Расход '+e.article+': '+e.amount+(e.comment?' ('+e.comment+')':'')));
+  if(d.advance_cash!=null||d.advance_cashless!=null||d.advance_out!=null)L.push('Аванс: принят нал '+(d.advance_cash||0)+', безнал '+(d.advance_cashless||0)+', списан '+(d.advance_out||0));
+  L.push('Инкасс. итог: '+d.cashbox.closing);
+  d.assistants.forEach(a=>L.push('Ассистент '+a.name+': фикс. '+a.fix_normal+', рентген '+a.fix_xray+(a.left?', ушёл '+a.left:'')));
+  if(d.note)L.push('Примечание: '+d.note);
+  if(d.diff_reason)L.push('Причина расхождений: '+d.diff_reason);
+  return L.join('\n');
+}
+
+/* ====== Вход / контекст ====== */
+async function loadLoginList(){
+  try{const l=await rpc('ev_login_list',{});if(Array.isArray(l)){S.loginList=l;LS.set('ev_loginlist',l)}}catch(e){}
+}
+async function doLogin(pin){
+  if(!S.pick){toast('Выберите себя в списке');return}
+  if(!/^\d{6}$/.test(pin)){toast('PIN — 6 цифр');return}
+  S.busy=true;render();
+  try{
+    const r=await rpc('ev_login',{p_person:S.pick,p_pin:pin,p_device:DEV});
+    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.view='branch';S.busy=false;render();flush();return}
+    const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа администратора.'};
+    toast(m[r.error]||'Ошибка входа',6000);
+  }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
+  S.busy=false;render();
+}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
+
+async function openBranch(id){
+  S.branch=id;S.busy=true;render();
+  let ctx=null;S.ctxOffline=false;
+  try{
+    ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date});
+    if(!ctx.ok){
+      if(ctx.error==='session'){S.busy=false;S.token=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();return}
+      toast('Ошибка: '+ctx.error);S.busy=false;render();return;
+    }
+    LS.set('ev_ctx:'+id,ctx);
+  }catch(e){
+    if(!e.net){toast('Ошибка сервера ('+e.http+')');S.busy=false;render();return}
+    ctx=LS.get('ev_ctx:'+id);
+    if(!ctx){toast('Нет связи, и для этого филиала нет сохранённого списка. Подключитесь к интернету.',7000);S.busy=false;render();return}
+    S.ctxOffline=true;
+    ctx.current=null; // сданные версии без связи неизвестны
+  }
+  S.ctx=ctx;
+  const draft=LS.get(draftKey());
+  if(draft){S.form=draft;toast('Восстановлен несохранённый черновик')}
+  else if(ctx.current){S.form=formFromReport(ctx.current.data)}
+  else{
+    S.form=emptyForm();
+    if(ctx.prev&&ctx.prev.closing!=null)S.form.open=String(ctx.prev.closing);
+    if(S.person&&ctx.admins.some(a=>a.id===S.person.id))S.form.admins[S.person.id]={left:''};
+  }
+  S.busy=false;S.view='form';render();
+}
+
+/* ====== Отрисовка ====== */
+function setHeader(){
+  const h=$('#hdr');
+  if(S.view==='login'){h.innerHTML='<div><b>ЕВРОВЕТ</b><small>вечерний отчёт</small></div>'+netBadge();return}
+  const bt=S.branch&&(BRANCHES.find(b=>b.id===S.branch)||{}).title;
+  h.innerHTML='<div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'ЕВРОВЕТ')+'</small></div><div class="hb">'+netBadge()+
+    (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
+}
+function netBadge(){
+  const q=S.queue.length;
+  return '<button class="pill" data-act="queue"><span class="net'+(S.online?'':' off')+'"></span>'+(S.online?'онлайн':'нет связи')+(q?' · ждёт: '+q:'')+'</button>';
+}
+
+function render(){
+  setHeader();
+  const app=$('#app'),bar=$('#barwrap');bar.innerHTML='';
+  if(S.view==='login')app.innerHTML=viewLogin();
+  else if(S.view==='branch')app.innerHTML=viewBranch();
+  else if(S.view==='form'){app.innerHTML=viewForm();bar.innerHTML=viewBar();updateChecks()}
+  else if(S.view==='done')app.innerHTML=viewDone();
+}
+
+function viewLogin(){
+  const list=S.loginList;
+  let h='<div class="card"><h2>Вход</h2>';
+  if(!list.length)h+='<p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p>';
+  else{
+    h+='<div class="tiles">'+list.map(p=>'<button class="tile'+(String(S.pick)===String(p.id)?' on':'')+'" data-act="pick" data-id="'+p.id+'">'+esc(p.name)+'</button>').join('')+'</div>';
+    h+='<label class="f"><span>PIN (6 цифр)</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]*"></label>';
+    h+='<button class="btn" data-act="login"'+(S.busy?' disabled':'')+'>'+(S.busy?'Входим…':'Войти')+'</button>';
+  }
+  return h+'</div>';
+}
+function viewBranch(){
+  let h='<div class="card"><h2>Где вы сегодня работаете?</h2>';
+  h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
+  h+=BRANCHES.map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
+  if(S.queue.length)h+='<p class="hint">Не отправлено отчётов: '+S.queue.length+'. Нажмите «'+(S.online?'онлайн':'нет связи')+'» вверху.</p>';
+  return h+'</div>';
+}
+const nfield=(p,label,val,extra='')=>'<label class="f"><span>'+label+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(val)+'" '+extra+'></label>';
+
+function viewForm(){
+  const f=S.form,c=S.ctx;let h='';
+  if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
+  if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
+
+  h+='<div class="card"><h2>Смена</h2><h3>Администраторы</h3><div class="tiles">'+
+    c.admins.map(a=>'<button class="tile'+(f.admins[a.id]?' on':'')+'" data-act="tog" data-g="admins" data-id="'+a.id+'">'+esc(a.name)+'</button>').join('')+'</div>';
+  Object.keys(f.admins).forEach(id=>{
+    const a=c.admins.find(x=>String(x.id)===id);
+    h+='<div class="person"><b>'+esc(a?a.name:id)+'</b><label class="f"><span>Ушёл в (только если позже 21:00)</span><input type="time" data-p="admins.'+id+'.left" value="'+esc(f.admins[id].left||'')+'"></label></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="card"><h2>Вал врачей</h2><p class="hint">Отметьте врачей, которые работали, и введите вал каждого.</p><div class="tiles">'+
+    c.doctors.map(d=>'<button class="tile'+(f.doctors[d.id]?' on':'')+'" data-act="tog" data-g="doctors" data-id="'+d.id+'">'+esc(d.name)+(d.note?'<small>'+esc(d.note)+'</small>':'')+'</button>').join('')+'</div>';
+  Object.keys(f.doctors).forEach(id=>{h+=nfield('doctors.'+id+'.val',esc(docName(id)||id)+' — вал, ₽',f.doctors[id].val)});
+  f.others.forEach((o,i)=>{
+    h+='<div class="person"><b>Строка вне списка</b><label class="f"><span>Название</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
+  });
+  h+='<button class="btn sec small" style="margin-top:8px" data-act="addOther">+ Строка вне списка</button>';
+  h+='<div class="sum" style="margin-top:10px"><span>Сумма врачей</span><b id="s-docs"></b></div></div>';
+
+  h+='<div class="card"><h2>Клиника</h2>'+nfield('mr','Чек МР (оплаты без счёта), ₽',f.mr)+nfield('total','Клиника общая, ₽',f.total)+
+    '<div class="row">'+nfield('cash','Нал, ₽',f.cash)+nfield('cashless','Безнал, ₽',f.cashless)+'</div></div>';
+
+  h+='<div class="card"><h2>Аптека</h2>'+nfield('ph_val','Вал аптеки, ₽',f.ph_val)+'<div class="row">'+nfield('ph_cash','Нал аптеки, ₽',f.ph_cash)+nfield('ph_cashless','Безнал аптеки, ₽',f.ph_cashless)+'</div></div>';
+
+  h+='<div class="card"><h2>Авансы клиентов</h2><p class="hint">Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash)+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out)+'</div>';
+
+  h+='<div class="card"><h2>Касса (инкассация)</h2>'+nfield('open','Начальная инкассация, ₽',f.open);
+  if(c.prev&&c.prev.closing!=null)h+='<p class="hint">Подставлено из итога за '+ruDate(c.prev.date)+': '+money(Number(c.prev.closing))+'. Если на деле иначе — исправьте, система подсветит расхождение.</p>';
+  h+='<h3>Расходы</h3>';
+  f.expenses.forEach((e,i)=>{
+    h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
+      c.articles.map(a=>'<option'+(e.article===a.title?' selected':'')+'>'+esc(a.title)+'</option>').join('')+'</select></label>'+
+      nfield('expenses.'+i+'.amount','Сумма, ₽',e.amount)+
+      '<label class="f"><span>Комментарий</span><input data-p="expenses.'+i+'.comment" value="'+esc(e.comment)+'"></label>'+
+      '<button class="btn sec small" data-act="delExp" data-i="'+i+'">Удалить расход</button></div>';
+  });
+  h+='<button class="btn sec small" data-act="addExp">+ Расход</button>';
+  h+=nfield('close','Итог инкассации, ₽',f.close);
+  h+='<div class="sum"><span>Расходы всего</span><b id="s-exp"></b></div><div class="sum"><span>Итог по расчёту системы</span><b id="s-exp2"></b></div></div>';
+
+  h+='<div class="card"><h2>Ассистенты</h2><p class="hint">Отметьте, кто работал, и сколько фиксаций сделал.</p><div class="tiles">'+
+    c.assistants.map(a=>{const k=a.role+':'+a.id;return '<button class="tile'+(f.assistants[k]?' on':'')+'" data-act="tog" data-g="assistants" data-id="'+k+'">'+esc(a.name)+'<small>'+(a.role==='assistant_tech'?'технический':'клинический')+'</small></button>'}).join('')+'</div>';
+  Object.keys(f.assistants).forEach(k=>{
+    const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{name:id};const v=f.assistants[k];
+    h+='<div class="person"><b>'+esc(a.name)+' <small style="font-weight:400;color:var(--mute)">'+(role==='assistant_tech'?'технический':'клинический')+'</small></b>'+
+      '<div class="step"><span>Фиксации обычные</span><button data-act="inc" data-p="assistants.'+k+'.fn" data-d="-1">−</button><output id="o-'+k+'-fn">'+v.fn+'</output><button data-act="inc" data-p="assistants.'+k+'.fn" data-d="1">+</button></div>'+
+      '<div class="step"><span>Фиксации на рентгене</span><button data-act="inc" data-p="assistants.'+k+'.fx" data-d="-1">−</button><output id="o-'+k+'-fx">'+v.fx+'</output><button data-act="inc" data-p="assistants.'+k+'.fx" data-d="1">+</button></div>'+
+      '<label class="f"><span>Ушёл в (только если позже 21:00)</span><input type="time" data-p="assistants.'+k+'.left" value="'+esc(v.left||'')+'"></label></div>';
+  });
+  h+='</div>';
+
+  h+='<div class="card"><h2>Прочее</h2><label class="f"><span>Примечание</span><textarea data-p="note" rows="2">'+esc(f.note)+'</textarea></label>'+
+    '</div>';
+
+  h+='<div class="card"><h2>Проверка</h2><div id="checks"></div>'+
+    '<label class="f"><span>Причина расхождения (обязательно, если есть красные пункты)</span><textarea data-p="diff_reason" rows="2">'+esc(f.diff_reason)+'</textarea></label>';
+  if(c.current)h+='<label class="f"><span>Причина исправления отчёта</span><textarea data-p="corr_reason" rows="2">'+esc(f.corr_reason)+'</textarea></label>';
+  h+='</div>';
+  return h;
+}
+function viewBar(){
+  return '<div class="bar"><div class="in"><div class="st" id="barst"></div><button class="btn" data-act="submit">Отправить отчёт</button></div></div>';
+}
+function updateChecks(){
+  if(S.view!=='form')return;
+  const calc=compute();
+  const el=$('#checks');
+  if(el)el.innerHTML=calc.checks.map(c=>{
+    const cls=!c.ready?'wait':(c.ok?'ok':'bad');
+    const mark=!c.ready?'…':(c.ok?'✓':'✗');
+    const diff=c.ready&&!c.ok?'<br><b>Разница: '+money(c.diff)+'</b>':'';
+    return '<div class="chk '+cls+'"><i>'+mark+'</i><div>'+esc(c.label)+(c.ready?'<br><small>'+esc(c.detail)+'</small>':'')+diff+'</div></div>';
+  }).join('');
+  const set=(id,t)=>{const e=$(id);if(e)e.textContent=t};
+  set('#s-docs',money(calc.sumDocs));set('#s-exp',money(calc.exp));set('#s-exp2',money(calc.expected));
+  const bad=calc.checks.filter(c=>c.ready&&!c.ok).length;
+  const st=$('#barst');
+  if(st)st.innerHTML=bad?'<b style="color:var(--bad)">Расхождений: '+bad+'</b>':(calc.checks.some(c=>c.ready)?'<b style="color:var(--ok)">Расхождений нет</b>':'<span style="color:var(--mute)">Заполните отчёт</span>');
+}
+function viewDone(){
+  const d=S.done;
+  let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':'Отчёт сохранён на устройстве')+'</h2>';
+  h+=d.sent?'<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>'
+           :'<div class="chk warn"><i>!</i><div>Пока не отправлен'+((S.online&&!(S.queue.find(x=>x.uid===d.uid)||{}).status.match(/offline|error|need/))?' (идёт отправка…)':' — нет связи с сервером. Отправится сам, когда появится интернет. Не очищайте данные браузера.')+'</div></div>';
+  h+='<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button>';
+  h+='<button class="btn" data-act="newrep">Готово</button></div>';
+  return h;
+}
+
+/* ====== Окна ====== */
+function overlay(html){$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
+function closeOv(){$('#ovwrap').innerHTML=''}
+function showMenu(){
+  overlay('<h2>Меню</h2><button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+}
+function showQueue(){
+  let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
+  if(!S.queue.length)h+='<p>Всё отправлено, очередь пуста.</p>';
+  S.queue.forEach(it=>{
+    h+='<div class="person"><b>'+esc(it.branchTitle)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc({new:'ожидает',offline:'нет связи, повторим',error:'ошибка: '+(it.err||''),needs_reason:'нужна причина исправления',need_login:'нужно войти заново'}[it.status]||it.status)+'</small>';
+    if(it.status==='needs_reason')h+='<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'"></label><button class="btn small" data-act="setReason" data-id="'+it.uid+'">Отправить с причиной</button>';
+    h+=' <button class="btn sec small" data-act="copyq" data-id="'+it.uid+'">Копировать итоги</button></div>';
+  });
+  h+='<button class="btn" style="margin:6px 0" data-act="flush">Отправить сейчас</button><button class="btn sec" data-act="ovclose">Закрыть</button>';
+  overlay(h);
+}
+function showPin(){
+  overlay('<h2>Смена PIN</h2><label class="f"><span>Текущий PIN</span><input id="p0" type="password" inputmode="numeric" maxlength="6"></label><label class="f"><span>Новый PIN (6 цифр)</span><input id="p1" type="password" inputmode="numeric" maxlength="6"></label><label class="f"><span>Новый PIN ещё раз</span><input id="p2" type="password" inputmode="numeric" maxlength="6"></label><button class="btn" data-act="dopin">Сменить</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>');
+}
+async function clip(t){
+  try{await navigator.clipboard.writeText(t);toast('Скопировано')}
+  catch(e){overlay('<h2>Скопируйте вручную</h2><pre>'+esc(t)+'</pre><button class="btn" data-act="ovclose">Закрыть</button>')}
+}
+
+/* ====== События ====== */
+function setPath(o,p,v){const k=p.split('.');let t=o;for(let i=0;i<k.length-1;i++){if(t[k[i]]==null)t[k[i]]={};t=t[k[i]]}t[k[k.length-1]]=v}
+function getPath(o,p){return p.split('.').reduce((t,k)=>t==null?t:t[k],o)}
+
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.p||!S.form)return;
+  setPath(S.form,t.dataset.p,t.value);
+  if(t.inputMode==='decimal'){const v=num(t.value);t.classList.toggle('bad',isNaN(v))}
+  saveDraft();updateChecks();
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='dt'){S.date=t.value||omskToday();return}
+  if(t.dataset&&t.dataset.p&&S.form&&t.tagName==='SELECT'){setPath(S.form,t.dataset.p,t.value);saveDraft();updateChecks()}
+});
+document.addEventListener('click',async e=>{
+  const ov=e.target.closest('.ov');
+  if(ov&&!e.target.closest('[data-stop]')){closeOv();return}
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,d=b.dataset;
+  switch(a){
+    case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
+    case'login':doLogin(($('#pin')||{}).value||'');break;
+    case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;openBranch(d.id);break}
+    case'back':saveDraft();S.view='branch';S.form=null;render();break;
+    case'tog':{
+      const g=d.g,id=d.id,f=S.form;
+      if(f[g][id])delete f[g][id];
+      else f[g][id]=g==='doctors'?{val:''}:g==='admins'?{left:''}:{fn:0,fx:0,left:''};
+      saveDraft();render();break}
+    case'inc':{
+      const cur=Number(getPath(S.form,d.p))||0;const nv=Math.max(0,Math.min(99,cur+Number(d.d)));
+      setPath(S.form,d.p,nv);const k=d.p.split('.');const o=document.getElementById('o-'+k[1]+'-'+k[2]);if(o)o.textContent=nv;saveDraft();break}
+    case'addExp':S.form.expenses.push({article:'',amount:'',comment:''});saveDraft();render();break;
+    case'delExp':S.form.expenses.splice(Number(d.i),1);saveDraft();render();break;
+    case'addOther':S.form.others.push({title:'',val:''});saveDraft();render();break;
+    case'delOther':S.form.others.splice(Number(d.i),1);saveDraft();render();break;
+    case'submit':if(!S.busy)submit();break;
+    case'copy':if(S.done)clip(S.done.summary);break;
+    case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
+    case'newrep':S.done=null;S.form=null;S.view='branch';render();break;
+    case'menu':showMenu();break;
+    case'queue':showQueue();break;
+    case'ovclose':closeOv();break;
+    case'logout':closeOv();if(S.queue.length&&!confirm('Есть неотправленные отчёты. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
+    case'flush':S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();await flush();break;
+    case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
+      const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
+    case'chpin':showPin();break;
+    case'dopin':{
+      const p0=$('#p0').value,p1=$('#p1').value,p2=$('#p2').value;
+      if(!/^\d{6}$/.test(p1)){toast('Новый PIN — ровно 6 цифр');break}
+      if(p1!==p2){toast('Новые PIN не совпадают');break}
+      if(/^(\d)\1{5}$/.test(p1)||p1==='123456'||p1==='654321'){toast('Слишком простой PIN');break}
+      try{const r=await rpc('ev_change_pin',{p_token:S.token,p_old:p0,p_new:p1});
+        if(r.ok){closeOv();toast('PIN изменён')}else toast(r.error==='bad_pin'?'Текущий PIN неверный':'Не удалось: '+r.error)}
+      catch(er){toast(er.net?'Нет связи':'Ошибка сервера')}
+      break}
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')doLogin(e.target.value)});
+
+window.addEventListener('online',()=>{S.online=true;setHeader();S.queue.forEach(x=>{if(x.status==='offline')x.status='new'});flush()});
+window.addEventListener('offline',()=>{S.online=false;setHeader()});
+setInterval(()=>{if(S.queue.length&&navigator.onLine){S.queue.forEach(x=>{if(x.status==='offline')x.status='new'});flush()}},60000);
+
+/* ====== Запуск ====== */
+(async()=>{
+  if(S.token&&S.person)S.view='branch';
+  render();
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if(S.view==='login'){await loadLoginList();render()}
+  else if(S.queue.length)flush();
+})();
+})();
+</script>
+</body>
+</html>
