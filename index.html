@@ -110,6 +110,23 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .bar .st[data-act]{cursor:pointer}
 .chk small.need{display:block;margin-top:2px}
 .ov .card h2{display:block}
+/* v1.27: читаемые кнопки — основная сплошная, вторичная с контуром, опасная красная, выбранная плитка залита цветом блока */
+:root{--bd:#8fb0ba;--onk:#fff}
+@media (prefers-color-scheme:dark){:root{--bd:#5b7f89;--onk:#06262d}}
+.btn{box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.btn.sec{background:var(--card);color:var(--acc);border:2px solid var(--acc);box-shadow:none}
+.btn.sec[data-act=ovclose],.btn.sec[data-act=logout],.btn.sec[data-act=back],.btn.sec[data-act=salback]{color:var(--ink);border-color:var(--bd)}
+.btn.small[data-act=salgo],.btn.small[data-act=setReason]{box-shadow:0 1px 0 rgba(0,0,0,.18)}
+[data-act=delOther],[data-act=delExp],[data-act=salcancel],[data-act=clearDraft]{background:var(--card)!important;color:var(--bad)!important;border:2px solid var(--bad)!important}
+.tile{background:var(--card);border:2px solid var(--bd)}
+.tile.on{border-color:var(--acc);background:var(--acc);color:var(--acc-ink);font-weight:700}
+.tile.on small{color:var(--acc-ink);opacity:.85}
+.card[class*=" k-"] .tile.on{border-color:var(--k);background:var(--k);color:var(--onk)}
+.card[class*=" k-"] .tile.on::after{content:" ✓";color:var(--onk);font-weight:700}
+.card[class*=" k-"] .tile.on small{color:var(--onk)}
+.pill{background:var(--acc-ink);color:var(--acc);font-weight:700}
+@media (max-width:340px){.bar .in{gap:6px}.bar .btn{min-width:0;padding:13px 12px}.bar .st{font-size:12px;min-width:0}}
+.step button{background:var(--card);border:2px solid var(--acc);color:var(--acc);font-weight:700}
 </style>
 </head>
 <body>
@@ -128,7 +145,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.26'
+  appVer:'1.27'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
