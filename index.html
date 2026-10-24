@@ -128,7 +128,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.25'
+  appVer:'1.26'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -705,7 +705,7 @@ function payList(r){
     o.items.push({l:'За смены: '+a.shifts,v:Number(a.shift_pay)});
     o.items.push({l:'Фиксации: обычные '+a.fix_normal+' × '+money(Number(rt.fix_normal))+', рентген '+a.fix_xray+' × '+money(Number(rt.fix_xray)),v:Number(a.fix_pay)});
     adj(o,a)});
-  (r.extra||[]).forEach(a=>{const o=get(a);o.total+=Number(a.total||0);role(o,'только добавки');adj(o,a)});
+  (r.extra||[]).forEach(a=>{if(!Number(a.total||0)&&!(a.adj_items||[]).some(i=>!i.is_cancel&&!i.cancelled))return;const o=get(a);o.total+=Number(a.total||0);role(o,'только добавки');adj(o,a)});
   const ord=o=>o.roles.includes('администратор')?0:o.roles.includes('ассистент')?1:2;
   return [...m.values()].map(o=>({name:o.name,role:o.roles.join(' и '),total:o.total,items:o.items,_o:ord(o)})).sort((a,b)=>a._o-b._o||a.name.localeCompare(b.name,'ru'));
 }
