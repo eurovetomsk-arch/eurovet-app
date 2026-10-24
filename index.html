@@ -126,7 +126,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.20'
+  appVer:'1.21'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -502,6 +502,7 @@ function viewForm(){
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
   if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
+  if(c.current)h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">Выбрать другую дату</button>';
 
   h+='<div class="card k-staff"><h2>Смена'+hbtn('admins')+'</h2><h3>Администраторы</h3><div class="tiles">'+
     c.admins.map(a=>'<button class="tile'+(f.admins[a.id]?' on':'')+'" data-act="tog" data-g="admins" data-id="'+a.id+'">'+esc(a.name)+'</button>').join('')+'</div>';
