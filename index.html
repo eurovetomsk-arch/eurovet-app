@@ -76,6 +76,7 @@ button{font:inherit;cursor:pointer}
 .chk.bad{background:var(--badbg);color:var(--bad)}
 .chk.wait{background:var(--tile);color:var(--mute)}
 .chk.warn{background:var(--warnbg);color:var(--warn)}
+.srow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:14px}.srow b{font-variant-numeric:tabular-nums;white-space:nowrap}.srow.big{font-size:17px;padding:4px 0}.srow.sub{font-size:13px;color:var(--mute)}details summary{font-size:13px;color:var(--mute);padding:6px 0;cursor:pointer}.ov .card h3{margin:14px 0 4px;font-size:16px}
 .chk i{font-style:normal;font-weight:700;width:18px;flex:none}
 @media (pointer:coarse){body.typing .bar{display:none}}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:6}
@@ -126,7 +127,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.22'
+  appVer:'1.23'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -679,10 +680,122 @@ async function doAccept(ds){
   }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
 }
 
+/* ====== Зарплата: только руководитель (ставки приходят с сервера и в код страницы не зашиты) ====== */
+const perStart=d=>d.slice(0,8)+(Number(d.slice(8,10))<=15?'01':'16');
+const perEnd=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'15':new Date(Date.UTC(Number(d.slice(0,4)),Number(d.slice(5,7)),0)).toISOString().slice(0,10);
+const SAL_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',period:'Период указан неверно (не больше 46 дней)',rates:'Не найдены ставки в базе'};
+const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет'};
+const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор'};
+const srow=(a,b)=>'<div class="srow"><span>'+a+'</span><b>'+b+'</b></div>';
+const brTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id).replace(/^ЕВРОВЕТ\s*/,'');
+async function showSalary(from,to){
+  const today=omskToday();
+  if(!from){from=perStart(today);to=today}
+  S.salFrom=from;S.salTo=to;
+  overlay('<h2>Зарплата</h2><p class="hint">Считаю…</p>');
+  try{
+    const r=await rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to},15000);
+    if(!r||!r.ok){overlay('<h2>Зарплата</h2><p>'+esc(SAL_ERR[r&&r.error]||'Не удалось посчитать')+'</p><button class="btn" data-act="ovclose">Закрыть</button>');return}
+    S.sal=r;drawSalary();
+  }catch(e){overlay('<h2>Зарплата</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>')}
+}
+function adjItems(items){
+  const it=(items||[]).filter(i=>!i.is_cancel&&!i.cancelled);
+  return it.map(i=>'<div class="srow sub"><span>'+esc(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</span><b>'+sgn(Number(i.amount))+'</b></div>').join('');
+}
+function drawSalary(){
+  const old=document.querySelector('.ov>.card');const st=old?old.scrollTop:0;
+  const r=S.sal,rt=r.rates||{};const pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100;
+  const t=r.totals||{};const all=Number(t.admins||0)+Number(t.assistants||0)+Number(t.extra||0);
+  const today=omskToday(),cs=perStart(today);
+  const prevEnd=addDays(cs,-1),prevStart=perStart(prevEnd);
+  let h='<h2>Зарплата: '+ruDate(r.from)+' — '+ruDate(r.to)+'</h2>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"><button class="btn sec small" data-act="salper" data-from="'+cs+'" data-to="'+today+'">Сейчас</button>'
+    +'<button class="btn sec small" data-act="salper" data-from="'+prevStart+'" data-to="'+prevEnd+'">Прошлый период</button></div>';
+  h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(r.from)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(r.to)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
+  (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
+  h+='<div class="card" style="margin:10px 0"><div class="srow big"><span>Всего к выплате</span><b>'+money(all)+'</b></div>'
+    +srow('Администраторы',money(Number(t.admins||0)))+srow('Ассистенты',money(Number(t.assistants||0)))+(Number(t.extra||0)?srow('Прочие',money(Number(t.extra))):'')+'</div>';
+  h+='<h3>Администраторы</h3>';
+  if(!(r.admins||[]).length)h+='<p class="hint">Нет отчётов с администраторами за этот период.</p>';
+  (r.admins||[]).forEach(a=>{
+    h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div>'
+      +srow('Смен: '+a.shifts+' × '+money(Number(a.shift_rate)),money(Number(a.shift_pay)))
+      +srow('Вал аптеки '+money(Number(a.pharm_val))+' × '+pct+'%',money(Number(a.pct_pay)))
+      +(Number(a.late_hours)>0?srow('Задержка: '+a.late_hours+' ч × '+money(Number(rt.hour)),money(Number(a.late_pay))):'')
+      +adjItems(a.adj_items)
+      +'<details><summary>По дням</summary>'+(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+(d.left?' · ушёл '+esc(d.left):'')+(Number(d.late_hours)>0?' · '+d.late_hours+' ч':'')+'</span><b>аптека '+money(Number(d.pharm))+'</b></div>').join('')+'</details></div>';
+  });
+  h+='<h3>Ассистенты</h3>';
+  if(!(r.assistants||[]).length)h+='<p class="hint">Нет отчётов с ассистентами за этот период.</p>';
+  (r.assistants||[]).forEach(a=>{
+    h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div><small style="color:var(--mute)">'+esc(SAL_ROLE[a.role]||'')+'</small>'
+      +srow('Смен: '+a.shifts,money(Number(a.shift_pay)))
+      +srow('Фиксации: обычные '+a.fix_normal+' × '+money(Number(rt.fix_normal))+', рентген '+a.fix_xray+' × '+money(Number(rt.fix_xray)),money(Number(a.fix_pay)))
+      +adjItems(a.adj_items)
+      +'<details><summary>По дням</summary>'+(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+'</span><b>'+d.fix_normal+' + '+d.fix_xray+' рентген</b></div>').join('')+'</details></div>';
+  });
+  if((r.extra||[]).length){
+    h+='<h3>Только добавки</h3>';
+    r.extra.forEach(a=>{h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div>'+adjItems(a.adj_items)+'</div>'});
+  }
+  h+='<h3>Добавки за период</h3><button class="btn sec" style="margin:4px 0 8px" data-act="saladd">+ Такси или добавка</button>';
+  const al=(r.adj||[]).filter(i=>!i.is_cancel);
+  if(!al.length)h+='<p class="hint">Добавок нет.</p>';
+  al.forEach(i=>{
+    h+='<div class="person"'+(i.cancelled?' style="opacity:.55"':'')+'><div class="srow"><span><b'+(i.cancelled?' style="text-decoration:line-through"':'')+'>'+esc(i.name)+'</b><br><small>'+esc(SAL_KIND[i.kind]||i.kind)+' · '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</small></span><b>'+sgn(Number(i.amount))+'</b></div>'
+      +(i.cancelled?'<small>отменено</small>':'<button class="btn sec small" style="margin-top:6px" data-act="salcancel" data-id="'+i.id+'">Отменить</button>')+'</div>';
+  });
+  h+='<p class="hint">Расчёт по последним версиям отчётов, без филиала «ТЕСТ». Задержка: первый час с 21:35, дальше каждый час в :35. Проценты и доплаты выплачиваются за полмесяца.</p>';
+  h+='<button class="btn" style="margin-top:8px" data-act="ovclose">Закрыть</button>';
+  overlay(h);
+  const nw=document.querySelector('.ov>.card');if(nw)nw.scrollTop=st;
+}
+function salAddForm(){
+  S.salUid=S.salUid||uid();
+  const r=S.sal||{};
+  const opts=(r.people||[]).map(p=>'<option value="'+p.id+'">'+esc(p.name)+' — '+esc(SAL_ROLE[p.role]||'')+'</option>').join('');
+  overlay('<h2>Такси или добавка</h2>'
+    +'<label class="f"><span>Кому</span><select id="saw">'+opts+'</select></label>'
+    +'<label class="f"><span>Что</span><select id="sak"><option value="taxi">Такси</option><option value="manual">Доплата</option><option value="other">Вычет</option></select></label>'
+    +'<label class="f"><span>Сумма, ₽ (всегда положительная)</span><input id="saa" inputmode="decimal" placeholder="например 450"></label>'
+    +'<label class="f"><span>За какое число</span><input id="sad" type="date" value="'+esc(omskToday())+'"></label>'
+    +'<label class="f"><span>Комментарий (для доплаты и вычета обязателен)</span><input id="sac" maxlength="300"></label>'
+    +'<button class="btn" data-act="saladdgo" style="margin-top:8px">Добавить</button><button class="btn sec" style="margin-top:8px" data-act="salback">Назад</button>');
+}
+async function doSalAdd(){
+  if(S.salBusy)return;
+  const pid=Number(($('#saw')||{}).value),kind=($('#sak')||{}).value,raw=($('#saa')||{}).value,dt=($('#sad')||{}).value,cm=(($('#sac')||{}).value||'').trim();
+  const v=num(raw);
+  if(!pid){toast('Выберите сотрудника');return}
+  if(v==null||isNaN(v)||v<=0){toast('Введите сумму больше нуля');return}
+  if(kind!=='taxi'&&cm.length<3){toast('Напишите комментарий');return}
+  if(!dt){toast('Укажите дату');return}
+  S.salBusy=true;
+  try{
+    const r=await rpc('ev_salary_add',{p_token:S.token,p_person:pid,p_date:dt,p_kind:kind,p_amount:kind==='other'?-v:v,p_comment:cm||null,p_uid:S.salUid},10000);
+    if(!r||!r.ok){toast(r&&r.error==='session'?'Сессия закончилась, войдите заново':r&&r.error==='date'?'Дата должна быть с 01.10.2026 и не позже завтра':'Не удалось добавить: '+(r&&r.error),6000);return}
+    S.salUid=null;toast('Добавлено на '+ruDate(dt));
+    await showSalary(S.salFrom,S.salTo);
+  }catch(e){toast(e.net?'Нет связи, ничего не добавлено. Нажмите ещё раз':'Ошибка сервера',6000)}
+  finally{S.salBusy=false}
+}
+async function doSalCancel(id){
+  if(S.salBusy)return;
+  if(!confirm('Отменить эту добавку? В списке она останется отмеченной как отменённая.'))return;
+  S.salBusy=true;
+  try{
+    const r=await rpc('ev_salary_cancel',{p_token:S.token,p_id:Number(id),p_uid:uid()},10000);
+    if(!r||!r.ok){toast('Не удалось отменить: '+(r&&r.error),6000);return}
+    toast('Отменено');await showSalary(S.salFrom,S.salTo);
+  }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',6000)}
+  finally{S.salBusy=false}
+}
+
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="control">Контроль: расхождения</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="salary">Зарплата</button><button class="btn sec" style="margin:6px 0" data-act="control">Контроль: расхождения</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -775,6 +888,13 @@ document.addEventListener('click',async e=>{
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
     case'control':showControl();break;
+    case'salary':showSalary();break;
+    case'salper':showSalary(d.from,d.to);break;
+    case'salgo':{const f=($('#salf')||{}).value,t=($('#salt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showSalary(f,t);break}
+    case'saladd':salAddForm();break;
+    case'saladdgo':doSalAdd();break;
+    case'salback':drawSalary();break;
+    case'salcancel':doSalCancel(d.id);break;
     case'accept':doAccept(d);break;
     case'chpin':showPin();break;
     case'dopin':{
