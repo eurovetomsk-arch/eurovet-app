@@ -52,6 +52,7 @@ button{font:inherit;cursor:pointer}
 .chk.wait{background:var(--tile);color:var(--mute)}
 .chk.warn{background:var(--warnbg);color:var(--warn)}
 .chk i{font-style:normal;font-weight:700;width:18px;flex:none}
+@media (pointer:coarse){body.typing .bar{display:none}}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:6}
 .bar .in{max-width:640px;margin:0 auto;display:flex;gap:10px;align-items:center}
 .bar .st{flex:1;font-size:13px}
@@ -83,7 +84,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.5'
+  appVer:'1.6'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -114,6 +115,15 @@ function num(s){ // null — пусто; NaN — некорректно
   if(t==='')return null;
   if(!/^-?\d+(\.\d{0,2})?$/.test(t))return NaN;
   return Number(t);
+}
+function fmtNum(s){ // пробелы между тысячами: 12 332,50 (хранится как введено, разбор — num())
+  let v=String(s==null?'':s);const neg=v.trim().charAt(0)==='-';
+  v=v.replace(/[^\d.,]/g,'');
+  const m=v.search(/[.,]/);
+  let ip=m<0?v:v.slice(0,m),dp=m<0?'':v.slice(m+1).replace(/[^\d]/g,'').slice(0,2);
+  const sep=m<0?'':v.charAt(m);
+  ip=ip.replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,'\u00A0');
+  return (neg?'-':'')+ip+(m<0?'':sep+dp);
 }
 const N=s=>{const v=num(s);return(v==null||isNaN(v))?0:v};
 const ruDate=d=>d.split('-').reverse().join('.');
@@ -395,7 +405,7 @@ function viewBranch(){
   if(S.queue.length)h+='<p class="hint">Не отправлено отчётов: '+S.queue.length+'. Нажмите «'+(S.online?'онлайн':'нет связи')+'» вверху.</p>';
   return h+'</div>';
 }
-const nfield=(p,label,val,extra='')=>'<label class="f"><span>'+label+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(val)+'" '+extra+'></label>';
+const nfield=(p,label,val,extra='')=>'<label class="f"><span>'+label+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" '+extra+'></label>';
 
 function viewForm(){
   const f=S.form,c=S.ctx;let h='';
@@ -522,10 +532,22 @@ function getPath(o,p){return p.split('.').reduce((t,k)=>t==null?t:t[k],o)}
 
 document.addEventListener('input',e=>{
   const t=e.target;if(!t.dataset||!t.dataset.p||!S.form)return;
+  if(t.inputMode==='decimal'){
+    const pos=t.selectionStart==null?t.value.length:t.selectionStart;
+    const keep=t.value.slice(0,pos).replace(/[^\d.,]/g,'').length;
+    const nv=fmtNum(t.value);
+    if(nv!==t.value){
+      t.value=nv;
+      let c=0,np=0;while(np<nv.length&&c<keep){if(/[\d.,]/.test(nv.charAt(np)))c++;np++}
+      try{t.setSelectionRange(np,np)}catch(e){}
+    }
+  }
   setPath(S.form,t.dataset.p,t.value);
   if(t.inputMode==='decimal'){const v=num(t.value);t.classList.toggle('bad',isNaN(v))}
   saveDraft();updateChecks();
 });
+document.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('input,textarea,select'))document.body.classList.add('typing')});
+document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(!(a&&a.matches&&a.matches('input,textarea,select')))document.body.classList.remove('typing')},200)});
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='dt'){S.date=t.value||omskToday();return}
