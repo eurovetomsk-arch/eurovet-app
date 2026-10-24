@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <meta name="theme-color" content="#0f766e">
+<meta name="color-scheme" content="light dark">
 <style>
 :root{--bg:#f4f6f5;--card:#fff;--ink:#14201e;--mute:#5b6b68;--line:#d8e0de;--acc:#0f766e;--acc-ink:#fff;--ok:#15803d;--okbg:#e7f5ec;--bad:#b91c1c;--badbg:#fdecec;--warn:#b45309;--warnbg:#fff4e0;--tile:#eef3f2}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1514;--card:#182120;--ink:#e8f0ee;--mute:#9bb0ac;--line:#2a3836;--acc:#2dd4bf;--acc-ink:#04201c;--ok:#4ade80;--okbg:#12301e;--bad:#f87171;--badbg:#3a1717;--warn:#fbbf24;--warnbg:#3a2c10;--tile:#202c2a}}
@@ -59,7 +60,7 @@ button{font:inherit;cursor:pointer}
 .bar .btn{width:auto;flex:0 0 auto;min-width:150px}
 .big{font-size:18px;padding:18px 16px;text-align:left}
 .toast{position:fixed;left:16px;right:16px;bottom:96px;max-width:608px;margin:0 auto;background:#222;color:#fff;border-radius:12px;padding:12px 14px;z-index:20;font-size:14px}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+.ov{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:30;display:flex;align-items:flex-end;justify-content:center}
 .ov>.card{width:100%;max-width:640px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
 .rm{background:none;border:0;color:var(--bad);font-size:20px;min-width:40px;min-height:46px}
 .sum{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
@@ -77,7 +78,7 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .card h2{display:flex;align-items:center;gap:8px}
 .card h2 .q{margin-left:auto}
 .q{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;margin-left:6px;border-radius:50%;border:1px solid var(--line);background:var(--tile);color:var(--mute);font-size:14px;font-weight:700;line-height:1;vertical-align:middle;position:relative}
-.q::after{content:"";position:absolute;inset:-9px}
+.q::after{content:"";position:absolute;top:-9px;right:-9px;bottom:-9px;left:-9px}
 .f>span .q{width:22px;height:22px;font-size:12px}
 #chkcard{scroll-margin-top:70px}
 .bar .st[data-act]{cursor:pointer}
@@ -100,7 +101,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.12'
+  appVer:'1.13'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -119,7 +120,11 @@ const LS={
   del(k){try{localStorage.removeItem(k)}catch(e){}}
 };
 const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
-const omskToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Omsk'}).format(new Date());
+const omskToday=()=>{ // сегодня по Омску (UTC+6, без перехода на летнее время), формат ГГГГ-ММ-ДД на любом браузере
+  try{const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Omsk',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const g=t=>(p.find(x=>x.type===t)||{}).value;const v=g('year')+'-'+g('month')+'-'+g('day');if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v}catch(e){}
+  return new Date(Date.now()+6*36e5).toISOString().slice(0,10)
+};
 const nf=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2});
 const money=x=>nf.format(Math.round(x*100)/100)+' ₽';
 const r2=x=>Math.round(x*100)/100;
@@ -144,8 +149,8 @@ const ruDate=d=>d.split('-').reverse().join('.');
 const DEV=(()=>{let d=LS.get('ev_dev');if(!d){d=uid();LS.set('ev_dev',d)}return d})();
 
 /* ====== API ====== */
-async function rpc(name,body){
-  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),20000);
+async function rpc(name,body,ms){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||20000);
   let r;
   try{
     r=await fetch(CFG.url+'/rest/v1/rpc/'+name,{method:'POST',headers:{'apikey':CFG.key,'Authorization':'Bearer '+CFG.key,'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal});
@@ -366,7 +371,7 @@ async function openBranch(id){
   S.branch=id;S.busy=true;render();
   let ctx=null;S.ctxOffline=false;
   try{
-    ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date});
+    ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date},8000);
     if(!ctx.ok){
       if(ctx.error==='session'){S.busy=false;S.token=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();return}
       toast('Ошибка: '+ctx.error);S.busy=false;render();return;
