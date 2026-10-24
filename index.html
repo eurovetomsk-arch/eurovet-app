@@ -48,6 +48,7 @@ input.bad{border-color:var(--bad)}
 .row>*{flex:1;min-width:0}
 .row>.nf{flex:0 0 auto}
 button{font:inherit;cursor:pointer}
+#updwrap .upd{position:fixed;left:0;right:0;top:0;z-index:60;background:var(--acc);color:var(--acc-ink);padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:flex;gap:10px;align-items:center;justify-content:space-between;font-weight:600;font-size:15px}#updwrap .upd button{background:var(--acc-ink);color:var(--acc);border:0;border-radius:10px;padding:9px 14px;font-weight:700;min-height:40px}
 .btn{background:var(--acc);color:var(--acc-ink);border:0;border-radius:12px;padding:13px 16px;font-weight:600;min-height:48px;width:100%}
 .btn.sec{background:var(--tile);color:var(--ink);border:1px solid var(--line)}
 .btn.small{width:auto;min-height:40px;padding:8px 12px;font-size:14px}
@@ -107,6 +108,7 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 <div id="barwrap"></div>
 <div id="toastwrap"></div>
 <div id="ovwrap"></div>
+<div id="updwrap"></div>
 
 <script>
 (()=>{
@@ -116,7 +118,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.16'
+  appVer:'1.17'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -692,6 +694,7 @@ document.addEventListener('click',async e=>{
     case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();if(flushing){kick()}else await flush();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
+    case'doUpdate':reloadNew();break;
     case'chpin':showPin();break;
     case'dopin':{
       const p0=$('#p0').value,p1=$('#p1').value,p2=$('#p2').value;
@@ -714,6 +717,33 @@ window.addEventListener('focus',kick);
 // пока в очереди есть отчёт — пробуем каждые 8 секунд (не полагаясь на navigator.onLine: на iPhone он врёт)
 setInterval(()=>{if(S.queue.length&&!flushing){resetOffline();flush(true)}},8000);
 
+/* ====== Обновление страницы без переустановки ====== */
+let updLast=0;
+function saveDraftNow(){try{clearTimeout(draftT);if(S.form&&S.view==='form')LS.set(draftKey(),{ts:Date.now(),form:S.form})}catch(e){}}
+function reloadNew(){
+  saveDraftNow();
+  const go=()=>location.reload();
+  try{navigator.serviceWorker.getRegistration().then(r=>r?r.update():0).then(go,go)}catch(e){go()}
+}
+async function checkUpdate(force){
+  const now=Date.now();
+  if(!force&&now-updLast<45000)return;
+  updLast=now;
+  try{
+    const r=await fetch('index.html?u='+now,{cache:'no-store'});
+    if(!r.ok)return;
+    const m=(await r.text()).match(/appVer:'([^']+)'/);
+    if(!m||m[1]===CFG.appVer)return;
+    S.newVer=m[1];
+    const calm=(S.view==='branch'||S.view==='login')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
+    let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
+    if(calm&&now-last>120000){try{sessionStorage.setItem('ev_upd_try',String(now))}catch(e){}reloadNew();return}
+    $('#updwrap').innerHTML='<div class="upd"><span>Вышла новая версия '+esc(m[1])+'. Данные сохранены.</span><button data-act="doUpdate">Обновить</button></div>';
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
+setInterval(()=>{if(document.visibilityState==='visible')checkUpdate()},300000);
+
 /* ====== Запуск ====== */
 (async()=>{
   if(S.token&&S.person)S.view='branch';
@@ -721,6 +751,7 @@ setInterval(()=>{if(S.queue.length&&!flushing){resetOffline();flush(true)}},8000
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(S.view==='login'){await loadLoginList();render()}
   else if(S.queue.length)flush();
+  setTimeout(()=>checkUpdate(true),2500);
 })();
 })();
 </script>
