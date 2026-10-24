@@ -100,7 +100,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.11'
+  appVer:'1.12'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -254,6 +254,7 @@ function validate(){
   if(S.ctx.current&&f.corr_reason.trim().length<3)errs.push('Отчёт уже сдан — укажите причину исправления');
   return{errs,calc,red};
 }
+const aNm=n=>String(n==null?'':n).replace(/\s+[А-ЯЁ]\.(?:\s?[А-ЯЁ]\.)?$/,'');
 const docName=id=>{const d=S.ctx&&S.ctx.doctors.find(x=>String(x.id)===String(id));return d&&d.name};
 
 function buildData(calc){
@@ -262,7 +263,7 @@ function buildData(calc){
   const admins=Object.keys(f.admins).map(id=>({id:Number(id),name:(byId(c.admins,id)||{}).name,left:f.admins[id].left||null}));
   const doctors=Object.keys(f.doctors).map(id=>{const d=byId(c.doctors,id)||{};return{id:Number(id),name:d.name,vm_id:d.vm_id,val:N(f.doctors[id].val)}});
   const assistants=Object.keys(f.assistants).map(k=>{const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{};const v=f.assistants[k];
-    return{id:Number(id),name:a.name,role,fix_normal:v.fn|0,fix_xray:v.fx|0,left:v.left||null}});
+    return{id:Number(id),name:aNm(a.name),role,fix_normal:v.fn|0,fix_xray:v.fx|0,left:v.left||null}});
   return{
     schema:1,app:CFG.appVer,branch:S.branch,date:S.date,
     admins,doctors,
@@ -337,7 +338,7 @@ function summaryText(d){
   if(d.noncash)L.push('Без денег в кассе: компенсации '+d.noncash.bonus+', сертификаты '+d.noncash.certificate+' ('+d.noncash.comment+')');
   if(d.advance_cash!=null||d.advance_cashless!=null||d.advance_out!=null)L.push('Аванс: принят нал '+(d.advance_cash||0)+', безнал '+(d.advance_cashless||0)+', списан '+(d.advance_out||0));
   L.push('Инкасс. итог: '+d.cashbox.closing);
-  d.assistants.forEach(a=>L.push('Ассистент '+a.name+': фикс. '+a.fix_normal+', рентген '+a.fix_xray+(a.left?', ушёл '+a.left:'')));
+  d.assistants.forEach(a=>L.push('Ассистент '+aNm(a.name)+': фикс. '+a.fix_normal+', рентген '+a.fix_xray+(a.left?', ушёл '+a.left:'')));
   if(d.note)L.push('Примечание: '+d.note);
   if(d.diff_reason)L.push('Причина расхождений: '+d.diff_reason);
   return L.join('\n');
@@ -498,10 +499,10 @@ function viewForm(){
   h+='<div class="sum"><span>Расходы всего</span><b id="s-exp"></b></div><div class="sum"><span>Итог по расчёту системы</span><b id="s-exp2"></b></div></div>';
 
   h+='<div class="card k-assist"><h2>Ассистенты'+hbtn('assist')+'</h2><p class="hint">Отметьте, кто работал, и сколько фиксаций сделал.</p><div class="tiles">'+
-    c.assistants.map(a=>{const k=a.role+':'+a.id;return '<button class="tile'+(f.assistants[k]?' on':'')+'" data-act="tog" data-g="assistants" data-id="'+k+'">'+esc(a.name)+'<small>'+(a.role==='assistant_tech'?'технический':'клинический')+'</small></button>'}).join('')+'</div>';
+    c.assistants.map(a=>{const k=a.role+':'+a.id;return '<button class="tile'+(f.assistants[k]?' on':'')+'" data-act="tog" data-g="assistants" data-id="'+k+'">'+esc(aNm(a.name))+'<small>'+(a.role==='assistant_tech'?'технический':'клинический')+'</small></button>'}).join('')+'</div>';
   Object.keys(f.assistants).forEach(k=>{
     const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{name:id};const v=f.assistants[k];
-    h+='<div class="person"><b>'+esc(a.name)+' <small style="font-weight:400;color:var(--mute)">'+(role==='assistant_tech'?'технический':'клинический')+'</small></b>'+
+    h+='<div class="person"><b>'+esc(aNm(a.name))+' <small style="font-weight:400;color:var(--mute)">'+(role==='assistant_tech'?'технический':'клинический')+'</small></b>'+
       '<div class="step"><span>Фиксации обычные</span><button data-act="inc" data-p="assistants.'+k+'.fn" data-d="-1">−</button><output id="o-'+k+'-fn">'+v.fn+'</output><button data-act="inc" data-p="assistants.'+k+'.fn" data-d="1">+</button></div>'+
       '<div class="step"><span>Фиксации на рентгене</span><button data-act="inc" data-p="assistants.'+k+'.fx" data-d="-1">−</button><output id="o-'+k+'-fx">'+v.fx+'</output><button data-act="inc" data-p="assistants.'+k+'.fx" data-d="1">+</button></div>'+
       '<label class="f"><span>Ушёл в (только если позже 21:00)</span><input type="time" data-p="assistants.'+k+'.left" value="'+esc(v.left||'')+'"></label></div>';
