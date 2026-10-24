@@ -76,6 +76,7 @@ button{font:inherit;cursor:pointer}
 .chk.bad{background:var(--badbg);color:var(--bad)}
 .chk.wait{background:var(--tile);color:var(--mute)}
 .chk.warn{background:var(--warnbg);color:var(--warn)}
+.card.pay.demo{outline:2px dashed var(--warn);outline-offset:-2px}.paysum{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}.paytot{border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
 .srow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:14px}.srow b{font-variant-numeric:tabular-nums;white-space:nowrap}.srow.big{font-size:17px;padding:4px 0}.srow.sub{font-size:13px;color:var(--mute)}details summary{font-size:13px;color:var(--mute);padding:6px 0;cursor:pointer}.ov .card h3{margin:14px 0 4px;font-size:16px}
 .chk i{font-style:normal;font-weight:700;width:18px;flex:none}
 @media (pointer:coarse){body.typing .bar{display:none}}
@@ -127,7 +128,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.23'
+  appVer:'1.24'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -688,13 +689,34 @@ const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет'};
 const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор'};
 const srow=(a,b)=>'<div class="srow"><span>'+a+'</span><b>'+b+'</b></div>';
 const brTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id).replace(/^ЕВРОВЕТ\s*/,'');
+/* ведомость: один человек = одна строка (если он и админ, и ассистент — суммы складываются) */
+function payList(r){
+  const m=new Map();
+  const put=(a,role)=>{const k=a.id!=null?a.id:a.name;const o=m.get(k)||{name:a.name,roles:[],total:0};o.total+=Number(a.total||0);if(role&&!o.roles.includes(role))o.roles.push(role);m.set(k,o)};
+  (r.admins||[]).forEach(a=>put(a,'администратор'));
+  (r.assistants||[]).forEach(a=>put(a,'ассистент'));
+  (r.extra||[]).forEach(a=>put(a,'только добавки'));
+  const ord=o=>o.roles.includes('администратор')?0:o.roles.includes('ассистент')?1:2;
+  return [...m.values()].map(o=>({name:o.name,role:o.roles.join(' и '),total:o.total,_o:ord(o)})).sort((a,b)=>a._o-b._o||a.name.localeCompare(b.name,'ru'));
+}
+function payText(r){
+  const pay=payList(r);
+  const all=pay.reduce((s,p)=>s+p.total,0);
+  return (S.salTest?'ПРИМЕР (тестовые отчёты). ':'')+'Зарплата '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+pay.map(p=>p.name+' ('+p.role+') — '+money(p.total)).join('\n')+'\nВсего: '+money(all);
+}
+async function copyPay(){
+  if(!S.sal)return;
+  const tx=payText(S.sal);
+  try{await navigator.clipboard.writeText(tx);toast('Ведомость скопирована');return}catch(e){}
+  try{const ta=document.createElement('textarea');ta.value=tx;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;left:-999px;top:0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();toast(ok?'Ведомость скопирована':'Не удалось скопировать',4000)}catch(e){toast('Не удалось скопировать',4000)}
+}
 async function showSalary(from,to){
   const today=omskToday();
   if(!from){from=perStart(today);to=today}
   S.salFrom=from;S.salTo=to;
   overlay('<h2>Зарплата</h2><p class="hint">Считаю…</p>');
   try{
-    const r=await rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to},15000);
+    const r=await rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to,p_test:!!S.salTest},15000);
     if(!r||!r.ok){overlay('<h2>Зарплата</h2><p>'+esc(SAL_ERR[r&&r.error]||'Не удалось посчитать')+'</p><button class="btn" data-act="ovclose">Закрыть</button>');return}
     S.sal=r;drawSalary();
   }catch(e){overlay('<h2>Зарплата</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>')}
@@ -714,8 +736,14 @@ function drawSalary(){
     +'<button class="btn sec small" data-act="salper" data-from="'+prevStart+'" data-to="'+prevEnd+'">Прошлый период</button></div>';
   h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(r.from)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(r.to)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
   (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
-  h+='<div class="card" style="margin:10px 0"><div class="srow big"><span>Всего к выплате</span><b>'+money(all)+'</b></div>'
-    +srow('Администраторы',money(Number(t.admins||0)))+srow('Ассистенты',money(Number(t.assistants||0)))+(Number(t.extra||0)?srow('Прочие',money(Number(t.extra))):'')+'</div>';
+  const pay=payList(r);
+  h+='<div class="card pay'+(S.salTest?' demo':'')+'" style="margin:10px 0"><h3 style="margin-top:2px">'+(S.salTest?'Пример: кому сколько':'Кому сколько выплатить')+'</h3>';
+  if(!pay.length)h+='<p class="hint">За этот период пока никому не начислено: нет отчётов с администраторами и ассистентами. Чтобы увидеть, как выглядит расчёт, нажмите «Пример на тестовых отчётах».</p>';
+  pay.forEach(p=>{h+=srow(esc(p.name)+'<br><small style="color:var(--mute)">'+esc(p.role)+'</small>','<span class="paysum">'+money(p.total)+'</span>')});
+  h+='<div class="srow big paytot"><span>Всего к выплате</span><b>'+money(all)+'</b></div>'
+    +'<p class="hint" style="margin:2px 0 6px">Администраторы '+money(Number(t.admins||0))+' · Ассистенты '+money(Number(t.assistants||0))+(Number(t.extra||0)?' · Прочие '+money(Number(t.extra)):'')+'</p>'
+    +(pay.length?'<button class="btn sec small" data-act="salcopy">Скопировать ведомость</button> ':'')
+    +'<button class="btn sec small" data-act="saltest">'+(S.salTest?'Вернуться к настоящим отчётам':'Пример на тестовых отчётах')+'</button></div>';
   h+='<h3>Администраторы</h3>';
   if(!(r.admins||[]).length)h+='<p class="hint">Нет отчётов с администраторами за этот период.</p>';
   (r.admins||[]).forEach(a=>{
@@ -888,7 +916,9 @@ document.addEventListener('click',async e=>{
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
     case'control':showControl();break;
-    case'salary':showSalary();break;
+    case'salary':S.salTest=false;showSalary();break;
+    case'saltest':S.salTest=!S.salTest;showSalary(S.salFrom,S.salTo);break;
+    case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'salgo':{const f=($('#salf')||{}).value,t=($('#salt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showSalary(f,t);break}
     case'saladd':salAddForm();break;
