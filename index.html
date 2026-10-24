@@ -126,7 +126,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.21'
+  appVer:'1.22'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -333,7 +333,7 @@ async function flush(auto){
       if(!S.online){S.online=true;setHeader()}
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
-        if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version}
+        if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
       }else if(res.error==='session'){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
       }else if(res.error==='reason_required'){it.status='needs_reason'}
@@ -430,7 +430,8 @@ async function openBranch(id){
   if(draft&&draft.form){S.form=Object.assign(emptyForm(),draft.form);S.draftTs=draft.ts||Date.now()}
   else if(ctx.current){S.form=formFromReport(ctx.current.data)}
   else S.form=freshForm();
-  S.busy=false;S.view='form';render();
+  S.busy=false;S.view='form';S.flags=null;render();
+  if(ctx.current&&!S.ctxOffline)loadFlags(id,S.date);
 }
 
 /* ====== Отрисовка ====== */
@@ -503,6 +504,7 @@ function viewForm(){
   if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
   if(c.current)h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">Выбрать другую дату</button>';
+  if(c.current)h+='<div id="flagbox">'+flagsHtml()+'</div>';
 
   h+='<div class="card k-staff"><h2>Смена'+hbtn('admins')+'</h2><h3>Администраторы</h3><div class="tiles">'+
     c.admins.map(a=>'<button class="tile'+(f.admins[a.id]?' on':'')+'" data-act="tog" data-g="admins" data-id="'+a.id+'">'+esc(a.name)+'</button>').join('')+'</div>';
@@ -592,6 +594,7 @@ function viewDone(){
   let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':needR?'Нужна причина исправления':'Отчёт сохранён на устройстве')+'</h2>';
   if(d.sent){
     h+='<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>';
+    h+='<div id="flagbox">'+flagsHtml()+'</div>';
   }else if(needR){
     h+='<div class="chk warn"><i>!</i><div>За '+ruDate(d.date)+' ('+esc(d.branch)+') отчёт уже сдан. Этот будет исправлением. Впишите, что исправили и почему, и отправьте.</div></div>'
       +'<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'" autocomplete="off"></label>'
@@ -610,10 +613,76 @@ function viewDone(){
 }
 
 /* ====== Окна ====== */
-function overlay(html){$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
-function closeOv(){$('#ovwrap').innerHTML=''}
+/* ====== Расхождения сверки: автору отчёта и руководителю ====== */
+const addDays=(iso,n)=>{const p=iso.split('-').map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]+n)).toISOString().slice(0,10)};
+const sgn=x=>(x>0?'+':x<0?'−':'')+money(Math.abs(x));
+function flagLine(f,where){
+  const bad=f.level==='red';
+  let nums='';
+  if(f.expected!=null&&f.actual!=null)nums='в отчёте '+money(Number(f.actual))+', ожидалось '+money(Number(f.expected))+(f.diff!=null?', разница '+sgn(Number(f.diff)):'');
+  else if(f.actual!=null)nums=String(Number(f.actual));
+  const bid=f.branch||S.branch,dt=f.date||S.date;
+  const bt=(BRANCHES.find(b=>b.id===bid)||{}).title||bid;
+  const who=where==='ctl'?'<small>'+esc(bt)+' · '+ruDate(dt)+'</small><br>':'';
+  return '<div class="chk '+(f.accepted?'wait':bad?'bad':'warn')+'"><i>'+(f.accepted?'✓':'!')+'</i><div>'+who+'<b>'+esc(f.title)+'</b>'
+    +(nums?'<br><small>'+esc(nums)+'</small>':'')
+    +(isHead()&&f.detail?'<br><small>'+esc(f.detail)+'</small>':'')
+    +(f.accepted?'<br><small>принято руководителем</small>':'')
+    +(isHead()&&!f.accepted?'<br><button class="btn sec small" style="margin-top:6px" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>':'')
+    +'</div></div>';
+}
+function flagsHtml(){
+  const all=S.flags||[];if(!all.length)return'';
+  const open=all.filter(f=>!f.accepted);
+  return '<div class="card k-flags"><h2>Расхождения по отчёту: '+open.length+'</h2><p class="hint">'
+    +(isHead()?'Так их видите вы. «Принять» значит: разобрался, вопросов нет.':'Эти расхождения видите вы и руководитель. Проверьте цифры; если нашли ошибку, исправьте отчёт и укажите причину.')
+    +'</p>'+all.map(f=>flagLine(f,'form')).join('')+'</div>';
+}
+async function loadFlags(branch,date){
+  if(!S.token)return;
+  const key=branch+'|'+date;S.flagsFor=key;
+  try{
+    const r=await rpc('ev_my_flags',{p_token:S.token,p_branch:branch,p_date:date},6000);
+    if(S.flagsFor!==key||!r||!r.ok)return;
+    S.flags=r.flags||[];
+    const fb=$('#flagbox');if(fb)fb.innerHTML=flagsHtml();
+  }catch(e){}
+}
+async function showControl(){
+  overlay('<h2>Контроль</h2><p class="hint">Загружаю…</p>');
+  try{
+    const to=omskToday(),from=addDays(to,-6);
+    const r=await rpc('ev_flags_overview',{p_token:S.token,p_from:from,p_to:to},10000);
+    if(!r||!r.ok){overlay('<h2>Контроль</h2><p>'+(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>');return}
+    S.ctl=r.flags||[];drawControl();
+  }catch(e){overlay('<h2>Контроль</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>')}
+}
+function drawControl(){
+  const old=document.querySelector('.ov>.card');const st=old?old.scrollTop:0;
+  const fl=S.ctl||[];const open=fl.filter(f=>!f.accepted);
+  let h='<h2>Контроль · 7 дней</h2><p class="hint">Открытых расхождений: '+open.length+'. Проверки кассы и сумм считаются сразу, сверка с Vetmanager — ночью.</p>';
+  h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):'<p>Расхождений нет.</p>';
+  h+='<button class="btn" style="margin-top:8px" data-act="ovclose">Закрыть</button>';
+  overlay(h);S.ctlOpen=true;
+  const nw=document.querySelector('.ov>.card');if(nw)nw.scrollTop=st;
+}
+async function doAccept(ds){
+  const ver=Number(ds.ver)||0;
+  try{
+    const r=await rpc('ev_accept',{p_token:S.token,p_branch:ds.bid,p_date:ds.dt,p_code:ds.code,p_version:ver,p_note:null},8000);
+    if(!r||!r.ok){toast(r&&r.error==='session'?'Сессия закончилась, войдите заново':'Не удалось принять: '+(r&&r.error),5000);return}
+    const mark=f=>{if((f.branch||S.branch)===ds.bid&&(f.date||S.date)===ds.dt&&f.code===ds.code&&(Number(f.version)||0)===ver)f.accepted=true};
+    (S.ctl||[]).forEach(mark);(S.flags||[]).forEach(mark);
+    if(S.ctlOpen)drawControl();
+    const fb=$('#flagbox');if(fb)fb.innerHTML=flagsHtml();
+    toast('Принято');
+  }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
+}
+
+function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
+function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2><button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="control">Контроль: расхождения</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -705,6 +774,8 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
+    case'control':showControl();break;
+    case'accept':doAccept(d);break;
     case'chpin':showPin();break;
     case'dopin':{
       const p0=$('#p0').value,p1=$('#p1').value,p2=$('#p2').value;
