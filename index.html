@@ -83,7 +83,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.4'
+  appVer:'1.5'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -141,6 +141,15 @@ const S={
   queue:LS.get('ev_queue',[]),online:navigator.onLine,done:null,busy:false
 };
 const saveQueue=()=>LS.set('ev_queue',S.queue);
+(function cleanDrafts(){ // старые форматы и черновики старше 8 дней (сдать их уже нельзя)
+  try{
+    const lim=new Date(Date.now()-8*864e5).toISOString().slice(0,10);
+    Object.keys(localStorage).forEach(k=>{
+      if(k.indexOf('ev_draft:')===0)localStorage.removeItem(k);
+      else if(k.indexOf('ev_draft2:')===0){const d=k.split(':').pop();if(d<lim)localStorage.removeItem(k)}
+    });
+  }catch(e){}
+})();
 
 function toast(msg,ms=4000){
   const w=$('#toastwrap');w.innerHTML='<div class="toast">'+esc(msg)+'</div>';
@@ -150,9 +159,15 @@ function toast(msg,ms=4000){
 /* ====== Форма ====== */
 const emptyForm=()=>({admins:{},doctors:{},others:[],total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
   open:'',expenses:[],close:'',assistants:{},note:'',adv_cash:'',adv_cashless:'',adv_out:'',diff_reason:'',corr_reason:''});
-const draftKey=()=>'ev_draft:'+S.branch+':'+S.date;
+const draftKey=()=>'ev_draft2:'+(S.person?S.person.id:0)+':'+S.branch+':'+S.date;
 let draftT;
-function saveDraft(){clearTimeout(draftT);draftT=setTimeout(()=>{if(S.form&&S.view==='form')LS.set(draftKey(),S.form)},300)}
+function freshForm(){
+  const f=emptyForm(),ctx=S.ctx;
+  if(ctx&&ctx.prev&&ctx.prev.closing!=null)f.open=String(ctx.prev.closing);
+  if(S.person&&ctx&&ctx.admins.some(a=>a.id===S.person.id))f.admins[S.person.id]={left:''};
+  return f;
+}
+function saveDraft(){clearTimeout(draftT);draftT=setTimeout(()=>{if(S.form&&S.view==='form')LS.set(draftKey(),{ts:Date.now(),form:S.form})},300)}
 
 function formFromReport(d){ // загрузка ранее сданной версии для исправления
   const f=emptyForm(),s=v=>(v==null?'':String(v));
@@ -200,7 +215,7 @@ function validate(){
   const LBL={ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан'};
   Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
   Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
-  f.others.forEach((o,i)=>{const v=num(o.val);if(!o.title.trim()||v==null||isNaN(v))errs.push('Строка «вне списка» №'+(i+1)+': нужно название и сумма')});
+  f.others.forEach((o,i)=>{const v=num(o.val);if(!o.title.trim()||v==null||isNaN(v))errs.push('Строка «не из списка» №'+(i+1)+': нужно название и сумма')});
   f.expenses.forEach((e,i)=>{const v=num(e.amount);if(!e.article||v==null||isNaN(v))errs.push('Расход №'+(i+1)+': выберите статью и введите сумму');else if(isNC(e.article)&&!(e.comment||'').trim())errs.push('Расход №'+(i+1)+' («'+e.article+'»): в комментарии укажите причину')});
   Object.entries(f.assistants).forEach(([k,a])=>{if(!isFinite(a.fn)||!isFinite(a.fx))errs.push('Фиксации ассистента')});
   const calc=compute();
@@ -333,13 +348,10 @@ async function openBranch(id){
   }
   S.ctx=ctx;
   const draft=LS.get(draftKey());
-  if(draft){S.form=draft;toast('Восстановлен несохранённый черновик')}
+  S.draftTs=null;
+  if(draft&&draft.form){S.form=Object.assign(emptyForm(),draft.form);S.draftTs=draft.ts||Date.now()}
   else if(ctx.current){S.form=formFromReport(ctx.current.data)}
-  else{
-    S.form=emptyForm();
-    if(ctx.prev&&ctx.prev.closing!=null)S.form.open=String(ctx.prev.closing);
-    if(S.person&&ctx.admins.some(a=>a.id===S.person.id))S.form.admins[S.person.id]={left:''};
-  }
+  else S.form=freshForm();
   S.busy=false;S.view='form';render();
 }
 
@@ -387,6 +399,8 @@ const nfield=(p,label,val,extra='')=>'<label class="f"><span>'+label+'</span><in
 
 function viewForm(){
   const f=S.form,c=S.ctx;let h='';
+  if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
   if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
 
@@ -402,9 +416,9 @@ function viewForm(){
     c.doctors.map(d=>'<button class="tile'+(f.doctors[d.id]?' on':'')+'" data-act="tog" data-g="doctors" data-id="'+d.id+'">'+esc(d.name)+(d.note?'<small>'+esc(d.note)+'</small>':'')+'</button>').join('')+'</div>';
   Object.keys(f.doctors).forEach(id=>{h+=nfield('doctors.'+id+'.val',esc(docName(id)||id)+' — вал, ₽',f.doctors[id].val)});
   f.others.forEach((o,i)=>{
-    h+='<div class="person"><b>Строка вне списка</b><label class="f"><span>Название</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
+    h+='<div class="person"><b>Не из списка</b><label class="f"><span>Кто или за что (например, врач-замена)</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
   });
-  h+='<button class="btn sec small" style="margin-top:8px" data-act="addOther">+ Строка вне списка</button>';
+  h+='<button class="btn sec small" style="margin-top:8px" data-act="addOther">+ Врач-замена или другая сумма не из списка</button>';
   h+='<div class="sum" style="margin-top:10px"><span>Сумма врачей</span><b id="s-docs"></b></div></div>';
 
   h+='<div class="card"><h2>Клиника</h2>'+nfield('total','Клиника общая, ₽',f.total)+
@@ -535,6 +549,7 @@ document.addEventListener('click',async e=>{
     case'inc':{
       const cur=Number(getPath(S.form,d.p))||0;const nv=Math.max(0,Math.min(99,cur+Number(d.d)));
       setPath(S.form,d.p,nv);const k=d.p.split('.');const o=document.getElementById('o-'+k[1]+'-'+k[2]);if(o)o.textContent=nv;saveDraft();break}
+    case'clearDraft':if(confirm('Очистить все введённые цифры в этой форме?')){LS.del(draftKey());S.draftTs=null;S.form=S.ctx.current?formFromReport(S.ctx.current.data):freshForm();render()}break;
     case'addExp':S.form.expenses.push({article:'',amount:'',comment:''});saveDraft();render();break;
     case'delExp':S.form.expenses.splice(Number(d.i),1);saveDraft();render();break;
     case'addOther':S.form.others.push({title:'',val:''});saveDraft();render();break;
