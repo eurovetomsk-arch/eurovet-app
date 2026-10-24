@@ -84,7 +84,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.9'
+  appVer:'1.10'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -605,7 +605,7 @@ document.addEventListener('click',async e=>{
       if(p1!==p2){toast('Новые PIN не совпадают');break}
       if(/^(\d)\1{5}$/.test(p1)||p1==='123456'||p1==='654321'){toast('Слишком простой PIN');break}
       try{const r=await rpc('ev_change_pin',{p_token:S.token,p_old:p0,p_new:p1});
-        if(r.ok){closeOv();toast('PIN изменён')}else toast(r.error==='bad_pin'?'Текущий PIN неверный':'Не удалось: '+r.error)}
+        if(r.ok){closeOv();toast('PIN изменён')}else toast(r.error==='bad_pin'?'Текущий PIN неверный. Осталось попыток: '+(r.attempts_left==null?'?':r.attempts_left):r.error==='locked'?'Слишком много ошибок. Подождите 15 минут':r.error==='session'?'Сессия закончилась, войдите заново':'Не удалось: '+r.error)}
       catch(er){toast(er.net?'Нет связи':'Ошибка сервера')}
       break}
   }
