@@ -67,6 +67,22 @@ button{font:inherit;cursor:pointer}
 .net{display:inline-block;width:9px;height:9px;border-radius:50%;background:#4ade80;margin-right:4px}
 .net.off{background:#f87171}
 pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;font-size:13px}
+/* цвет блоков: спокойная полоса слева, маленький маркер у заголовка, лёгкий оттенок фона */
+.k-staff{--k0:#64788a}.k-docs{--k0:#0f766e}.k-clinic{--k0:#2f6fa3}.k-pharm{--k0:#7b5ea7}.k-adv{--k0:#b7791f}.k-comp{--k0:#a4524b}.k-cash{--k0:#3f7d4e}.k-assist{--k0:#8a6d4b}.k-misc{--k0:#64788a}.k-check{--k0:#4b5d6b}
+.card[class*=" k-"]{--k:var(--k0);border-left:5px solid var(--k);background:color-mix(in srgb,var(--k) 5%,var(--card))}
+@media (prefers-color-scheme:dark){.card[class*=" k-"]{--k:color-mix(in srgb,var(--k0) 60%,#fff)}}
+.card[class*=" k-"] h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--k);flex:none}
+.card[class*=" k-"] .tile.on{border-color:var(--k)}
+.card[class*=" k-"] .tile.on::after{content:" ✓";color:var(--k);font-weight:700}
+.card h2{display:flex;align-items:center;gap:8px}
+.card h2 .q{margin-left:auto}
+.q{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;margin-left:6px;border-radius:50%;border:1px solid var(--line);background:var(--tile);color:var(--mute);font-size:14px;font-weight:700;line-height:1;vertical-align:middle;position:relative}
+.q::after{content:"";position:absolute;inset:-9px}
+.f>span .q{width:22px;height:22px;font-size:12px}
+#chkcard{scroll-margin-top:70px}
+.bar .st[data-act]{cursor:pointer}
+.chk small.need{display:block;margin-top:2px}
+.ov .card h2{display:block}
 </style>
 </head>
 <body>
@@ -84,7 +100,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.10'
+  appVer:'1.11'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -203,15 +219,20 @@ function compute(){
   const advc=N(f.adv_cash);
   const expected=r2(open-exp+cash+phc+advc-nc);
   const checks=[];
-  const add=(id,label,diff,ready,detail)=>checks.push({id,label,ready,diff:r2(diff),ok:ready&&Math.abs(diff)<=CFG.tol,detail});
-  add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' vs общая '+money(total));
-  add('pay','Нал + безнал = Клиника общая',cash+cashless-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+' vs общая '+money(total));
+  const add=(id,label,diff,ready,detail,miss='')=>checks.push({id,label,ready,diff:r2(diff),ok:ready&&Math.abs(diff)<=CFG.tol,detail,miss});
+  const ms=a=>a.filter(Boolean).join(', ');
+  add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' vs общая '+money(total),
+    ms([f.total===''&&'«Клиника общая»',!(Object.keys(f.doctors).length>0||f.others.length>0)&&'отметьте врачей и введите их вал']));
+  add('pay','Нал + безнал = Клиника общая',cash+cashless-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+' vs общая '+money(total),
+    ms([f.total===''&&'«Клиника общая»',(f.cash===''&&f.cashless==='')&&'«Нал» и «Безнал»']));
   const phAny=f.ph_val!==''||f.ph_cash!==''||f.ph_cashless!=='';
-  add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv));
-  add('box','Итог инкассации = начало − расходы + нал (клиника+аптека) + аванс наличными − компенсации и сертификаты',N(f.close)-expected,f.close!==''&&f.open!=='','по расчёту '+money(expected)+(advc||nc?' (аванс наличными '+money(advc)+(nc?', без денег −'+money(nc):'')+')':'')+', введено '+money(N(f.close)));
+  add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv),
+    'вал, нал и безнал аптеки (если аптека не работала, оставьте пустыми — пункт можно не учитывать)');
+  add('box','Итог инкассации = начало − расходы + нал (клиника+аптека) + аванс наличными − компенсации и сертификаты',N(f.close)-expected,f.close!==''&&f.open!=='','по расчёту '+money(expected)+(advc||nc?' (аванс наличными '+money(advc)+(nc?', без денег −'+money(nc):'')+')':'')+', введено '+money(N(f.close)),
+    ms([f.open===''&&'«Начальная инкассация»',f.close===''&&'«Итог инкассации» (сколько наличных в кассе)']));
   if(nc>0)add('nc','Компенсации и сертификаты не больше нал + аванс наличными',Math.max(0,nc-(cash+phc+advc)),true,'без денег '+money(nc)+' vs нал клиники+аптеки+аванс '+money(cash+phc+advc));
   const prev=c&&c.prev&&c.prev.closing!=null?Number(c.prev.closing):null;
-  if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', введено начало '+money(open));
+  if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', введено начало '+money(open),'«Начальная инкассация»');
   return{checks,sumDocs,exp,expected,total,cash,cashless};
 }
 
@@ -406,7 +427,26 @@ function viewBranch(){
   if(S.queue.length)h+='<p class="hint">Не отправлено отчётов: '+S.queue.length+'. Нажмите «'+(S.online?'онлайн':'нет связи')+'» вверху.</p>';
   return h+'</div>';
 }
-const nfield=(p,label,val,extra='')=>'<label class="f"><span>'+label+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" '+extra+'></label>';
+const HINTS={
+  admins:['Администраторы смены','Отметьте тех, кто работал администратором в этот день. Время ухода нужно, только если ушли позже 21:00: переработку считает система, самому её считать не нужно.'],
+  docs:['Вал врачей','Вал врача — сумма проведённых и полностью оплаченных счетов этого врача за день в Vetmanager. Отметьте работавших врачей и введите вал каждого. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
+  others:['Строка не из списка','Нужна, если был врач-замена или есть сумма, которой нет среди врачей выше. Напишите, кто или за что, и сумму. Она войдёт в «Сумма врачей».'],
+  total:['Клиника общая','Общий вал клиники за день по Vetmanager. Должна совпадать с суммой вала врачей и с «Нал + Безнал». Аванс сюда не входит.'],
+  pay:['Нал и безнал','Сколько из «Клиника общая» оплатили наличными и сколько безналично. Вместе должно получиться «Клиника общая».'],
+  pharm:['Аптека','Вал аптеки за день. Нал аптеки + безнал аптеки должны давать вал аптеки. Если аптека сегодня не работала, оставьте поля пустыми.'],
+  adv:['Авансы клиентов','Деньги, которые клиенты внесли вперёд. Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе, поэтому он учитывается в итоге инкассации.'],
+  advcash:['Принят наличными','Сумма наличных авансов как в Vetmanager. Если часть аванса была компенсацией без денег, её нужно ещё раз указать ниже, в блоке «Компенсации и сертификаты».'],
+  advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов.'],
+  comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager: страница сама вычтет её из кассы. Причину пишите без фамилии клиента.'],
+  open:['Начальная инкассация','Сколько наличных лежало в кассе утром. Подставляется из итога за предыдущий день. Если на деле иначе, исправьте: система подсветит расхождение.'],
+  exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму.'],
+  close:['Итог инкассации','Сколько наличных реально лежит в кассе на конец дня. Введите это число по факту. Страница сверяет его с расчётом: начало − расходы + нал клиники + нал аптеки + аванс наличными − компенсации − сертификаты.'],
+  assist:['Ассистенты','Отметьте, кто работал. Для каждого введите число фиксаций: обычных и на рентгене. Время ухода нужно, только если ушёл позже 21:00.'],
+  checks:['Проверка','Страница только подсвечивает расхождения, ваши цифры она не меняет. Зелёный: сходится (допуск 1 ₽). Красный: расхождение, нужна причина. Серый: пока не хватает данных, под ним написано, чего именно.'],
+  diff:['Причина расхождения','Если есть красные пункты, напишите, почему не сходится (например, ошибка ввода или сумма не из списка). Без причины отчёт с расхождением не отправится.']
+};
+const hbtn=k=>'<button type="button" class="q" data-act="hint" data-h="'+k+'" aria-label="Подсказка">?</button>';
+const nfield=(p,label,val,extra='',hk='')=>'<label class="f"><span>'+label+(hk?hbtn(hk):'')+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" '+extra+'></label>';
 
 function viewForm(){
   const f=S.form,c=S.ctx;let h='';
@@ -415,7 +455,7 @@ function viewForm(){
   if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
 
-  h+='<div class="card"><h2>Смена</h2><h3>Администраторы</h3><div class="tiles">'+
+  h+='<div class="card k-staff"><h2>Смена'+hbtn('admins')+'</h2><h3>Администраторы</h3><div class="tiles">'+
     c.admins.map(a=>'<button class="tile'+(f.admins[a.id]?' on':'')+'" data-act="tog" data-g="admins" data-id="'+a.id+'">'+esc(a.name)+'</button>').join('')+'</div>';
   Object.keys(f.admins).forEach(id=>{
     const a=c.admins.find(x=>String(x.id)===id);
@@ -423,29 +463,29 @@ function viewForm(){
   });
   h+='</div>';
 
-  h+='<div class="card"><h2>Вал врачей</h2><p class="hint">Отметьте врачей, которые работали, и введите вал каждого.</p><div class="tiles">'+
+  h+='<div class="card k-docs"><h2>Вал врачей'+hbtn('docs')+'</h2><p class="hint">Отметьте врачей, которые работали, и введите вал каждого.</p><div class="tiles">'+
     c.doctors.map(d=>'<button class="tile'+(f.doctors[d.id]?' on':'')+'" data-act="tog" data-g="doctors" data-id="'+d.id+'">'+esc(d.name)+(d.note?'<small>'+esc(d.note)+'</small>':'')+'</button>').join('')+'</div>';
   Object.keys(f.doctors).forEach(id=>{h+=nfield('doctors.'+id+'.val',esc(docName(id)||id)+' — вал, ₽',f.doctors[id].val)});
   f.others.forEach((o,i)=>{
-    h+='<div class="person"><b>Не из списка</b><label class="f"><span>Кто или за что (например, врач-замена)</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
+    h+='<div class="person"><b>Не из списка'+hbtn('others')+'</b><label class="f"><span>Кто или за что (например, врач-замена)</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
   });
   h+='<button class="btn sec small" style="margin-top:8px" data-act="addOther">+ Врач-замена или другая сумма не из списка</button>';
   h+='<div class="sum" style="margin-top:10px"><span>Сумма врачей</span><b id="s-docs"></b></div></div>';
 
-  h+='<div class="card"><h2>Клиника</h2>'+nfield('total','Клиника общая, ₽',f.total)+
-    '<div class="row">'+nfield('cash','Нал, ₽',f.cash)+nfield('cashless','Безнал, ₽',f.cashless)+'</div></div>';
+  h+='<div class="card k-clinic"><h2>Клиника'+hbtn('total')+'</h2>'+nfield('total','Клиника общая, ₽',f.total)+
+    '<div class="row">'+nfield('cash','Нал, ₽',f.cash)+nfield('cashless','Безнал, ₽',f.cashless,'','pay')+'</div></div>';
 
-  h+='<div class="card"><h2>Аптека</h2>'+nfield('ph_val','Вал аптеки, ₽',f.ph_val)+'<div class="row">'+nfield('ph_cash','Нал аптеки, ₽',f.ph_cash)+nfield('ph_cashless','Безнал аптеки, ₽',f.ph_cashless)+'</div></div>';
+  h+='<div class="card k-pharm"><h2>Аптека'+hbtn('pharm')+'</h2>'+nfield('ph_val','Вал аптеки, ₽',f.ph_val)+'<div class="row">'+nfield('ph_cash','Нал аптеки, ₽',f.ph_cash)+nfield('ph_cashless','Безнал аптеки, ₽',f.ph_cashless)+'</div></div>';
 
-  h+='<div class="card"><h2>Авансы клиентов</h2><p class="hint">Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽ (как в Vetmanager, с компенсациями)',f.adv_cash)+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out)+'</div>';
+  h+='<div class="card k-adv"><h2>Авансы клиентов'+hbtn('adv')+'</h2><p class="hint">Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out,'','advout')+'</div>';
 
-  h+='<div class="card"><h2>Компенсации и сертификаты</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
+  h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
     nfield('comp','Компенсация / бонус клиенту от клиники (аванс без денег), ₽',f.comp)+nfield('cert','Оплата сертификатом (в Vetmanager как нал), ₽',f.cert)+
     '<label class="f"><span>Причина (обязательно, если есть суммы; без ФИО клиента)</span><input data-p="nc_comment" value="'+esc(f.nc_comment)+'"></label></div>';
 
-  h+='<div class="card"><h2>Касса (инкассация)</h2>'+nfield('open','Начальная инкассация, ₽',f.open);
+  h+='<div class="card k-cash"><h2>Касса (инкассация)</h2>'+nfield('open','Начальная инкассация, ₽',f.open,'','open');
   if(c.prev&&c.prev.closing!=null)h+='<p class="hint">Подставлено из итога за '+ruDate(c.prev.date)+': '+money(Number(c.prev.closing))+'. Если на деле иначе — исправьте, система подсветит расхождение.</p>';
-  h+='<h3>Расходы</h3>';
+  h+='<h3>Расходы'+hbtn('exp')+'</h3>';
   f.expenses.forEach((e,i)=>{
     h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
       c.articles.map(a=>'<option'+(e.article===a.title?' selected':'')+'>'+esc(a.title)+'</option>').join('')+'</select></label>'+
@@ -454,10 +494,10 @@ function viewForm(){
       '<button class="btn sec small" data-act="delExp" data-i="'+i+'">Удалить расход</button></div>';
   });
   h+='<button class="btn sec small" data-act="addExp">+ Расход</button>';
-  h+=nfield('close','Итог инкассации, ₽',f.close);
+  h+=nfield('close','Итог инкассации (сколько наличных в кассе сейчас), ₽',f.close,'','close');
   h+='<div class="sum"><span>Расходы всего</span><b id="s-exp"></b></div><div class="sum"><span>Итог по расчёту системы</span><b id="s-exp2"></b></div></div>';
 
-  h+='<div class="card"><h2>Ассистенты</h2><p class="hint">Отметьте, кто работал, и сколько фиксаций сделал.</p><div class="tiles">'+
+  h+='<div class="card k-assist"><h2>Ассистенты'+hbtn('assist')+'</h2><p class="hint">Отметьте, кто работал, и сколько фиксаций сделал.</p><div class="tiles">'+
     c.assistants.map(a=>{const k=a.role+':'+a.id;return '<button class="tile'+(f.assistants[k]?' on':'')+'" data-act="tog" data-g="assistants" data-id="'+k+'">'+esc(a.name)+'<small>'+(a.role==='assistant_tech'?'технический':'клинический')+'</small></button>'}).join('')+'</div>';
   Object.keys(f.assistants).forEach(k=>{
     const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{name:id};const v=f.assistants[k];
@@ -468,17 +508,17 @@ function viewForm(){
   });
   h+='</div>';
 
-  h+='<div class="card"><h2>Прочее</h2><label class="f"><span>Примечание</span><textarea data-p="note" rows="2">'+esc(f.note)+'</textarea></label>'+
+  h+='<div class="card k-misc"><h2>Прочее</h2><label class="f"><span>Примечание</span><textarea data-p="note" rows="2">'+esc(f.note)+'</textarea></label>'+
     '</div>';
 
-  h+='<div class="card"><h2>Проверка</h2><div id="checks"></div>'+
-    '<label class="f"><span>Причина расхождения (обязательно, если есть красные пункты)</span><textarea data-p="diff_reason" rows="2">'+esc(f.diff_reason)+'</textarea></label>';
+  h+='<div class="card k-check" id="chkcard"><h2>Проверка'+hbtn('checks')+'</h2><div id="checks"></div>'+
+    '<label class="f"><span>Причина расхождения (обязательно, если есть красные пункты)'+hbtn('diff')+'</span><textarea data-p="diff_reason" rows="2">'+esc(f.diff_reason)+'</textarea></label>';
   if(c.current)h+='<label class="f"><span>Причина исправления отчёта</span><textarea data-p="corr_reason" rows="2">'+esc(f.corr_reason)+'</textarea></label>';
   h+='</div>';
   return h;
 }
 function viewBar(){
-  return '<div class="bar"><div class="in"><div class="st" id="barst"></div><button class="btn" data-act="submit">Отправить отчёт</button></div></div>';
+  return '<div class="bar"><div class="in"><div class="st" id="barst" data-act="tochecks"></div><button class="btn" data-act="submit">Отправить отчёт</button></div></div>';
 }
 function updateChecks(){
   if(S.view!=='form')return;
@@ -488,7 +528,7 @@ function updateChecks(){
     const cls=!c.ready?'wait':(c.ok?'ok':'bad');
     const mark=!c.ready?'…':(c.ok?'✓':'✗');
     const diff=c.ready&&!c.ok?'<br><b>Разница: '+money(c.diff)+'</b>':'';
-    return '<div class="chk '+cls+'"><i>'+mark+'</i><div>'+esc(c.label)+(c.ready?'<br><small>'+esc(c.detail)+'</small>':'')+diff+'</div></div>';
+    return '<div class="chk '+cls+'"><i>'+mark+'</i><div>'+esc(c.label)+(c.ready?'<br><small>'+esc(c.detail)+'</small>':(c.miss?'<small class="need">Не хватает: '+esc(c.miss)+'</small>':''))+diff+'</div></div>';
   }).join('');
   const set=(id,t)=>{const e=$(id);if(e)e.textContent=t};
   set('#s-docs',money(calc.sumDocs));set('#s-exp',money(calc.exp));set('#s-exp2',money(calc.expected));
@@ -594,6 +634,9 @@ document.addEventListener('click',async e=>{
     case'menu':showMenu();break;
     case'queue':showQueue();break;
     case'ovclose':closeOv();break;
+    case'tochecks':{const e=$('#chkcard');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});break}
+    case'hint':{const h=HINTS[d.h];if(!h)break;if(isField(document.activeElement))document.activeElement.blur();
+      overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
     case'logout':closeOv();if(S.queue.length&&!confirm('Есть неотправленные отчёты. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
     case'flush':S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();await flush();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
