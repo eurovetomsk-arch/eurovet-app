@@ -84,7 +84,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.7'
+  appVer:'1.8'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -551,8 +551,14 @@ document.addEventListener('input',e=>{
   if(t.inputMode==='decimal'){const v=num(t.value);t.classList.toggle('bad',isNaN(v))}
   saveDraft();updateChecks();
 });
-document.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('input,textarea,select'))document.body.classList.add('typing')});
-document.addEventListener('focusout',()=>{setTimeout(()=>{const a=document.activeElement;if(!(a&&a.matches&&a.matches('input,textarea,select')))document.body.classList.remove('typing')},200)});
+/* нижняя плашка: прячется только пока идёт набор, и сама возвращается через 4 с паузы; тап мимо поля убирает курсор */
+let typT;
+const isField=el=>!!(el&&el.matches&&el.matches('input,textarea,select'));
+const showBar=()=>{clearTimeout(typT);document.body.classList.remove('typing')};
+document.addEventListener('input',e=>{if(!isField(e.target))return;document.body.classList.add('typing');clearTimeout(typT);typT=setTimeout(showBar,4000)},true);
+document.addEventListener('focusout',()=>{setTimeout(()=>{if(!isField(document.activeElement))showBar()},150)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.tagName==='INPUT'){e.target.blur();showBar()}});
+document.addEventListener('pointerdown',e=>{const a=document.activeElement;if(isField(a)&&!e.target.closest('input,textarea,select,label,button'))a.blur()});
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='dt'){S.date=t.value||omskToday();return}
