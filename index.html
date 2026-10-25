@@ -141,6 +141,18 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .hl2 b{flex:0 0 26px;height:26px;border-radius:50%;background:#d6193c;color:#fff;text-align:center;line-height:26px;font-size:14px}
 .htip{background:var(--warnbg);border-left:5px solid var(--warn);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:15px}
 .hchk{list-style:none;padding-left:0!important}.hchk li::before{content:"☐ ";font-size:18px}/*HELPCSS_END*/
+
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chip{background:var(--card);color:var(--ink);border:2px solid var(--bd,var(--line));border-radius:999px;padding:8px 13px;font-size:14px;min-height:40px}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:700}
+.chips.tabs .chip{flex:1 1 auto;text-align:center}
+.nv{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.nv button{flex:1;background:none;border:0;color:var(--mute);padding:8px 2px 10px;font-size:12px;min-height:56px}
+.nv button i{display:block;font-style:normal;font-size:19px;line-height:1.2}
+.nv button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
+@media (pointer:coarse){body.typing .nv{display:none}}
+button.srow.grow{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;text-align:left;padding:10px 0;font-size:16px;min-height:44px}
+button.person.revrow{display:block;width:100%;text-align:left;background:var(--card);color:inherit}
 </style>
 </head>
 <body>
@@ -159,7 +171,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.29'
+  appVer:'1.30'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -444,7 +456,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -496,6 +508,10 @@ function render(){
   else if(S.view==='form'){app.innerHTML=viewForm();bar.innerHTML=viewBar();updateChecks()}
   else if(S.view==='done')app.innerHTML=viewDone();
   else if(S.view==='help')app.innerHTML=viewHelp();
+  else if(S.view==='ctl')app.innerHTML=ctlHtml();
+  else if(S.view==='rev')app.innerHTML=revHtml();
+  else if(S.view==='sal')app.innerHTML=salHtml();
+  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'))bar.innerHTML=navHtml();
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
@@ -697,23 +713,28 @@ async function loadFlags(branch,date){
     const fb=$('#flagbox');if(fb)fb.innerHTML=flagsHtml();
   }catch(e){}
 }
+function paint(){const y=window.scrollY;render();window.scrollTo(0,y)}
+const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
+function navHtml(){return '<nav class="nv">'+NAV.map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
-  overlay('<h2>Контроль</h2><p class="hint">Загружаю…</p>');
+  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);
   try{
     const to=omskToday(),from=addDays(to,-6);
     const r=await rpc('ev_flags_overview',{p_token:S.token,p_from:from,p_to:to},10000);
-    if(!r||!r.ok){overlay('<h2>Контроль</h2><p>'+(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>');return}
-    S.ctl=r.flags||[];drawControl();
-  }catch(e){overlay('<h2>Контроль</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>')}
+    if(!r||!r.ok)S.ctlErr=(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.');else S.ctl=r.flags||[];
+  }catch(e){S.ctlErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  S.ctlLoad=false;if(S.view==='ctl')paint();
 }
-function drawControl(){
-  const old=document.querySelector('.ov>.card');const st=old?old.scrollTop:0;
-  const fl=S.ctl||[];const open=fl.filter(f=>!f.accepted);
-  let h='<h2>Контроль · 7 дней</h2><p class="hint">Открытых расхождений: '+open.length+'. Проверки кассы и сумм считаются сразу, сверка с Vetmanager — ночью.</p>';
-  h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):'<p>Расхождений нет.</p>';
-  h+='<button class="btn" style="margin-top:8px" data-act="ovclose">Закрыть</button>';
-  overlay(h);S.ctlOpen=true;
-  const nw=document.querySelector('.ov>.card');if(nw)nw.scrollTop=st;
+function ctlHtml(){
+  let h='<div class="card"><h2>Контроль · 7 дней</h2>';
+  if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
+  else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
+  else{
+    const fl=S.ctl||[],open=fl.filter(f=>!f.accepted);
+    h+='<p class="hint">Открытых расхождений: '+open.length+'. Проверки кассы и сумм считаются сразу, сверка с Vetmanager — ночью.</p>';
+    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):'<p>Расхождений нет.</p>';
+  }
+  return h+'</div>';
 }
 async function doAccept(ds){
   const ver=Number(ds.ver)||0;
@@ -722,7 +743,7 @@ async function doAccept(ds){
     if(!r||!r.ok){toast(r&&r.error==='session'?'Сессия закончилась, войдите заново':'Не удалось принять: '+(r&&r.error),5000);return}
     const mark=f=>{if((f.branch||S.branch)===ds.bid&&(f.date||S.date)===ds.dt&&f.code===ds.code&&(Number(f.version)||0)===ver)f.accepted=true};
     (S.ctl||[]).forEach(mark);(S.flags||[]).forEach(mark);
-    if(S.ctlOpen)drawControl();
+    if(S.view==='ctl')paint();
     const fb=$('#flagbox');if(fb)fb.innerHTML=flagsHtml();
     toast('Принято');
   }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
@@ -756,88 +777,193 @@ function payList(r){
   const ord=o=>o.roles.includes('администратор')?0:o.roles.includes('ассистент')?1:2;
   return [...m.values()].map(o=>({name:o.name,role:o.roles.join(' и '),total:o.total,items:o.items,_o:ord(o)})).sort((a,b)=>a._o-b._o||a.name.localeCompare(b.name,'ru'));
 }
-function payText(r){
-  const pay=payList(r);
+function payText(r,g){
+  const rr=g==='adm'?Object.assign({},r,{assistants:[],extra:[]}):g==='ast'?Object.assign({},r,{admins:[],extra:[]}):r;
+  const ttl=g==='adm'?' (администраторы)':g==='ast'?' (ассистенты)':'';
+  if(g==='add'){
+    const al=(r.adj||[]).filter(i=>!i.is_cancel&&!i.cancelled);
+    return 'Добавки '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+(al.length?al.map(i=>i.name+' — '+(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+(i.comment?' · '+i.comment:'')+' — '+sgn(Number(i.amount))).join('\n'):'нет');
+  }
+  const pay=payList(rr);
   const all=pay.reduce((s,p)=>s+p.total,0);
-  return (S.salTest?'ПРИМЕР (тестовые отчёты). ':'')+'Зарплата '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+pay.map(p=>p.name+' ('+p.role+') — '+money(p.total)+p.items.map(i=>'\n   '+i.l+' — '+(i.sg?sgn(i.v):money(i.v))).join('')).join('\n')+'\nВсего: '+money(all);
+  return 'Зарплата'+ttl+' '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+pay.map(p=>p.name+' ('+p.role+') — '+money(p.total)+p.items.map(i=>'\n   '+i.l+' — '+(i.sg?sgn(i.v):money(i.v))).join('')).join('\n')+'\nВсего: '+money(all);
 }
 async function copyPay(){
   if(!S.sal)return;
-  const tx=payText(S.sal);
+  const tx=payText(S.sal,S.salTab);
   try{await navigator.clipboard.writeText(tx);toast('Ведомость скопирована');return}catch(e){}
   try{const ta=document.createElement('textarea');ta.value=tx;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;left:-999px;top:0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();toast(ok?'Ведомость скопирована':'Не удалось скопировать',4000)}catch(e){toast('Не удалось скопировать',4000)}
 }
 async function showSalary(from,to){
   const today=omskToday();
   if(!from){from=perStart(today);to=today}
-  S.salFrom=from;S.salTo=to;
-  overlay('<h2>Зарплата</h2><p class="hint">Считаю…</p>');
+  S.salFrom=from;S.salTo=to;if(!S.salTab)S.salTab='sum';
+  closeOv();S.view='sal';S.sal=null;S.salErr=null;S.salLoad=true;paint();
   try{
-    const r=await rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to,p_test:!!S.salTest},15000);
-    if(!r||!r.ok){overlay('<h2>Зарплата</h2><p>'+esc(SAL_ERR[r&&r.error]||'Не удалось посчитать')+'</p><button class="btn" data-act="ovclose">Закрыть</button>');return}
-    S.sal=r;drawSalary();
-  }catch(e){overlay('<h2>Зарплата</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn" data-act="ovclose">Закрыть</button>')}
+    const r=await rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to,p_test:false},15000);
+    if(S.salFrom!==from||S.salTo!==to)return;
+    if(!r||!r.ok)S.salErr=SAL_ERR[r&&r.error]||'Не удалось посчитать';else S.sal=r;
+  }catch(e){if(S.salFrom!==from||S.salTo!==to)return;S.salErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  S.salLoad=false;if(S.view==='sal')paint();
 }
 function adjItems(items){
   const it=(items||[]).filter(i=>!i.is_cancel&&!i.cancelled);
   return it.map(i=>'<div class="srow sub"><span>'+esc(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</span><b>'+sgn(Number(i.amount))+'</b></div>').join('');
 }
-function drawSalary(){
-  const old=document.querySelector('.ov>.card');const st=old?old.scrollTop:0;
-  const r=S.sal,rt=r.rates||{};const pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100;
-  const t=r.totals||{};const all=Number(t.admins||0)+Number(t.assistants||0)+Number(t.extra||0);
-  const today=omskToday(),cs=perStart(today);
-  const prevEnd=addDays(cs,-1),prevStart=perStart(prevEnd);
-  let h='<h2>Зарплата: '+ruDate(r.from)+' — '+ruDate(r.to)+'</h2>';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"><button class="btn sec small" data-act="salper" data-from="'+cs+'" data-to="'+today+'">Сейчас</button>'
-    +'<button class="btn sec small" data-act="salper" data-from="'+prevStart+'" data-to="'+prevEnd+'">Прошлый период</button></div>';
-  h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(r.from)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(r.to)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
-  (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
-  const pay=payList(r);
-  h+='<div class="card pay'+(S.salTest?' demo':'')+'" style="margin:10px 0"><h3 style="margin-top:2px">'+(S.salTest?'Пример: кому сколько':'Кому сколько выплатить')+'</h3>';
-  if(!pay.length)h+='<p class="hint">За этот период пока никому не начислено: нет отчётов с администраторами и ассистентами. Чтобы увидеть, как выглядит расчёт, нажмите «Пример на тестовых отчётах».</p>';
-  pay.forEach(p=>{h+='<div class="paybl">'+srow(esc(p.name)+'<br><small style="color:var(--mute)">'+esc(p.role)+'</small>','<span class="paysum">'+money(p.total)+'</span>')+p.items.map(i=>'<div class="srow sub"><span>'+esc(i.l)+'</span><b>'+(i.sg?sgn(i.v):money(i.v))+'</b></div>').join('')+'</div>'});
-  h+='<div class="srow big paytot"><span>Всего к выплате</span><b>'+money(all)+'</b></div>'
-    +'<p class="hint" style="margin:2px 0 6px">Администраторы '+money(Number(t.admins||0))+' · Ассистенты '+money(Number(t.assistants||0))+(Number(t.extra||0)?' · Прочие '+money(Number(t.extra)):'')+'</p>'
-    +(pay.length?'<button class="btn sec small" data-act="salcopy">Скопировать ведомость</button> ':'')
-    +'<button class="btn sec small" data-act="saltest">'+(S.salTest?'Вернуться к настоящим отчётам':'Пример на тестовых отчётах')+'</button></div>';
-  h+='<details class="paydet"><summary>Проверка по дням и сменам</summary>';
-  h+='<h3>Администраторы</h3>';
-  if(!(r.admins||[]).length)h+='<p class="hint">Нет отчётов с администраторами за этот период.</p>';
-  (r.admins||[]).forEach(a=>{
-    h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div>'
-      +srow('Смен: '+a.shifts+' × '+money(Number(a.shift_rate)),money(Number(a.shift_pay)))
-      +srow('Вал аптеки '+money(Number(a.pharm_val))+' × '+pct+'%',money(Number(a.pct_pay)))
-      +(Number(a.late_hours)>0?srow('Задержка: '+a.late_hours+' ч × '+money(Number(rt.hour)),money(Number(a.late_pay))):'')
-      +adjItems(a.adj_items)
-      +'<details><summary>По дням</summary>'+(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+(d.left?' · ушёл '+esc(d.left):'')+(Number(d.late_hours)>0?' · '+d.late_hours+' ч':'')+'</span><b>аптека '+money(Number(d.pharm))+'</b></div>').join('')+'</details></div>';
-  });
-  h+='<h3>Ассистенты</h3>';
-  if(!(r.assistants||[]).length)h+='<p class="hint">Нет отчётов с ассистентами за этот период.</p>';
-  (r.assistants||[]).forEach(a=>{
-    h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div><small style="color:var(--mute)">'+esc(SAL_ROLE[a.role]||'')+'</small>'
-      +srow('Смен: '+a.shifts,money(Number(a.shift_pay)))
-      +srow('Фиксации: обычные '+a.fix_normal+' × '+money(Number(rt.fix_normal))+', рентген '+a.fix_xray+' × '+money(Number(rt.fix_xray)),money(Number(a.fix_pay)))
-      +adjItems(a.adj_items)
-      +'<details><summary>По дням</summary>'+(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+'</span><b>'+d.fix_normal+' + '+d.fix_xray+' рентген</b></div>').join('')+'</details></div>';
-  });
-  if((r.extra||[]).length){
-    h+='<h3>Только добавки</h3>';
-    r.extra.forEach(a=>{h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div>'+adjItems(a.adj_items)+'</div>'});
+function salHtml(){
+  const r=S.sal,today=omskToday(),cs=perStart(today),prevEnd=addDays(cs,-1),prevStart=perStart(prevEnd),yest=addDays(today,-1);
+  const f=S.salFrom,t=S.salTo,on=(a,b)=>(f===a&&t===b)?' on':'';
+  const chip=(l,a,b)=>'<button class="chip'+on(a,b)+'" data-act="salper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  let h='<div class="card"><h2>Зарплата</h2><div class="chips">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',prevStart,prevEnd)+'<button class="chip'+(S.salDates?' on':'')+'" data-act="saldates">Даты ▾</button></div>';
+  if(S.salDates)h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(t)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
+  h+='<p class="hint" style="margin:6px 0">'+(f===t?ruDate(f):ruDate(f)+' — '+ruDate(t))+'</p>';
+  h+='<div class="chips tabs">'+[['sum','Сводка'],['adm','Админы'],['ast','Ассистенты'],['add','Добавки']].map(x=>'<button class="chip'+(S.salTab===x[0]?' on':'')+'" data-act="saltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>';
+  if(S.salErr)return h+'<div class="card"><p>'+esc(S.salErr)+'</p><button class="btn sec small" data-act="salper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  if(!r)return h+'<div class="card"><p class="hint">Считаю…</p></div>';
+  const rt=r.rates||{},pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100,tt=r.totals||{};
+  const all=Number(tt.admins||0)+Number(tt.assistants||0)+Number(tt.extra||0);
+  const tab=S.salTab;
+  if(tab==='sum'){
+    (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
+    h+='<div class="card pay"><h3 style="margin-top:2px">Всего к выплате</h3><div class="srow big" style="font-size:24px"><span></span><b>'+money(all)+'</b></div>';
+    const pay=payList(r);
+    if(!pay.length)h+='<p class="hint">За этот период пока никому не начислено: нет отчётов со сменами.</p>';
+    else h+='<button class="btn sec small" data-act="salcopy">Скопировать ведомость</button>';
+    h+='</div>';
+    h+='<div class="card"><h3 style="margin-top:2px">По группам</h3>'
+      +'<button class="srow grow" data-act="saltab" data-t="adm"><span>Администраторы ›</span><b>'+money(Number(tt.admins||0))+'</b></button>'
+      +'<button class="srow grow" data-act="saltab" data-t="ast"><span>Ассистенты ›</span><b>'+money(Number(tt.assistants||0))+'</b></button>'
+      +'<button class="srow grow" data-act="saltab" data-t="add"><span>Только добавки ›</span><b>'+money(Number(tt.extra||0))+'</b></button>'
+      +'<p class="hint" style="margin:4px 0 0">Добавки админов и ассистентов уже внутри их сумм.</p></div>';
+    const by=new Map();dayPays(r).forEach(p=>by.set(p.b,(by.get(p.b)||0)+p.pay));
+    const adjAll=[].concat(r.admins||[],r.assistants||[],r.extra||[]).reduce((s,a)=>s+Number(a.adj||0),0);
+    h+='<div class="card"><h3 style="margin-top:2px">По филиалам</h3>'+BRANCHES.filter(b=>!b.testOnly).map(b=>'<div class="srow"><span>'+esc(brTitle(b.id))+'</span><b>'+money(by.get(b.id)||0)+'</b></div>').join('')
+      +(adjAll?'<div class="srow"><span>Такси, доплаты, вычеты</span><b>'+sgn(adjAll)+'</b></div>':'')+'</div>';
+    return h;
   }
-  h+='</details>';
-  h+='<h3>Добавки за период</h3><button class="btn sec" style="margin:4px 0 8px" data-act="saladd">+ Такси или добавка</button>';
+  if(tab==='adm'||tab==='ast'){
+    const list=tab==='adm'?(r.admins||[]):(r.assistants||[]);
+    const sum=list.reduce((s,a)=>s+Number(a.total||0),0);
+    h+='<div class="card"><div class="srow big"><span>'+(tab==='adm'?'Администраторы':'Ассистенты')+'</span><b>'+money(sum)+'</b></div>';
+    if(!list.length)h+='<p class="hint">Нет отчётов со сменами за этот период.</p>';
+    list.forEach(a=>{
+      if(tab==='adm'){
+        h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div><small style="color:var(--mute)">Смен: '+a.shifts+'</small>'
+          +'<details><summary>Расшифровка и дни</summary>'
+          +srow('Смен: '+a.shifts+' × '+money(Number(a.shift_rate)),money(Number(a.shift_pay)))
+          +srow('Вал аптеки '+money(Number(a.pharm_val))+' × '+pct+'%',money(Number(a.pct_pay)))
+          +(Number(a.late_hours)>0?srow('Задержка: '+a.late_hours+' ч × '+money(Number(rt.hour)),money(Number(a.late_pay))):'')
+          +adjItems(a.adj_items)
+          +(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+(d.left?' · ушёл '+esc(d.left):'')+(Number(d.late_hours)>0?' · '+d.late_hours+' ч':'')+'</span><b>аптека '+money(Number(d.pharm))+'</b></div>').join('')+'</details></div>';
+      }else{
+        h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div><small style="color:var(--mute)">'+esc(SAL_ROLE[a.role]||'')+' · смен: '+a.shifts+'</small>'
+          +'<details><summary>Расшифровка и дни</summary>'
+          +srow('Смен: '+a.shifts,money(Number(a.shift_pay)))
+          +srow('Фиксации: обычные '+a.fix_normal+' × '+money(Number(rt.fix_normal))+', рентген '+a.fix_xray+' × '+money(Number(rt.fix_xray)),money(Number(a.fix_pay)))
+          +adjItems(a.adj_items)
+          +(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+'</span><b>'+d.fix_normal+' + '+d.fix_xray+' рентген</b></div>').join('')+'</details></div>';
+      }
+    });
+    if(list.length)h+='<button class="btn sec small" style="margin-top:6px" data-act="salcopy">Скопировать ведомость</button>';
+    return h+'</div>';
+  }
+  /* добавки */
+  h+='<div class="card"><button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Такси или добавка</button>';
   const al=(r.adj||[]).filter(i=>!i.is_cancel);
-  if(!al.length)h+='<p class="hint">Добавок нет.</p>';
+  if(!al.length)h+='<p class="hint">Добавок за этот период нет.</p>';
   al.forEach(i=>{
     h+='<div class="person"'+(i.cancelled?' style="opacity:.55"':'')+'><div class="srow"><span><b'+(i.cancelled?' style="text-decoration:line-through"':'')+'>'+esc(i.name)+'</b><br><small>'+esc(SAL_KIND[i.kind]||i.kind)+' · '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</small></span><b>'+sgn(Number(i.amount))+'</b></div>'
       +(i.cancelled?'<small>отменено</small>':'<button class="btn sec small" style="margin-top:6px" data-act="salcancel" data-id="'+i.id+'">Отменить</button>')+'</div>';
   });
-  h+='<p class="hint">Расчёт по последним версиям отчётов, без филиала «ТЕСТ». Задержка: первый час с 21:35, дальше каждый час в :35. Проценты и доплаты выплачиваются за полмесяца.</p>';
-  h+='<button class="btn" style="margin-top:8px" data-act="ovclose">Закрыть</button>';
-  overlay(h);
-  const nw=document.querySelector('.ov>.card');if(nw)nw.scrollTop=st;
+  h+='<p class="hint">Расчёт по последним версиям отчётов, без тестового филиала. Задержка: первый час с 21:35, дальше каждый час в :35. Проценты и доплаты выплачиваются за полмесяца.</p>';
+  if(al.length)h+='<button class="btn sec small" data-act="salcopy">Скопировать список</button>';
+  return h+'</div>';
 }
+
+/* ====== Выручка и зарплата за день по филиалу: только руководитель, из последних версий отчётов ====== */
+function dayPays(r){
+  const rt=r.rates||{},o=[],hr=Number(rt.admin_shift)/12;
+  (r.admins||[]).forEach(a=>(a.days||[]).forEach(d=>{const lh=Number(d.late_hours)||0;o.push({b:d.branch,date:d.date,id:a.id,name:a.name,kind:'adm',late:lh,pay:Number(rt.admin_shift)+Number(d.pharm||0)*Number(rt.admin_pharmacy_pct)+lh*hr})}));
+  (r.assistants||[]).forEach(a=>(a.days||[]).forEach(d=>{const fn=Number(d.fix_normal)||0,fx=Number(d.fix_xray)||0;o.push({b:d.branch,date:d.date,id:a.id,name:a.name,kind:'ast',fn:fn,fx:fx,pay:Number(d.rate||0)+fn*Number(rt.fix_normal)+fx*Number(rt.fix_xray)})}));
+  return o;
+}
+function staffOf(sal,bid){
+  if(!sal)return null;
+  const map=new Map();
+  dayPays(sal).filter(p=>p.b===bid).forEach(p=>{const k=p.kind+':'+p.id;let o=map.get(k);if(!o){o={kind:p.kind,name:p.name,pay:0,n:0,late:0,fn:0,fx:0};map.set(k,o)}o.pay+=p.pay;o.n++;o.late+=p.late||0;o.fn+=p.fn||0;o.fx+=p.fx||0});
+  return [...map.values()].sort((a,b)=>(a.kind==='adm'?0:1)-(b.kind==='adm'?0:1)||a.name.localeCompare(b.name,'ru'));
+}
+function revAgg(reps){
+  const a={n:reps.length,total:0,cash:0,cashless:0,pv:0,pc:0,pl:0,docs:new Map()};
+  reps.forEach(r=>{a.total+=Number(r.total);a.cash+=Number(r.cash);a.cashless+=Number(r.cashless);a.pv+=Number(r.pharm_val);a.pc+=Number(r.pharm_cash);a.pl+=Number(r.pharm_cashless);
+    (r.doctors||[]).forEach(d=>a.docs.set(d.name,(a.docs.get(d.name)||0)+Number(d.val)))});
+  return a;
+}
+async function showRevenue(from,to){
+  const today=omskToday();
+  if(!from){from=S.revFrom||today;to=S.revTo||from}
+  S.revFrom=from;S.revTo=to;if(!S.revBranch)S.revBranch='all';
+  S.view='rev';S.rev=null;S.revSal=null;S.revErr=null;S.revLoad=true;paint();
+  try{
+    const [rv,sl]=await Promise.all([rpc('ev_revenue',{p_token:S.token,p_from:from,p_to:to},12000),rpc('ev_salary',{p_token:S.token,p_from:from,p_to:to,p_test:false},15000).catch(()=>null)]);
+    if(S.revFrom!==from||S.revTo!==to)return;
+    if(!rv||!rv.ok)S.revErr=SAL_ERR[rv&&rv.error]||'Не удалось загрузить';
+    else{S.rev=rv;S.revSal=(sl&&sl.ok)?sl:null}
+  }catch(e){if(S.revFrom!==from||S.revTo!==to)return;S.revErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  S.revLoad=false;if(S.view==='rev')paint();
+}
+function staffLine(o,rt){
+  const pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100;
+  let d=o.kind==='adm'?'ставка + '+pct+'% аптеки'+(o.late>0?' + задержка '+o.late+' ч':''):'ставка'+((o.fn||o.fx)?' + фиксации: '+o.fn+(o.fx?' + '+o.fx+' рентген':''):'');
+  if(o.n>1)d=o.n+' смен: '+d;
+  return '<div class="srow"><span>'+esc(o.name)+'<br><small style="color:var(--mute)">'+esc(d)+'</small></span><b>'+money(o.pay)+'</b></div>';
+}
+function revBranchCard(bid){
+  const rv=S.rev,f=S.revFrom,t=S.revTo,single=f===t;
+  const reps=(rv.reports||[]).filter(r=>r.branch===bid);
+  let h='<div class="card"><h2>'+esc(brTitle(bid))+'</h2>';
+  if(!reps.length)return h+'<p class="hint">'+(single?'Отчёта за '+ruDate(f)+' ещё нет.':'Отчётов за этот период нет.')+'</p></div>';
+  const a=revAgg(reps);
+  h+='<h3>Выручка'+(single?'':' ('+a.n+' '+(a.n===1?'отчёт':'отч.')+')')+'</h3>';
+  h+='<div class="srow big"><span>Клиника, вал</span><b>'+money(a.total)+'</b></div>'
+    +'<div class="srow sub"><span>наличные</span><b>'+money(a.cash)+'</b></div><div class="srow sub"><span>безнал</span><b>'+money(a.cashless)+'</b></div>'
+    +'<div class="srow big" style="margin-top:6px"><span>Аптека, вал</span><b>'+money(a.pv)+'</b></div>'
+    +'<div class="srow sub"><span>наличные</span><b>'+money(a.pc)+'</b></div><div class="srow sub"><span>безнал</span><b>'+money(a.pl)+'</b></div>';
+  const docs=[...a.docs.entries()].sort((x,y)=>y[1]-x[1]);
+  h+='<h3>Врачи, вал</h3>'+(docs.length?docs.map(d=>'<div class="srow"><span>'+esc(d[0])+'</span><b>'+money(d[1])+'</b></div>').join(''):'<p class="hint">Врачей в отчёте нет.</p>');
+  const st=staffOf(S.revSal,bid);
+  h+='<h3>Зарплата '+(single?'за день':'за период')+'</h3>';
+  if(st===null)h+='<p class="hint">Зарплата не загрузилась. Откройте вкладку «Зарплата».</p>';
+  else if(!st.length)h+='<p class="hint">Смен в отчётах нет.</p>';
+  else{h+=st.map(o=>staffLine(o,S.revSal.rates||{})).join('')+'<div class="srow big paytot"><span>Итого</span><b>'+money(st.reduce((s,o)=>s+o.pay,0))+'</b></div><p class="hint">Без такси, доплат и вычетов: они во вкладке «Зарплата».</p>'}
+  const last=reps[0];
+  h+='<p class="hint">'+(single?('Отчёт подан '+ruDate(last.at.slice(0,10))+' в '+esc(last.at.slice(11))+', версия '+last.version+(last.by?', '+esc(last.by):'')+(last.correction?' (исправление)':'')+'.').replace(/\.\.$/,'.'):'Последний отчёт: '+ruDate(last.date)+'.')+'</p>';
+  return h+'</div>';
+}
+function revHtml(){
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),yest=addDays(today,-1),f=S.revFrom,t=S.revTo;
+  const on=(a,b)=>(f===a&&t===b)?' on':'';
+  const chip=(l,a,b)=>'<button class="chip'+on(a,b)+'" data-act="revper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  let h='<div class="card"><h2>Выручка</h2><div class="chips">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',ps,pe)+'<button class="chip'+(S.revDates?' on':'')+'" data-act="revdates">Даты ▾</button></div>';
+  if(S.revDates)h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="revf" type="date" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="revt" type="date" value="'+esc(t)+'"></label><button class="btn small" data-act="revgo">Показать</button></div>';
+  h+='<p class="hint" style="margin:6px 0">'+(f===t?ruDate(f):ruDate(f)+' — '+ruDate(t))+'</p>';
+  h+='<div class="chips">'+[['all','Все']].concat(BRANCHES.filter(b=>!b.testOnly).map(b=>[b.id,brTitle(b.id)])).map(x=>'<button class="chip'+(S.revBranch===x[0]?' on':'')+'" data-act="revbr" data-b="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div></div>';
+  if(S.revErr)return h+'<div class="card"><p>'+esc(S.revErr)+'</p><button class="btn sec small" data-act="revper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  if(!S.rev)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
+  const bids=BRANCHES.filter(b=>!b.testOnly).map(b=>b.id);
+  if(S.revBranch!=='all'&&bids.includes(S.revBranch))return h+revBranchCard(S.revBranch);
+  /* все филиалы: одна строка на филиал, нажатие открывает филиал */
+  let tot={c:0,p:0,s:0,n:0};
+  h+='<div class="card"><h2>Все филиалы</h2>';
+  bids.forEach(bid=>{
+    const reps=(S.rev.reports||[]).filter(r=>r.branch===bid),a=revAgg(reps),st=staffOf(S.revSal,bid),sp=st?st.reduce((s,o)=>s+o.pay,0):0;
+    tot.c+=a.total;tot.p+=a.pv;tot.s+=sp;tot.n+=a.n;
+    h+='<button class="person revrow" data-act="revbr" data-b="'+esc(bid)+'"><b>'+esc(brTitle(bid))+' ›</b>'+(a.n?'<div class="srow"><span>Клиника</span><b>'+money(a.total)+'</b></div><div class="srow"><span>Аптека</span><b>'+money(a.pv)+'</b></div><div class="srow"><span>Зарплата</span><b>'+(st?money(sp):'—')+'</b></div>':'<small style="color:var(--mute)">отчёта нет</small>')+'</button>';
+  });
+  h+='<div class="srow big paytot"><span>Всего</span><b>'+money(tot.c+tot.p)+'</b></div><div class="srow sub"><span>клиника</span><b>'+money(tot.c)+'</b></div><div class="srow sub"><span>аптека</span><b>'+money(tot.p)+'</b></div><div class="srow sub"><span>зарплата по сменам</span><b>'+money(tot.s)+'</b></div></div>';
+  return h;
+}
+
 function salAddForm(){
   S.salUid=S.salUid||uid();
   const r=S.sal||{};
@@ -882,7 +1008,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="salary">Зарплата</button><button class="btn sec" style="margin:6px 0" data-act="control">Контроль: расхождения</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button><button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button><button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -980,16 +1106,20 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'control':showControl();break;
-    case'salary':S.salTest=false;showSalary();break;
-    case'saltest':S.salTest=!S.salTest;showSalary(S.salFrom,S.salTo);break;
+    case'go':{closeOv();const v=d.v;if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
+    case'saldates':S.salDates=!S.salDates;paint();break;
+    case'saltab':S.salTab=d.t;paint();window.scrollTo(0,0);break;
     case'salgo':{const f=($('#salf')||{}).value,t=($('#salt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showSalary(f,t);break}
     case'saladd':salAddForm();break;
     case'saladdgo':doSalAdd();break;
-    case'salback':drawSalary();break;
+    case'salback':closeOv();break;
     case'salcancel':doSalCancel(d.id);break;
+    case'revper':showRevenue(d.from,d.to);break;
+    case'revdates':S.revDates=!S.revDates;paint();break;
+    case'revbr':S.revBranch=d.b;paint();window.scrollTo(0,0);break;
+    case'revgo':{const f=($('#revf')||{}).value,t=($('#revt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showRevenue(f,t);break}
     case'accept':doAccept(d);break;
     case'chpin':showPin();break;
     case'dopin':{
