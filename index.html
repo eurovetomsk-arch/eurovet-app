@@ -171,7 +171,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.31'
+  appVer:'1.32'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -235,7 +235,7 @@ const S={
   view:'login',
   token:LS.get('ev_token'),
   person:LS.get('ev_person'),
-  branch:null,date:omskToday(),ctx:null,ctxOffline:false,
+  branch:null,date:omskToday(),dateManual:false,ctx:null,ctxOffline:false,
   form:null,loginList:LS.get('ev_loginlist',[]),pick:LS.get('ev_last'),
   queue:LS.get('ev_queue',[]),online:navigator.onLine,done:null,busy:false
 };
@@ -465,18 +465,20 @@ async function openBranch(id){
   S.branch=id;S.busy=true;render();
   let ctx=null;S.ctxOffline=false;
   try{
-    ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date},8000);
+    const t0=Date.now();
+    try{ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date},8000)}
+    catch(e1){if(!e1.net||Date.now()-t0>3000)throw e1;ctx=await rpc('ev_context',{p_token:S.token,p_branch:id,p_date:S.date},6000)} // быстрый сбой сети — одна повторная попытка; зависание не удваиваем
     if(!ctx.ok){
       if(ctx.error==='session'){S.busy=false;S.token=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();return}
       toast('Ошибка: '+ctx.error);S.busy=false;render();return;
     }
-    LS.set('ev_ctx:'+id,ctx);
+    {const keep=Object.assign({},ctx);keep.prev=null;keep.current=null;LS.set('ev_ctx:'+id,keep)} // в запас — только списки; остаток и сданный отчёт не храним
   }catch(e){
     if(!e.net){toast('Ошибка сервера ('+e.http+')');S.busy=false;render();return}
     ctx=LS.get('ev_ctx:'+id);
     if(!ctx){toast('Нет связи, и для этого филиала нет сохранённого списка. Подключитесь к интернету.',7000);S.busy=false;render();return}
     S.ctxOffline=true;
-    ctx.current=null; // сданные версии без связи неизвестны
+    ctx.current=null;ctx.prev=null; // сданные версии и вчерашний остаток без связи неизвестны — не подставляем чужое/старое
   }
   S.ctx=ctx;
   const draft=LS.get(draftKey());
@@ -569,7 +571,7 @@ function viewForm(){
   const f=S.form,c=S.ctx;let h='';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
-  if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div>Нет связи: список сотрудников и вчерашний остаток взяты из сохранённых. Отчёт сохранится на устройстве и уйдёт при появлении интернета.</div></div>';
+  if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div><b>Нет связи с сервером.</b> «Начальная инкассация» не подставлена — вчерашний итог неизвестен. Подождите связь и нажмите «Обновить», либо впишите начало вручную по факту. Отчёт сохранится на устройстве и уйдёт при появлении интернета.<br><button class="btn sec small" style="margin-top:8px" data-act="reloadctx">Обновить с сервера</button></div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
   if(c.current)h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">Выбрать другую дату</button>';
   if(c.current)h+='<div id="flagbox">'+flagsHtml()+'</div>';
@@ -608,7 +610,11 @@ function viewForm(){
     '<label class="f"><span>Причина (обязательно, если есть суммы; без ФИО клиента)</span><input data-p="nc_comment" value="'+esc(f.nc_comment)+'"></label></div>';
 
   h+='<div class="card k-cash"><h2>Касса (инкассация)</h2>'+nfield('open','Начальная инкассация, ₽',f.open,'','open');
-  if(c.prev&&c.prev.closing!=null)h+='<p class="hint">Подставлено из итога за '+ruDate(c.prev.date)+': '+money(Number(c.prev.closing))+'. Если на деле иначе — исправьте, система подсветит расхождение.</p>';
+  if(c.prev&&c.prev.closing!=null){
+    const yd=addDays(S.date,-1),gap=c.prev.date!==yd;
+    h+='<p class="hint">Подставлено из итога смены за '+ruDate(c.prev.date)+(c.prev.by?' ('+esc(c.prev.by)+')':'')+': '+money(Number(c.prev.closing))+'. Касса переходящая: берём итог предыдущей смены этого филиала, кто бы её ни сдавал. Если на деле иначе — исправьте, система подсветит расхождение.</p>';
+    if(gap)h+='<div class="chk warn"><i>!</i><div>В системе нет отчёта за '+ruDate(yd)+(c.prev.date<addDays(S.date,-2)?' и предыдущие дни до '+ruDate(c.prev.date):'')+'. Остаток взят из последнего сданного — за '+ruDate(c.prev.date)+'. Сверьте с реальной кассой; если отчёт за пропущенный день ещё не сдан — сдайте его.</div></div>';
+  }else if(!S.ctxOffline)h+='<p class="hint">По этому филиалу ранее сданных отчётов нет — впишите начальную инкассацию по факту.</p>';
   h+='<h3>Расходы'+hbtn('exp')+'</h3>';
   f.expenses.forEach((e,i)=>{
     h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
@@ -1074,7 +1080,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.t
 document.addEventListener('pointerdown',e=>{const a=document.activeElement;if(isField(a)&&!e.target.closest('input,textarea,select,label,button'))a.blur()});
 document.addEventListener('change',e=>{
   const t=e.target;
-  if(t.id==='dt'){S.date=t.value||omskToday();return}
+  if(t.id==='dt'){S.date=t.value||omskToday();S.dateManual=S.date!==omskToday();return}
   if(t.dataset&&t.dataset.p&&S.form&&t.tagName==='SELECT'){setPath(S.form,t.dataset.p,t.value);
     const mm=/^expenses\.(\d+)\.article$/.exec(t.dataset.p);
     if(mm){const e=S.form.expenses[Number(mm[1])];if(e){e.method=isRet(e.article)?(e.method==='cash'||e.method==='noncash'?e.method:''):''}saveDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
@@ -1088,7 +1094,8 @@ document.addEventListener('click',async e=>{
   switch(a){
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
     case'login':doLogin(($('#pin')||{}).value||'');break;
-    case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;openBranch(d.id);break}
+    case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
+    case'reloadctx':openBranch(S.branch);break;
     case'back':saveDraft();S.view='branch';S.form=null;render();break;
     case'tog':{
       const g=d.g,id=d.id,f=S.form;
@@ -1107,7 +1114,7 @@ document.addEventListener('click',async e=>{
     case'submit':if(!S.busy)submit();break;
     case'copy':if(S.done)clip(S.done.summary);break;
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
-    case'newrep':S.done=null;S.form=null;S.view='branch';render();break;
+    case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;render();break;
     case'menu':showMenu();break;
     case'help':openHelp();break;
     case'helpback':closeHelp();break;
@@ -1152,9 +1159,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')
 
 window.addEventListener('online',()=>{S.online=true;setHeader();kick()});
 window.addEventListener('offline',()=>{S.online=false;setHeader()});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')kick()});
-window.addEventListener('pageshow',kick);
-window.addEventListener('focus',kick);
+function syncDate(){ // приложение могло неделю висеть открытым: если дату руками не меняли — всегда сегодняшняя
+  if(!S.dateManual&&S.date!==omskToday()){S.date=omskToday();if(S.view==='branch'&&S.token)render()}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncDate();kick()}});
+window.addEventListener('pageshow',()=>{syncDate();kick()});
+window.addEventListener('focus',()=>{syncDate();kick()});
 // пока в очереди есть отчёт — пробуем каждые 8 секунд (не полагаясь на navigator.onLine: на iPhone он врёт)
 setInterval(()=>{if(S.queue.length&&!flushing){resetOffline();flush(true)}},8000);
 
