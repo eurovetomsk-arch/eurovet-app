@@ -96,7 +96,7 @@ button{font:inherit;cursor:pointer}
 .net.off{background:#f87171}
 pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;font-size:13px}
 /* цвет блоков: спокойная полоса слева, маленький маркер у заголовка, лёгкий оттенок фона */
-.k-staff{--k0:#64788a}.k-docs{--k0:#2A7D90}.k-clinic{--k0:#2f6fa3}.k-pharm{--k0:#7b5ea7}.k-adv{--k0:#b7791f}.k-comp{--k0:#a4524b}.k-cash{--k0:#3f7d4e}.k-assist{--k0:#8a6d4b}.k-misc{--k0:#64788a}.k-check{--k0:#4b5d6b}
+.k-staff{--k0:#64788a}.k-docs{--k0:#2A7D90}.k-clinic{--k0:#2f6fa3}.k-pharm{--k0:#7b5ea7}.k-adv{--k0:#b7791f}.k-comp{--k0:#a4524b}.k-debt{--k0:#b5543a}.k-cash{--k0:#3f7d4e}.k-assist{--k0:#8a6d4b}.k-misc{--k0:#64788a}.k-check{--k0:#4b5d6b}
 .card[class*=" k-"]{--k:var(--k0);border-left:5px solid var(--k);background:color-mix(in srgb,var(--k) 5%,var(--card))}
 @media (prefers-color-scheme:dark){.card[class*=" k-"]{--k:color-mix(in srgb,var(--k0) 60%,#fff)}}
 .card[class*=" k-"] h2::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--k);flex:none}
@@ -171,7 +171,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.30'
+  appVer:'1.31'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -257,7 +257,7 @@ function toast(msg,ms=4000){
 
 /* ====== Форма ====== */
 const emptyForm=()=>({admins:{},doctors:{},others:[],total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
-  open:'',expenses:[],close:'',assistants:{},note:'',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',diff_reason:'',corr_reason:''});
+  open:'',expenses:[],close:'',assistants:{},note:'',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''});
 const draftKey=()=>'ev_draft2:'+(S.person?S.person.id:0)+':'+S.branch+':'+S.date;
 let draftT;
 function freshForm(){
@@ -278,7 +278,7 @@ function formFromReport(d){ // загрузка ранее сданной вер
   f.open=s(d.cashbox&&d.cashbox.opening);f.close=s(d.cashbox&&d.cashbox.closing);
   f.expenses=((d.cashbox&&d.cashbox.expenses)||[]).map(e=>({article:e.article||'',amount:s(e.amount),comment:e.comment||'',method:e.method||(isRet(e.article||'')?'cash':'')}));
   (d.assistants||[]).forEach(a=>f.assistants[a.role+':'+a.id]={fn:a.fix_normal||0,fx:a.fix_xray||0,left:a.left||''});
-  f.note=d.note||'';f.adv_cash=s(d.advance_cash);f.adv_cashless=s(d.advance_cashless);f.adv_out=s(d.advance_out);f.comp=s(d.noncash&&d.noncash.bonus);f.cert=s(d.noncash&&d.noncash.certificate);f.nc_comment=(d.noncash&&d.noncash.comment)||'';f.diff_reason=d.diff_reason||'';
+  f.note=d.note||'';f.adv_cash=s(d.advance_cash);f.adv_cashless=s(d.advance_cashless);f.adv_out=s(d.advance_out);f.comp=s(d.noncash&&d.noncash.bonus);f.cert=s(d.noncash&&d.noncash.certificate);f.nc_comment=(d.noncash&&d.noncash.comment)||'';f.debt=s(d.debt);f.debt_comment=d.debt_comment||'';f.repaid=s(d.debt_repaid);f.diff_reason=d.diff_reason||'';
   return f;
 }
 
@@ -302,7 +302,8 @@ function compute(){
   const ms=a=>a.filter(Boolean).join(', ');
   add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' vs общая '+money(total),
     ms([f.total===''&&'«Клиника общая»',!(Object.keys(f.doctors).length>0||f.others.length>0)&&'отметьте врачей и введите их вал']));
-  add('pay','Нал + безнал = Клиника общая',cash+cashless-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+' vs общая '+money(total),
+  const repaid=N(f.repaid);
+  add('pay','Нал + безнал'+(repaid>0?' − погашенный долг':'')+' = Клиника общая',cash+cashless-repaid-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+(repaid>0?' − погашение долга '+money(repaid):'')+' vs общая '+money(total),
     ms([f.total===''&&'«Клиника общая»',(f.cash===''&&f.cashless==='')&&'«Нал» и «Безнал»']));
   const phAny=f.ph_val!==''||f.ph_cash!==''||f.ph_cashless!=='';
   add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv),
@@ -320,7 +321,7 @@ function validate(){
   const need=(k,l)=>{const v=num(f[k]);if(v==null||isNaN(v))errs.push(l)};
   if(!Object.keys(f.admins).length)errs.push('Отметьте, кто работал администратором');
   need('total','«Клиника общая»');need('cash','«Нал клиники»');need('cashless','«Безнал клиники»');need('open','«Начальная инкассация»');need('close','«Итог инкассации»');
-  const LBL={ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан',comp:'Компенсация клиенту',cert:'Оплата сертификатом'};
+  const LBL={ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',debt:'Долг клиентов',repaid:'Погашен прошлый долг',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан',comp:'Компенсация клиенту',cert:'Оплата сертификатом'};
   Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
   Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
   f.others.forEach((o,i)=>{const v=num(o.val);if(!o.title.trim()||v==null||isNaN(v))errs.push('Строка «не из списка» №'+(i+1)+': нужно название и сумма')});
@@ -356,6 +357,7 @@ function buildData(calc){
       closing:N(f.close),expected_closing:calc.expected,prev_closing:(c.prev&&c.prev.closing!=null)?Number(c.prev.closing):null},
     assistants,
     fix_totals:{normal:assistants.reduce((a,x)=>a+x.fix_normal,0),xray:assistants.reduce((a,x)=>a+x.fix_xray,0)},
+    debt:f.debt===''?null:N(f.debt),debt_comment:(f.debt_comment||'').trim()||null,debt_repaid:f.repaid===''?null:N(f.repaid),
     advance_cash:f.adv_cash===''?null:N(f.adv_cash),advance_cashless:f.adv_cashless===''?null:N(f.adv_cashless),advance_out:f.adv_out===''?null:N(f.adv_out),
     noncash:(N(f.comp)>0||N(f.cert)>0)?{bonus:N(f.comp),certificate:N(f.cert),comment:(f.nc_comment||'').trim()}:null,
     note:f.note.trim()||null,diff_reason:f.diff_reason.trim()||null,
@@ -431,6 +433,7 @@ function summaryText(d){
   L.push('Аптека: вал '+d.pharmacy.val+', нал '+d.pharmacy.cash+', безнал '+d.pharmacy.cashless);
   L.push('Инкасс. начало: '+d.cashbox.opening);
   d.cashbox.expenses.forEach(e=>L.push('Расход '+e.article+': '+e.amount+(isRet(e.article)?(e.method==='noncash'?' безналично (из кассы не вычитается)':' наличными'):'')+(e.comment?' ('+e.comment+')':'')));
+  if(d.debt>0||d.debt_repaid>0)L.push('Долги клиентов: не оплачено '+(d.debt||0)+(d.debt_comment?' ('+d.debt_comment+')':'')+', погашено прошлых '+(d.debt_repaid||0));
   if(d.noncash)L.push('Без денег в кассе: компенсации '+d.noncash.bonus+', сертификаты '+d.noncash.certificate+' ('+d.noncash.comment+')');
   if(d.advance_cash!=null||d.advance_cashless!=null||d.advance_out!=null)L.push('Аванс: принят нал '+(d.advance_cash||0)+', безнал '+(d.advance_cashless||0)+', списан '+(d.advance_out||0));
   L.push('Инкасс. итог: '+d.cashbox.closing);
@@ -541,11 +544,12 @@ function viewBranch(){
 /*HELP_END*/
 const HINTS={
   admins:['Администраторы смены','Отметьте тех, кто работал администратором в этот день. Время ухода нужно, только если ушли позже 21:00: переработку считает система, самому её считать не нужно.'],
-  docs:['Вал врачей','Вал врача — сумма проведённых и полностью оплаченных счетов этого врача за день в Vetmanager. Отметьте работавших врачей и введите вал каждого. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
+  docs:['Вал врачей','Вал врача — сумма, которую клиенты реально оплатили по проведённым счетам этого врача за день в Vetmanager. Если счёт оплачен частично, берите только оплаченную часть, остаток вписывается в блок «Долги клиентов». Отметьте работавших врачей и введите вал каждого. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
   others:['Строка не из списка','Нужна, если был врач-замена или есть сумма, которой нет среди врачей выше. Напишите, кто или за что, и сумму. Она войдёт в «Сумма врачей».'],
-  total:['Клиника общая','Общий вал клиники за день по Vetmanager. Должна совпадать с суммой вала врачей и с «Нал + Безнал». Аванс сюда не входит.'],
+  total:['Клиника общая','Общий вал клиники за день по Vetmanager: сколько клиенты оплатили по проведённым счетам. Должна совпадать с суммой вала врачей и с «Нал + Безнал». Аванс и неоплаченные долги сюда не входят.'],
   pay:['Нал и безнал','Сколько из «Клиника общая» оплатили наличными и сколько безналично. Вместе должно получиться «Клиника общая».'],
   pharm:['Аптека','Вал аптеки за день. Нал аптеки + безнал аптеки должны давать вал аптеки. Если аптека сегодня не работала, оставьте поля пустыми.'],
+  debt:['Долги клиентов','«Клиника общая» — это то, что клиенты реально оплатили за день. Если по счёту оплачена только часть, в «Клиника общая» и в вал врача идёт оплаченная часть, а неоплаченный остаток впишите в «Не оплачено клиентами за день» (общей суммой по всем клиентам за день). Если клиент в этот день внёс деньги в погашение старого долга, впишите эту сумму в «Клиенты погасили прошлый долг»: она входит в «Нал» или «Безнал», но не в «Клиника общая».'],
   adv:['Авансы клиентов','Деньги, которые клиенты внесли вперёд. Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе, поэтому он учитывается в итоге инкассации.'],
   advcash:['Принят наличными','Сумма наличных авансов как в Vetmanager. Если часть аванса была компенсацией без денег, её нужно ещё раз указать ниже, в блоке «Компенсации и сертификаты».'],
   advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов.'],
@@ -591,6 +595,11 @@ function viewForm(){
     '<div class="row">'+nfield('cash','Нал, ₽',f.cash)+nfield('cashless','Безнал, ₽',f.cashless,'','pay')+'</div></div>';
 
   h+='<div class="card k-pharm"><h2>Аптека'+hbtn('pharm')+'</h2>'+nfield('ph_val','Вал аптеки, ₽',f.ph_val)+'<div class="row">'+nfield('ph_cash','Нал аптеки, ₽',f.ph_cash)+nfield('ph_cashless','Безнал аптеки, ₽',f.ph_cashless)+'</div></div>';
+
+  h+='<div class="card k-debt"><h2>Долги клиентов'+hbtn('debt')+'</h2><p class="hint">Заполняйте, только если клиент оплатил счёт не полностью или погасил старый долг. Если долгов нет, оставьте пустым.</p>'+
+    nfield('debt','Не оплачено клиентами за день, ₽',f.debt)+
+    '<label class="f"><span>Пояснение (необязательно, без ФИО клиента)</span><input data-p="debt_comment" value="'+esc(f.debt_comment)+'"></label>'+
+    nfield('repaid','Клиенты погасили прошлый долг за день, ₽',f.repaid)+'</div>';
 
   h+='<div class="card k-adv"><h2>Авансы клиентов'+hbtn('adv')+'</h2><p class="hint">Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out,'','advout')+'</div>';
 
@@ -894,8 +903,8 @@ function staffOf(sal,bid){
   return [...map.values()].sort((a,b)=>(a.kind==='adm'?0:1)-(b.kind==='adm'?0:1)||a.name.localeCompare(b.name,'ru'));
 }
 function revAgg(reps){
-  const a={n:reps.length,total:0,cash:0,cashless:0,pv:0,pc:0,pl:0,docs:new Map()};
-  reps.forEach(r=>{a.total+=Number(r.total);a.cash+=Number(r.cash);a.cashless+=Number(r.cashless);a.pv+=Number(r.pharm_val);a.pc+=Number(r.pharm_cash);a.pl+=Number(r.pharm_cashless);
+  const a={n:reps.length,total:0,cash:0,cashless:0,pv:0,pc:0,pl:0,debt:0,repaid:0,dc:[],docs:new Map()};
+  reps.forEach(r=>{a.total+=Number(r.total);a.cash+=Number(r.cash);a.cashless+=Number(r.cashless);a.pv+=Number(r.pharm_val);a.pc+=Number(r.pharm_cash);a.pl+=Number(r.pharm_cashless);a.debt+=Number(r.debt||0);a.repaid+=Number(r.repaid||0);if(r.debt_comment)a.dc.push(r.debt_comment);
     (r.doctors||[]).forEach(d=>a.docs.set(d.name,(a.docs.get(d.name)||0)+Number(d.val)))});
   return a;
 }
@@ -929,6 +938,12 @@ function revBranchCard(bid){
     +'<div class="srow sub"><span>наличные</span><b>'+money(a.cash)+'</b></div><div class="srow sub"><span>безнал</span><b>'+money(a.cashless)+'</b></div>'
     +'<div class="srow big" style="margin-top:6px"><span>Аптека, вал</span><b>'+money(a.pv)+'</b></div>'
     +'<div class="srow sub"><span>наличные</span><b>'+money(a.pc)+'</b></div><div class="srow sub"><span>безнал</span><b>'+money(a.pl)+'</b></div>';
+  const ob=Number(((S.rev.debt_open||{})[bid])||0);
+  if(a.debt||a.repaid||ob){
+    h+='<h3>Долги клиентов</h3>'+(a.debt?'<div class="srow"><span>Не оплачено клиентами</span><b>'+money(a.debt)+'</b></div>':'')+(a.repaid?'<div class="srow"><span>Погашено прошлых долгов</span><b>'+money(a.repaid)+'</b></div>':'')
+      +(a.dc.length?'<p class="hint" style="margin:2px 0">'+a.dc.map(esc).join('; ')+'</p>':'')
+      +'<div class="srow big"><span>Остаток долгов по отчётам</span><b>'+money(ob)+'</b></div><p class="hint">Считается по отчётам администраторов с 24.10.2026: записано как «не оплачено» минус погашено.</p>';
+  }
   const docs=[...a.docs.entries()].sort((x,y)=>y[1]-x[1]);
   h+='<h3>Врачи, вал</h3>'+(docs.length?docs.map(d=>'<div class="srow"><span>'+esc(d[0])+'</span><b>'+money(d[1])+'</b></div>').join(''):'<p class="hint">Врачей в отчёте нет.</p>');
   const st=staffOf(S.revSal,bid);
@@ -953,14 +968,14 @@ function revHtml(){
   const bids=BRANCHES.filter(b=>!b.testOnly).map(b=>b.id);
   if(S.revBranch!=='all'&&bids.includes(S.revBranch))return h+revBranchCard(S.revBranch);
   /* все филиалы: одна строка на филиал, нажатие открывает филиал */
-  let tot={c:0,p:0,s:0,n:0};
+  let tot={c:0,p:0,s:0,n:0,d:0};
   h+='<div class="card"><h2>Все филиалы</h2>';
   bids.forEach(bid=>{
     const reps=(S.rev.reports||[]).filter(r=>r.branch===bid),a=revAgg(reps),st=staffOf(S.revSal,bid),sp=st?st.reduce((s,o)=>s+o.pay,0):0;
-    tot.c+=a.total;tot.p+=a.pv;tot.s+=sp;tot.n+=a.n;
-    h+='<button class="person revrow" data-act="revbr" data-b="'+esc(bid)+'"><b>'+esc(brTitle(bid))+' ›</b>'+(a.n?'<div class="srow"><span>Клиника</span><b>'+money(a.total)+'</b></div><div class="srow"><span>Аптека</span><b>'+money(a.pv)+'</b></div><div class="srow"><span>Зарплата</span><b>'+(st?money(sp):'—')+'</b></div>':'<small style="color:var(--mute)">отчёта нет</small>')+'</button>';
+    const ob=Number(((S.rev.debt_open||{})[bid])||0);tot.c+=a.total;tot.p+=a.pv;tot.s+=sp;tot.n+=a.n;tot.d+=ob;
+    h+='<button class="person revrow" data-act="revbr" data-b="'+esc(bid)+'"><b>'+esc(brTitle(bid))+' ›</b>'+(a.n?'<div class="srow"><span>Клиника</span><b>'+money(a.total)+'</b></div><div class="srow"><span>Аптека</span><b>'+money(a.pv)+'</b></div><div class="srow"><span>Зарплата</span><b>'+(st?money(sp):'—')+'</b></div>':'<small style="color:var(--mute)">отчёта нет</small>')+(ob?'<div class="srow"><span>Долги клиентов, остаток</span><b>'+money(ob)+'</b></div>':'')+'</button>';
   });
-  h+='<div class="srow big paytot"><span>Всего</span><b>'+money(tot.c+tot.p)+'</b></div><div class="srow sub"><span>клиника</span><b>'+money(tot.c)+'</b></div><div class="srow sub"><span>аптека</span><b>'+money(tot.p)+'</b></div><div class="srow sub"><span>зарплата по сменам</span><b>'+money(tot.s)+'</b></div></div>';
+  h+='<div class="srow big paytot"><span>Всего</span><b>'+money(tot.c+tot.p)+'</b></div><div class="srow sub"><span>клиника</span><b>'+money(tot.c)+'</b></div><div class="srow sub"><span>аптека</span><b>'+money(tot.p)+'</b></div><div class="srow sub"><span>зарплата по сменам</span><b>'+money(tot.s)+'</b></div>'+(tot.d?'<div class="srow big" style="margin-top:6px"><span>Долги клиентов, остаток</span><b>'+money(tot.d)+'</b></div><p class="hint">По отчётам администраторов с 24.10.2026: не оплачено минус погашено.</p>':'')+'</div>';
   return h;
 }
 
