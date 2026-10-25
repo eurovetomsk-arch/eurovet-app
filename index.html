@@ -90,6 +90,7 @@ button{font:inherit;cursor:pointer}
 .ov>.card{width:100%;max-width:640px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
 .rm{background:none;border:0;color:var(--bad);font-size:20px;min-width:40px;min-height:46px}
 .sum{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.sum[hidden]{display:none}
 .sum b{font-variant-numeric:tabular-nums}
 .net{display:inline-block;width:9px;height:9px;border-radius:50%;background:#4ade80;margin-right:4px}
 .net.off{background:#f87171}
@@ -158,7 +159,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.28'
+  appVer:'1.29'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -263,19 +264,23 @@ function formFromReport(d){ // загрузка ранее сданной вер
   f.total=s(d.total);f.cash=s(d.cash);f.cashless=s(d.cashless);
   f.ph_val=s(d.pharmacy&&d.pharmacy.val);f.ph_cash=s(d.pharmacy&&d.pharmacy.cash);f.ph_cashless=s(d.pharmacy&&d.pharmacy.cashless);
   f.open=s(d.cashbox&&d.cashbox.opening);f.close=s(d.cashbox&&d.cashbox.closing);
-  f.expenses=((d.cashbox&&d.cashbox.expenses)||[]).map(e=>({article:e.article||'',amount:s(e.amount),comment:e.comment||''}));
+  f.expenses=((d.cashbox&&d.cashbox.expenses)||[]).map(e=>({article:e.article||'',amount:s(e.amount),comment:e.comment||'',method:e.method||(isRet(e.article||'')?'cash':'')}));
   (d.assistants||[]).forEach(a=>f.assistants[a.role+':'+a.id]={fn:a.fix_normal||0,fx:a.fix_xray||0,left:a.left||''});
   f.note=d.note||'';f.adv_cash=s(d.advance_cash);f.adv_cashless=s(d.advance_cashless);f.adv_out=s(d.advance_out);f.comp=s(d.noncash&&d.noncash.bonus);f.cert=s(d.noncash&&d.noncash.certificate);f.nc_comment=(d.noncash&&d.noncash.comment)||'';f.diff_reason=d.diff_reason||'';
   return f;
 }
 
+/* v1.29: возврат клиенту бывает наличными (из кассы) и безналичным (из кассы не вычитается) */
+const isRet=a=>a==='Возврат клиника'||a==='Возврат аптека';
+const isNcRet=e=>isRet(e.article)&&e.method==='noncash';
 /* ====== Проверки (только подсвечивают, числа никогда не правят) ====== */
 function compute(){
   const f=S.form,c=S.ctx;
   const sumDocs=r2(Object.values(f.doctors).reduce((a,d)=>a+N(d.val),0)+f.others.reduce((a,o)=>a+N(o.val),0));
   const total=N(f.total),cash=N(f.cash),cashless=N(f.cashless);
   const phv=N(f.ph_val),phc=N(f.ph_cash),phn=N(f.ph_cashless);
-  const exp=r2(f.expenses.reduce((a,e)=>a+N(e.amount),0));
+  const exp=r2(f.expenses.filter(e=>!isNcRet(e)).reduce((a,e)=>a+N(e.amount),0));
+  const expNc=r2(f.expenses.filter(isNcRet).reduce((a,e)=>a+N(e.amount),0));
   const comp=N(f.comp),cert=N(f.cert),nc=r2(comp+cert);
   const open=N(f.open);
   const advc=N(f.adv_cash);
@@ -295,7 +300,7 @@ function compute(){
   if(nc>0)add('nc','Компенсации и сертификаты не больше нал + аванс наличными',Math.max(0,nc-(cash+phc+advc)),true,'без денег '+money(nc)+' vs нал клиники+аптеки+аванс '+money(cash+phc+advc));
   const prev=c&&c.prev&&c.prev.closing!=null?Number(c.prev.closing):null;
   if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', введено начало '+money(open),'«Начальная инкассация»');
-  return{checks,sumDocs,exp,expected,total,cash,cashless};
+  return{checks,sumDocs,exp,expNc,expected,total,cash,cashless};
 }
 
 function validate(){
@@ -307,7 +312,9 @@ function validate(){
   Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
   Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
   f.others.forEach((o,i)=>{const v=num(o.val);if(!o.title.trim()||v==null||isNaN(v))errs.push('Строка «не из списка» №'+(i+1)+': нужно название и сумма')});
-  f.expenses.forEach((e,i)=>{const v=num(e.amount);if(!e.article||v==null||isNaN(v))errs.push('Расход №'+(i+1)+': выберите статью и введите сумму')});
+  f.expenses.forEach((e,i)=>{const v=num(e.amount);if(!e.article||v==null||isNaN(v))errs.push('Расход №'+(i+1)+': выберите статью и введите сумму');
+    if(isRet(e.article)&&e.method!=='cash'&&e.method!=='noncash')errs.push('Расход №'+(i+1)+': выберите, как вернули деньги — наличными или безналично');
+    if(e.article==='Другое'&&(e.comment||'').trim().length<3)errs.push('Расход №'+(i+1)+' «Другое»: напишите в комментарии, на что потрачено')});
   if((N(f.comp)>0||N(f.cert)>0)&&!(f.nc_comment||'').trim())errs.push('Компенсация / сертификат: укажите причину (без ФИО клиента)');
   Object.entries(f.assistants).forEach(([k,a])=>{if(!isFinite(a.fn)||!isFinite(a.fx))errs.push('Фиксации ассистента')});
   const calc=compute();
@@ -333,7 +340,7 @@ function buildData(calc){
     total:N(f.total),cash:N(f.cash),cashless:N(f.cashless),
     pharmacy:{val:N(f.ph_val),cash:N(f.ph_cash),cashless:N(f.ph_cashless)},
     cashbox:{opening:N(f.open),
-      expenses:f.expenses.map(e=>({article:e.article,amount:N(e.amount),comment:(e.comment||'').trim()||null})),
+      expenses:f.expenses.map(e=>({article:e.article,amount:N(e.amount),comment:(e.comment||'').trim()||null,method:isRet(e.article)?e.method:'cash'})),
       closing:N(f.close),expected_closing:calc.expected,prev_closing:(c.prev&&c.prev.closing!=null)?Number(c.prev.closing):null},
     assistants,
     fix_totals:{normal:assistants.reduce((a,x)=>a+x.fix_normal,0),xray:assistants.reduce((a,x)=>a+x.fix_xray,0)},
@@ -411,7 +418,7 @@ function summaryText(d){
   L.push('Клиника общая: '+d.total);L.push('Нал: '+d.cash+'  Безнал: '+d.cashless);
   L.push('Аптека: вал '+d.pharmacy.val+', нал '+d.pharmacy.cash+', безнал '+d.pharmacy.cashless);
   L.push('Инкасс. начало: '+d.cashbox.opening);
-  d.cashbox.expenses.forEach(e=>L.push('Расход '+e.article+': '+e.amount+(e.comment?' ('+e.comment+')':'')));
+  d.cashbox.expenses.forEach(e=>L.push('Расход '+e.article+': '+e.amount+(isRet(e.article)?(e.method==='noncash'?' безналично (из кассы не вычитается)':' наличными'):'')+(e.comment?' ('+e.comment+')':'')));
   if(d.noncash)L.push('Без денег в кассе: компенсации '+d.noncash.bonus+', сертификаты '+d.noncash.certificate+' ('+d.noncash.comment+')');
   if(d.advance_cash!=null||d.advance_cashless!=null||d.advance_out!=null)L.push('Аванс: принят нал '+(d.advance_cash||0)+', безнал '+(d.advance_cashless||0)+', списан '+(d.advance_out||0));
   L.push('Инкасс. итог: '+d.cashbox.closing);
@@ -528,7 +535,8 @@ const HINTS={
   advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов.'],
   comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager: страница сама вычтет её из кассы. Причину пишите без фамилии клиента.'],
   open:['Начальная инкассация','Сколько наличных лежало в кассе утром. Подставляется из итога за предыдущий день. Если на деле иначе, исправьте: система подсветит расхождение.'],
-  exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму.'],
+  exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму. Если подходящей статьи нет, выберите «Другое» и напишите в комментарии, на что потрачено.'],
+  retm:['Возврат: наличными или безналично','Если вернули деньги клиенту наличными из кассы, выберите «Наличными из кассы»: сумма вычтется из кассы. Если вернули на карту или переводом, выберите «Безналично»: деньги из кассы не уходили, поэтому в расчёте кассы эта сумма не вычитается. Выбрать нужно обязательно.'],
   close:['Итог инкассации','Сколько наличных реально лежит в кассе на конец дня. Введите это число по факту. Страница сверяет его с расчётом: начало − расходы + нал клиники + нал аптеки + аванс наличными − компенсации − сертификаты.'],
   assist:['Ассистенты','Отметьте, кто работал. Для каждого введите число фиксаций: обычных и на рентгене. Время ухода нужно, только если ушёл позже 21:00.'],
   checks:['Проверка','Страница только подсвечивает расхождения, ваши цифры она не меняет. Зелёный: сходится (допуск 1 ₽). Красный: расхождение, нужна причина. Серый: пока не хватает данных, под ним написано, чего именно.'],
@@ -580,13 +588,14 @@ function viewForm(){
   f.expenses.forEach((e,i)=>{
     h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
       c.articles.map(a=>'<option'+(e.article===a.title?' selected':'')+'>'+esc(a.title)+'</option>').join('')+'</select></label>'+
+      (isRet(e.article)?'<div class="f"><span>Как вернули деньги клиенту'+hbtn('retm')+'</span><div class="tiles"><button type="button" class="tile'+(e.method==='cash'?' on':'')+'" data-act="expm" data-i="'+i+'" data-m="cash">Наличными из кассы</button><button type="button" class="tile'+(e.method==='noncash'?' on':'')+'" data-act="expm" data-i="'+i+'" data-m="noncash">Безналично (карта, перевод)</button></div></div>':'')+
       nfield('expenses.'+i+'.amount','Сумма, ₽',e.amount)+
       '<label class="f"><span>Комментарий</span><input data-p="expenses.'+i+'.comment" value="'+esc(e.comment)+'"></label>'+
       '<button class="btn sec small" data-act="delExp" data-i="'+i+'">Удалить расход</button></div>';
   });
   h+='<button class="btn sec small" data-act="addExp">+ Расход</button>';
   h+=nfield('close','Итог инкассации (сколько наличных в кассе сейчас), ₽',f.close,'','close');
-  h+='<div class="sum"><span>Расходы всего</span><b id="s-exp"></b></div><div class="sum"><span>Итог по расчёту системы</span><b id="s-exp2"></b></div></div>';
+  h+='<div class="sum"><span>Расходы из кассы</span><b id="s-exp"></b></div><div class="sum" id="s-expn-row" hidden><span>Возвраты безналично (не из кассы)</span><b id="s-expn"></b></div><div class="sum"><span>Итог по расчёту системы</span><b id="s-exp2"></b></div></div>';
 
   h+='<div class="card k-assist"><h2>Ассистенты'+hbtn('assist')+'</h2><p class="hint">Отметьте, кто работал, и сколько фиксаций сделал.</p><div class="tiles">'+
     c.assistants.map(a=>{const k=a.role+':'+a.id;return '<button class="tile'+(f.assistants[k]?' on':'')+'" data-act="tog" data-g="assistants" data-id="'+k+'">'+esc(aNm(a.name))+'<small>'+(a.role==='assistant_tech'?'технический':'клинический')+'</small></button>'}).join('')+'</div>';
@@ -622,7 +631,7 @@ function updateChecks(){
     return '<div class="chk '+cls+'"><i>'+mark+'</i><div>'+esc(c.label)+(c.ready?'<br><small>'+esc(c.detail)+'</small>':(c.miss?'<small class="need">Не хватает: '+esc(c.miss)+'</small>':''))+diff+'</div></div>';
   }).join('');
   const set=(id,t)=>{const e=$(id);if(e)e.textContent=t};
-  set('#s-docs',money(calc.sumDocs));set('#s-exp',money(calc.exp));set('#s-exp2',money(calc.expected));
+  set('#s-docs',money(calc.sumDocs));set('#s-exp',money(calc.exp));set('#s-expn',money(calc.expNc));{const r=$('#s-expn-row');if(r)r.hidden=!(calc.expNc>0)}set('#s-exp2',money(calc.expected));
   const bad=calc.checks.filter(c=>c.ready&&!c.ok).length;
   const st=$('#barst');
   if(st)st.innerHTML=bad?'<b style="color:var(--bad)">Расхождений: '+bad+'</b>':(calc.checks.some(c=>c.ready)?'<b style="color:var(--ok)">Расхождений нет</b>':'<span style="color:var(--mute)">Заполните отчёт</span>');
@@ -925,7 +934,10 @@ document.addEventListener('pointerdown',e=>{const a=document.activeElement;if(is
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='dt'){S.date=t.value||omskToday();return}
-  if(t.dataset&&t.dataset.p&&S.form&&t.tagName==='SELECT'){setPath(S.form,t.dataset.p,t.value);saveDraft();updateChecks()}
+  if(t.dataset&&t.dataset.p&&S.form&&t.tagName==='SELECT'){setPath(S.form,t.dataset.p,t.value);
+    const mm=/^expenses\.(\d+)\.article$/.exec(t.dataset.p);
+    if(mm){const e=S.form.expenses[Number(mm[1])];if(e){e.method=isRet(e.article)?(e.method==='cash'||e.method==='noncash'?e.method:''):''}saveDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
+    saveDraft();updateChecks()}
 });
 document.addEventListener('click',async e=>{
   const ov=e.target.closest('.ov');
@@ -946,7 +958,8 @@ document.addEventListener('click',async e=>{
       const cur=Number(getPath(S.form,d.p))||0;const nv=Math.max(0,Math.min(99,cur+Number(d.d)));
       setPath(S.form,d.p,nv);const k=d.p.split('.');const o=document.getElementById('o-'+k[1]+'-'+k[2]);if(o)o.textContent=nv;saveDraft();break}
     case'clearDraft':if(confirm('Очистить все введённые цифры в этой форме?')){LS.del(draftKey());S.draftTs=null;S.form=S.ctx.current?formFromReport(S.ctx.current.data):freshForm();render()}break;
-    case'addExp':S.form.expenses.push({article:'',amount:'',comment:''});saveDraft();render();break;
+    case'addExp':S.form.expenses.push({article:'',amount:'',comment:'',method:''});saveDraft();render();break;
+    case'expm':{const e=S.form.expenses[Number(d.i)];if(e){e.method=d.m;saveDraft();const y=window.scrollY;render();window.scrollTo(0,y)}break}
     case'delExp':S.form.expenses.splice(Number(d.i),1);saveDraft();render();break;
     case'addOther':S.form.others.push({title:'',val:''});saveDraft();render();break;
     case'delOther':S.form.others.splice(Number(d.i),1);saveDraft();render();break;
