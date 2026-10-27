@@ -171,7 +171,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.33'
+  appVer:'1.34'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -180,6 +180,10 @@ const BRANCHES=[
   {id:'test',title:'ТЕСТ (не настоящий филиал)',testOnly:true}
 ];
 const isHead=()=>!!(S.person&&S.person.head===true);
+const isCC=()=>!!(S.person&&S.person.cc===true); // оператор колл-центра (с 1.34)
+const canReport=()=>!!(S.person&&(S.person.head===true||S.person.admin===true||(S.person.admin==null&&!S.person.cc))); // старый сохранённый вход без поля admin — администратор
+const ccOnly=()=>isCC()&&!canReport();
+const homeView=()=>ccOnly()?'cc':'branch';
 
 /* ====== Утилиты ====== */
 const $=(s,r=document)=>r.querySelector(s);
@@ -453,13 +457,13 @@ async function doLogin(pin){
   S.busy=true;render();
   try{
     const r=await rpc('ev_login',{p_person:S.pick,p_pin:pin,p_device:DEV});
-    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.view='branch';S.busy=false;render();flush();return}
-    const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа администратора.'};
+    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()){showCC();return}S.view='branch';render();flush();return}
+    const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -496,7 +500,7 @@ function setHeader(){
   if(S.view==='login'||(S.view==='help'&&!S.person)){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>ЕВРОВЕТ</b><small>вечерний отчёт</small></div></div>'+netBadge();return}
   const bt=S.branch&&(BRANCHES.find(b=>b.id===S.branch)||{}).title;
   h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'ЕВРОВЕТ')+'</small></div></div><div class="hb">'+netBadge()+
-    (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
+    (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
 }
 function netBadge(){
   const q=S.queue.length;
@@ -516,11 +520,12 @@ function render(){
   else if(S.view==='ctl')app.innerHTML=ctlHtml();
   else if(S.view==='rev')app.innerHTML=revHtml();
   else if(S.view==='sal')app.innerHTML=salHtml();
+  else if(S.view==='cc')app.innerHTML=ccHtml();
   if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'))bar.innerHTML=navHtml();
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
-function closeHelp(){S.view=S.helpFrom||(S.person?'branch':'login');S.helpFrom=null;render();window.scrollTo(0,0)}
+function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
 function viewLogin(){
   const list=S.loginList;
@@ -535,7 +540,8 @@ function viewLogin(){
   return h+'</div>';
 }
 function viewBranch(){
-  let h='<div class="card"><h2>Где вы сегодня работаете?</h2>';
+  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':'';
+  h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly||isHead()).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
   h+='<button class="btn sec small" style="margin:10px 0 0" data-act="help">Как заполнять отчёт</button>';
@@ -769,7 +775,7 @@ const perStart=d=>d.slice(0,8)+(Number(d.slice(8,10))<=15?'01':'16');
 const perEnd=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'15':new Date(Date.UTC(Number(d.slice(0,4)),Number(d.slice(5,7)),0)).toISOString().slice(0,10);
 const SAL_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',period:'Период указан неверно (не больше 46 дней)',rates:'Не найдены ставки в базе'};
 const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет'};
-const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор'};
+const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор',callcenter:'оператор колл-центра'};
 const srow=(a,b)=>'<div class="srow"><span>'+a+'</span><b>'+b+'</b></div>';
 const brTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id).replace(/^ЕВРОВЕТ\s*/,'');
 /* ведомость: один человек = одна строка с расшифровкой (если он и админ, и ассистент — суммы складываются) */
@@ -788,13 +794,17 @@ function payList(r){
     o.items.push({l:'За смены: '+a.shifts,v:Number(a.shift_pay)});
     o.items.push({l:'Фиксации: обычные '+a.fix_normal+' × '+money(Number(rt.fix_normal))+', рентген '+a.fix_xray+' × '+money(Number(rt.fix_xray)),v:Number(a.fix_pay)});
     adj(o,a)});
+  (r.callcenter||[]).forEach(a=>{if(!Number(a.shifts||0)&&!(a.adj_items||[]).some(i=>!i.is_cancel&&!i.cancelled))return;const o=get(a);o.total+=Number(a.total||0);role(o,'колл-центр');
+    o.items.push({l:'За выходы: '+a.shifts+' × '+money(Number(a.shift_rate)),v:Number(a.shift_pay)});
+    o.items.push({l:'Процент от вала клиник по дням смен',v:Number(a.pct_pay)});
+    adj(o,a)});
   (r.extra||[]).forEach(a=>{if(!Number(a.total||0)&&!(a.adj_items||[]).some(i=>!i.is_cancel&&!i.cancelled))return;const o=get(a);o.total+=Number(a.total||0);role(o,'только добавки');adj(o,a)});
-  const ord=o=>o.roles.includes('администратор')?0:o.roles.includes('ассистент')?1:2;
+  const ord=o=>o.roles.includes('администратор')?0:o.roles.includes('ассистент')?1:o.roles.includes('колл-центр')?2:3;
   return [...m.values()].map(o=>({name:o.name,role:o.roles.join(' и '),total:o.total,items:o.items,_o:ord(o)})).sort((a,b)=>a._o-b._o||a.name.localeCompare(b.name,'ru'));
 }
 function payText(r,g){
-  const rr=g==='adm'?Object.assign({},r,{assistants:[],extra:[]}):g==='ast'?Object.assign({},r,{admins:[],extra:[]}):r;
-  const ttl=g==='adm'?' (администраторы)':g==='ast'?' (ассистенты)':'';
+  const rr=g==='adm'?Object.assign({},r,{assistants:[],extra:[],callcenter:[]}):g==='ast'?Object.assign({},r,{admins:[],extra:[],callcenter:[]}):g==='cc'?Object.assign({},r,{admins:[],assistants:[],extra:[]}):r;
+  const ttl=g==='adm'?' (администраторы)':g==='ast'?' (ассистенты)':g==='cc'?' (колл-центр)':'';
   if(g==='add'){
     const al=(r.adj||[]).filter(i=>!i.is_cancel&&!i.cancelled);
     return 'Добавки '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+(al.length?al.map(i=>i.name+' — '+(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+(i.comment?' · '+i.comment:'')+' — '+sgn(Number(i.amount))).join('\n'):'нет');
@@ -832,11 +842,11 @@ function salHtml(){
   let h='<div class="card"><h2>Зарплата</h2><div class="chips">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',prevStart,prevEnd)+'<button class="chip'+(S.salDates?' on':'')+'" data-act="saldates">Даты ▾</button></div>';
   if(S.salDates)h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(t)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
   h+='<p class="hint" style="margin:6px 0">'+(f===t?ruDate(f):ruDate(f)+' — '+ruDate(t))+'</p>';
-  h+='<div class="chips tabs">'+[['sum','Сводка'],['adm','Админы'],['ast','Ассистенты'],['add','Добавки']].map(x=>'<button class="chip'+(S.salTab===x[0]?' on':'')+'" data-act="saltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>';
+  h+='<div class="chips tabs">'+[['sum','Сводка'],['adm','Админы'],['ast','Ассистенты'],['cc','Колл-центр'],['add','Добавки']].map(x=>'<button class="chip'+(S.salTab===x[0]?' on':'')+'" data-act="saltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>';
   if(S.salErr)return h+'<div class="card"><p>'+esc(S.salErr)+'</p><button class="btn sec small" data-act="salper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Считаю…</p></div>';
   const rt=r.rates||{},pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100,tt=r.totals||{};
-  const all=Number(tt.admins||0)+Number(tt.assistants||0)+Number(tt.extra||0);
+  const all=Number(tt.admins||0)+Number(tt.assistants||0)+Number(tt.callcenter||0)+Number(tt.extra||0);
   const tab=S.salTab;
   if(tab==='sum'){
     (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
@@ -848,11 +858,14 @@ function salHtml(){
     h+='<div class="card"><h3 style="margin-top:2px">По группам</h3>'
       +'<button class="srow grow" data-act="saltab" data-t="adm"><span>Администраторы ›</span><b>'+money(Number(tt.admins||0))+'</b></button>'
       +'<button class="srow grow" data-act="saltab" data-t="ast"><span>Ассистенты ›</span><b>'+money(Number(tt.assistants||0))+'</b></button>'
+      +'<button class="srow grow" data-act="saltab" data-t="cc"><span>Колл-центр ›</span><b>'+money(Number(tt.callcenter||0))+'</b></button>'
       +'<button class="srow grow" data-act="saltab" data-t="add"><span>Только добавки ›</span><b>'+money(Number(tt.extra||0))+'</b></button>'
-      +'<p class="hint" style="margin:4px 0 0">Добавки админов и ассистентов уже внутри их сумм.</p></div>';
+      +'<p class="hint" style="margin:4px 0 0">Добавки админов, ассистентов и колл-центра уже внутри их сумм.</p></div>';
     const by=new Map();dayPays(r).forEach(p=>by.set(p.b,(by.get(p.b)||0)+p.pay));
-    const adjAll=[].concat(r.admins||[],r.assistants||[],r.extra||[]).reduce((s,a)=>s+Number(a.adj||0),0);
+    const adjAll=[].concat(r.admins||[],r.assistants||[],r.callcenter||[],r.extra||[]).reduce((s,a)=>s+Number(a.adj||0),0);
+    const ccPay=(r.callcenter||[]).reduce((s,a)=>s+Number(a.shift_pay||0)+Number(a.pct_pay||0),0);
     h+='<div class="card"><h3 style="margin-top:2px">По филиалам</h3>'+BRANCHES.filter(b=>!b.testOnly).map(b=>'<div class="srow"><span>'+esc(brTitle(b.id))+'</span><b>'+money(by.get(b.id)||0)+'</b></div>').join('')
+      +(ccPay?'<div class="srow"><span>Колл-центр (вся сеть)</span><b>'+money(ccPay)+'</b></div>':'')
       +(adjAll?'<div class="srow"><span>Такси, доплаты, вычеты</span><b>'+sgn(adjAll)+'</b></div>':'')+'</div>';
     return h;
   }
@@ -882,6 +895,7 @@ function salHtml(){
     if(list.length)h+='<button class="btn sec small" style="margin-top:6px" data-act="salcopy">Скопировать ведомость</button>';
     return h+'</div>';
   }
+  if(tab==='cc')return h+ccSalHtml(r);
   /* добавки */
   h+='<div class="card"><button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Такси, доплата или вычет</button>';
   const al=(r.adj||[]).filter(i=>!i.is_cancel);
@@ -985,6 +999,119 @@ function revHtml(){
   return h;
 }
 
+/* ====== Колл-центр (с 1.34): оператор сам отмечает смены; ставка за выход и процент вала клиник дня (делится на число операторов) берутся из базы ====== */
+const CC_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',full:'На эту дату уже отмечены два оператора',admin_same_day:'В этот день вы стоите администратором в отчёте филиала',date_range:'Эту дату отметить нельзя: она вне разрешённого окна',already:'Вы уже отмечены на эту дату',duplicate:'Эта отметка уже сохранена',comment:'Напишите причину',not_marked:'Отметки на эту дату нет',person:'Это не оператор колл-центра',period:'Период указан неверно'};
+async function showCC(from,to){
+  const today=omskToday();
+  if(!from){from=perStart(today);to=today}
+  S.ccFrom=from;S.ccTo=to;closeOv();S.view='cc';S.cc=null;S.ccErr=null;paint();
+  try{
+    const r=await rpc('ev_cc_my',{p_token:S.token,p_from:from,p_to:to},12000);
+    if(S.ccFrom!==from||S.ccTo!==to)return;
+    if(r&&r.error==='session'){S.token=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)S.ccErr=CC_ERR[r&&r.error]||'Не удалось загрузить';else S.cc=r;
+  }catch(e){if(S.ccFrom!==from||S.ccTo!==to)return;S.ccErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='cc')paint();
+}
+function ccHtml(){
+  if(!S.ccFrom){S.ccFrom=perStart(omskToday());S.ccTo=omskToday()}
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.ccFrom,t=S.ccTo,r=S.cc;
+  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="ccper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  let h='<div class="card"><h2>Колл-центр · мои смены</h2><div class="chips">'+chip('Этот период',cs,today)+chip('Прошлый период',ps,pe)+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  if(S.ccErr)return h+'<div class="card"><p>'+esc(S.ccErr)+'</p><button class="btn sec small" data-act="ccper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
+  const days=r.days||[],td=days.find(d=>d.date===today);
+  if(t>=today&&f<=today){
+    h+='<div class="card">';
+    if(td&&td.me)h+='<div class="chk ok"><i>✓</i><div>Сегодня вы на смене'+(td.others&&td.others.length?' вместе с '+esc(td.others.join(', ')):'')+'</div></div><button class="btn sec small" data-act="ccmark" data-dt="'+today+'" data-on="0">Снять отметку за сегодня</button>';
+    else if(td&&Number(td.ops)>=2)h+='<div class="chk warn"><i>!</i><div>На сегодня уже отмечены два оператора: '+esc((td.others||[]).join(', '))+'</div></div>';
+    else h+='<button class="btn big" data-act="ccmark" data-dt="'+today+'" data-on="1">Я сегодня на смене</button>';
+    h+='</div>';
+  }
+  const rt=r.rates||{},pool=Math.round(Number(rt.cc_pct_pool||0)*10000)/100;
+  h+='<div class="card pay"><h3 style="margin-top:2px">Начислено за период</h3>'
+    +srow('Выходов: '+r.shifts+' × '+money(Number(rt.cc_shift||0)),money(Number(r.shift_pay||0)))
+    +srow('Процент от вала клиник',money(Number(r.pct_pay||0)))
+    +(Number(r.adj||0)?srow('Такси, доплаты, вычеты',sgn(Number(r.adj))):'')
+    +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total||0))+'</b></div>'
+    +'<p class="hint" style="margin:4px 0 0">'+pool+'% вала дня: одному оператору целиком, двоим пополам. Вал — «Клиника общая» трёх филиалов из вечерних отчётов. Пока отчёта за день нет, процент не начислен: он появится после сдачи.</p></div>';
+  h+='<div class="card"><h3 style="margin-top:2px">По дням</h3>';
+  if(!days.length)h+='<p class="hint">Дней в периоде пока нет.</p>';
+  days.forEach(d=>{
+    const ops=Number(d.ops)||0,who=d.me?(ops>1?'вдвоём с '+(d.others||[]).join(', '):'только вы'):(ops?'на смене: '+(d.others||[]).join(', '):'никто не отмечен');
+    h+='<div class="person"'+(d.me?' style="border-color:var(--ok)"':'')+'><div class="srow"><span><b>'+ruDate(d.date)+'</b>'+(d.me?' · вы на смене':'')+'<br><small style="color:var(--mute)">'+esc(who)+'</small></span><b>'+(d.me&&d.pay!=null?money(Number(d.pay)):'')+'</b></div>'
+      +'<div class="srow sub"><span>Вал клиник за день</span><b>'+(d.missing&&!Number(d.val)?'отчётов ещё нет':money(Number(d.val||0)))+'</b></div>'
+      +(d.missing&&Number(d.val)?'<div class="srow sub"><span>Нет отчёта: '+esc(d.missing)+'</span><b></b></div>':'')
+      +(d.editable?(d.me?'<button class="btn sec small" style="margin-top:6px" data-act="ccmark" data-dt="'+d.date+'" data-on="0">Снять отметку</button>':(ops<2?'<button class="btn sec small" style="margin-top:6px" data-act="ccmark" data-dt="'+d.date+'" data-on="1">Отметить смену</button>':'')):'')
+      +'</div>';
+  });
+  return h+'<p class="hint">Отметить или снять смену можно '+(r.edit_from?'с '+ruDate(r.edit_from)+' по сегодня':'за сегодня и до 7 дней назад')+'. Ошиблись раньше — напишите Михаилу.</p></div>';
+}
+function ccMarkAsk(dt,on){
+  S.ccMark={dt:dt,on:on,uid:uid()};
+  if(on){doCCMark();return}
+  overlay('<h2>Снять отметку за '+ruDate(dt)+'</h2><label class="f"><span>Причина (обязательно)</span><input id="ccr" maxlength="300" placeholder="например: ошиблась датой"></label><button class="btn" data-act="ccmarkgo" style="margin-top:8px">Снять</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>');
+}
+async function doCCMark(){
+  const m=S.ccMark;if(!m||S.ccBusy)return;
+  const cm=m.on?null:((($('#ccr')||{}).value||'').trim());
+  if(!m.on&&cm.length<3){toast('Напишите причину');return}
+  S.ccBusy=true;
+  try{
+    const r=await rpc('ev_cc_mark',{p_token:S.token,p_date:m.dt,p_on:m.on,p_uid:m.uid,p_person:null,p_comment:cm},10000);
+    if(!r||!r.ok){toast(CC_ERR[r&&r.error]||'Не удалось: '+(r&&r.error),6000);return}
+    S.ccMark=null;closeOv();toast(m.on?'Смена '+ruDate(m.dt)+' отмечена':'Отметка снята');
+    await showCC(S.ccFrom,S.ccTo);
+  }catch(e){toast(e.net?'Нет связи, ничего не сохранено. Нажмите ещё раз':'Ошибка сервера',6000)}
+  finally{S.ccBusy=false}
+}
+/* руководитель: экран «Зарплата» → «Колл-центр» */
+function ccSalHtml(r){
+  const list=r.callcenter||[],days=(r.cc_days||[]),rt=r.cc_rates||{};
+  const sum=list.reduce((s,a)=>s+Number(a.total||0),0);
+  let h='<div class="card"><div class="srow big"><span>Колл-центр</span><b>'+money(sum)+'</b></div>';
+  if(!list.length)h+='<p class="hint">Операторов в этом периоде нет.</p>';
+  list.forEach(a=>{
+    h+='<div class="person"><div class="srow big"><span>'+esc(a.name)+'</span><b>'+money(Number(a.total))+'</b></div><small style="color:var(--mute)">Выходов: '+a.shifts+'</small>'
+      +'<details><summary>Расшифровка и дни</summary>'
+      +srow('Выходов: '+a.shifts+' × '+money(Number(a.shift_rate)),money(Number(a.shift_pay)))
+      +srow('Процент от вала клиник',money(Number(a.pct_pay)))
+      +adjItems(a.adj_items)
+      +(a.days||[]).map(d=>'<div class="srow sub"><span>'+ruDate(d.date)+' · '+(Number(d.ops)>1?'вдвоём':'одна')+' · вал '+money(Number(d.val))+' × '+(Math.round(Number(d.pct)*100000)/1000)+'%</span><b>'+money(Number(d.pay))+'</b></div>').join('')+'</details></div>';
+  });
+  if(list.length)h+='<button class="btn sec small" style="margin-top:6px" data-act="salcopy">Скопировать ведомость</button>';
+  h+='</div><div class="card"><h3 style="margin-top:2px">По дням</h3><button class="btn sec small" style="margin:0 0 8px" data-act="ccfor">Отметить или снять смену за оператора</button>';
+  days.forEach(d=>{
+    const ops=Number(d.ops)||0;
+    h+='<div class="srow"><span>'+ruDate(d.date)+'<br><small style="color:var(--mute)">'+(ops?esc((d.names||[]).join(', ')):'никто не отмечен')+' · вал '+(d.missing&&!Number(d.val)?'отчётов нет':money(Number(d.val||0)))+(d.missing&&Number(d.val)?' (нет: '+esc(d.missing)+')':'')+'</small></span><b>'+(ops?money(Number(d.pay_each))+(ops>1?' × '+ops:''):'—')+'</b></div>';
+  });
+  return h+'<p class="hint">Ставки из базы: выход '+money(Number(rt.cc_shift||0))+', '+(Math.round(Number(rt.cc_pct_pool||0)*10000)/100)+'% вала клиник дня на всех операторов смены.</p></div>';
+}
+function ccForForm(){
+  S.ccForUid=uid();
+  const ops=((S.sal||{}).callcenter||[]).map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('');
+  overlay('<h2>Смена за оператора</h2><label class="f"><span>Оператор</span><select id="cfw">'+ops+'</select></label>'
+    +'<label class="f"><span>Что сделать</span><select id="cfo"><option value="1">Отметить смену</option><option value="0">Снять отметку</option></select></label>'
+    +'<label class="f"><span>Дата</span><input id="cfd" type="date" min="2026-10-16" max="'+esc(omskToday())+'" value="'+esc(omskToday())+'"></label>'
+    +'<label class="f"><span>Комментарий (обязателен)</span><input id="cfc" maxlength="300"></label>'
+    +'<button class="btn" data-act="ccforgo" style="margin-top:8px">Сохранить</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Назад</button>');
+}
+async function doCCFor(){
+  if(S.ccBusy)return;
+  const pid=Number(($('#cfw')||{}).value),on=($('#cfo')||{}).value==='1',dt=($('#cfd')||{}).value,cm=(($('#cfc')||{}).value||'').trim();
+  if(!pid){toast('Выберите оператора');return}
+  if(!dt){toast('Укажите дату');return}
+  if(cm.length<3){toast('Напишите комментарий');return}
+  S.ccBusy=true;
+  try{
+    const r=await rpc('ev_cc_mark',{p_token:S.token,p_date:dt,p_on:on,p_uid:S.ccForUid,p_person:pid,p_comment:cm},10000);
+    if(!r||!r.ok){toast((CC_ERR[r&&r.error]||'Не удалось: '+(r&&r.error)).replace('вы стоите','оператор стоит'),6000);return}
+    S.ccForUid=null;closeOv();toast(r.already?'Смена уже была отмечена':on?'Отмечено':'Снято');
+    await showSalary(S.salFrom,S.salTo);
+  }catch(e){toast(e.net?'Нет связи, ничего не сохранено. Нажмите ещё раз':'Ошибка сервера',6000)}
+  finally{S.ccBusy=false}
+}
+
 function salAddForm(){
   S.salUid=S.salUid||uid();
   const r=S.sal||{};
@@ -1029,7 +1156,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button><button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -1096,7 +1223,13 @@ document.addEventListener('click',async e=>{
     case'login':doLogin(($('#pin')||{}).value||'');break;
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
     case'reloadctx':openBranch(S.branch);break;
-    case'back':saveDraft();S.view='branch';S.form=null;render();break;
+    case'back':closeOv();saveDraft();S.view='branch';S.form=null;render();break;
+    case'ccopen':closeOv();showCC();break;
+    case'ccper':showCC(d.from,d.to);break;
+    case'ccmark':ccMarkAsk(d.dt,d.on==='1');break;
+    case'ccmarkgo':doCCMark();break;
+    case'ccfor':ccForForm();break;
+    case'ccforgo':doCCFor();break;
     case'tog':{
       const g=d.g,id=d.id,f=S.form;
       if(f[g][id])delete f[g][id];
@@ -1186,7 +1319,7 @@ async function checkUpdate(force){
     const m=(await r.text()).match(/appVer:'([^']+)'/);
     if(!m||m[1]===CFG.appVer)return;
     S.newVer=m[1];
-    const calm=(S.view==='branch'||S.view==='login')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
+    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
     let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
     if(calm&&now-last>120000){try{sessionStorage.setItem('ev_upd_try',String(now))}catch(e){}reloadNew();return}
     $('#updwrap').innerHTML='<div class="upd"><span>Вышла новая версия '+esc(m[1])+'. Данные сохранены.</span><button data-act="doUpdate">Обновить</button></div>';
@@ -1197,8 +1330,8 @@ setInterval(()=>{if(document.visibilityState==='visible')checkUpdate()},300000);
 
 /* ====== Запуск ====== */
 (async()=>{
-  if(S.token&&S.person)S.view='branch';
-  render();
+  if(S.token&&S.person)S.view=homeView();
+  if(S.view==='cc')showCC();else render();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(S.view==='login'){await loadLoginList();render()}
   else if(S.queue.length)flush();
