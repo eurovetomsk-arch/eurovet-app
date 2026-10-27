@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.36'
+  appVer:'1.37'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -821,6 +821,10 @@ function payText(r,g){
     const al=(r.adj||[]).filter(i=>!i.is_cancel&&!i.cancelled);
     return 'Добавки '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+(al.length?al.map(i=>i.name+' — '+(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+(i.comment?' · '+i.comment:'')+' — '+sgn(Number(i.amount))).join('\n'):'нет');
   }
+  if(g==='cc'){
+    const L=r.callcenter||[],rt=r.cc_rates||{};
+    return 'Колл-центр '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+L.map(a=>a.name+' — '+money(Number(a.total))+'\n   Выходов: '+a.shifts+' × '+money(Number(a.shift_rate))+' — '+money(Number(a.shift_pay))+'\n   Процент от вала клиник — '+money(Number(a.pct_pay))+(a.adj_items||[]).filter(i=>!i.is_cancel&&!i.cancelled).map(i=>'\n   '+(SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date)+' — '+sgn(Number(i.amount))).join('')).join('\n')+'\nВсего: '+money(L.reduce((q,a)=>q+Number(a.total||0),0))+'\n('+(Math.round(Number(rt.cc_pct_pool||0)*10000)/100)+'% вала клиник дня: одному целиком, двоим пополам)';
+  }
   const pay=payList(rr);
   const all=pay.reduce((s,p)=>s+p.total,0);
   return 'Зарплата'+ttl+' '+ruDate(r.from)+' — '+ruDate(r.to)+'\n'+pay.map(p=>p.name+' ('+p.role+') — '+money(p.total)+p.items.map(i=>'\n   '+i.l+' — '+(i.sg?sgn(i.v):money(i.v))).join('')).join('\n')+'\nВсего: '+money(all);
@@ -1033,6 +1037,15 @@ function ccHtml(){
   if(S.ccErr)return h+'<div class="card"><p>'+esc(S.ccErr)+'</p><button class="btn sec small" data-act="ccper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const days=r.days||[],td=days.find(d=>d.date===today);
+  const rt=r.rates||{},pool=Math.round(Number(rt.cc_pct_pool||0)*10000)/100;
+  h+='<div class="card pay"><h3 style="margin-top:2px">Моя зарплата за период</h3><p class="hint" style="margin:0 0 6px">'+ruDate(f)+' — '+ruDate(t)+'</p>'
+    +srow('Выходов: '+r.shifts+' × '+money(Number(rt.cc_shift||0)),money(Number(r.shift_pay||0)))
+    +srow('Процент от вала клиник',money(Number(r.pct_pay||0)))
+    +(td&&td.me&&td.pay!=null?srow('Из них за сегодня ('+ruDate(today)+')',money(Number(td.pay))):'')
+    +srow('Вал клиник за период (все дни)',money(days.reduce((q,d)=>q+Number(d.val||0),0)))
+    +(Number(r.adj||0)?srow('Такси, доплаты, вычеты',sgn(Number(r.adj))):'')
+    +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total||0))+'</b></div>'
+    +'<p class="hint" style="margin:4px 0 0">'+pool+'% вала дня: одному оператору целиком, двоим пополам. Вал — «Клиника общая» трёх филиалов из вечерних отчётов. Пока отчёта за день нет, процент не начислен: он появится после сдачи.</p></div>';
   if(t>=today&&f<=today){
     h+='<div class="card">';
     if(td&&td.me)h+='<div class="chk ok"><i>✓</i><div>Сегодня вы на смене'+(td.others&&td.others.length?' вместе с '+esc(td.others.join(', ')):'')+'</div></div><button class="btn sec small" data-act="ccmark" data-dt="'+today+'" data-on="0">Снять отметку за сегодня</button>';
@@ -1040,13 +1053,6 @@ function ccHtml(){
     else h+='<button class="btn big" data-act="ccmark" data-dt="'+today+'" data-on="1">Я сегодня на смене</button>';
     h+='</div>';
   }
-  const rt=r.rates||{},pool=Math.round(Number(rt.cc_pct_pool||0)*10000)/100;
-  h+='<div class="card pay"><h3 style="margin-top:2px">Начислено за период</h3>'
-    +srow('Выходов: '+r.shifts+' × '+money(Number(rt.cc_shift||0)),money(Number(r.shift_pay||0)))
-    +srow('Процент от вала клиник',money(Number(r.pct_pay||0)))
-    +(Number(r.adj||0)?srow('Такси, доплаты, вычеты',sgn(Number(r.adj))):'')
-    +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total||0))+'</b></div>'
-    +'<p class="hint" style="margin:4px 0 0">'+pool+'% вала дня: одному оператору целиком, двоим пополам. Вал — «Клиника общая» трёх филиалов из вечерних отчётов. Пока отчёта за день нет, процент не начислен: он появится после сдачи.</p></div>';
   h+='<div class="card"><h3 style="margin-top:2px">По дням</h3>';
   if(!days.length)h+='<p class="hint">Дней в периоде пока нет.</p>';
   days.forEach(d=>{
