@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.35'
+  appVer:'1.36'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -458,13 +458,13 @@ async function doLogin(pin){
   S.busy=true;render();
   try{
     const r=await rpc('ev_login',{p_person:S.pick,p_pin:pin,p_device:DEV});
-    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()){showCC();return}S.view='branch';render();flush();return}
+    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()||(isCC()&&loginTab()==='cc')){showCC();return}S.view='branch';render();flush();return}
     const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render()}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -528,16 +528,27 @@ function viewHelp(){return '<div class="card"><button class="btn sec small" data
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
 function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
+function loginTabs(){return S.loginList.some(p=>p.cc===true)&&S.loginList.some(p=>p.adm===true)}
+function loginTab(){
+  if(!loginTabs())return 'adm';
+  if(S.loginTab)return S.loginTab;
+  const t=LS.get('ev_tab');if(t==='adm'||t==='cc')return t;
+  const last=S.loginList.find(p=>String(p.id)===String(LS.get('ev_last')));
+  return last&&last.cc&&!last.adm?'cc':'adm';
+}
 function viewLogin(){
-  const list=S.loginList;
+  const tabs=loginTabs(),tab=loginTab();
+  const list=tabs?S.loginList.filter(p=>tab==='cc'?p.cc:p.adm):S.loginList;
+  if(S.pick!=null&&!list.some(p=>String(p.id)===String(S.pick)))S.pick=null;
   let h='<div class="card"><h2>Вход</h2>';
-  if(!list.length)h+='<p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p>';
+  if(tabs)h+='<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(tab===x[0]?' on':'')+'" data-act="ltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
+  if(!S.loginList.length)h+='<p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p>';
   else{
     h+='<div class="tiles">'+list.map(p=>'<button class="tile'+(String(S.pick)===String(p.id)?' on':'')+'" data-act="pick" data-id="'+p.id+'">'+esc(p.name)+'</button>').join('')+'</div>';
     h+='<label class="f"><span>PIN (6 цифр)</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]*"></label>';
     h+='<button class="btn" data-act="login"'+(S.busy?' disabled':'')+'>'+(S.busy?'Входим…':'Войти')+'</button>';
   }
-  h+='<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
+  h+=tab==='cc'?'<a class="btn sec" style="margin-top:10px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
   return h+'</div>';
 }
 function viewBranch(){
@@ -1220,6 +1231,7 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.classList.contains('ov'))return;
   const a=b.dataset.act,d=b.dataset;
   switch(a){
+    case'ltab':S.loginTab=d.t;LS.set('ev_tab',d.t);S.pick=null;render();break;
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
     case'login':doLogin(($('#pin')||{}).value||'');break;
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
