@@ -58,6 +58,7 @@ input[type=date]{min-width:0;max-width:100%;-webkit-appearance:none;appearance:n
 button{font:inherit;cursor:pointer}
 #updwrap .upd{position:fixed;left:0;right:0;top:0;z-index:60;background:var(--acc);color:var(--acc-ink);padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;display:flex;gap:10px;align-items:center;justify-content:space-between;font-weight:600;font-size:15px}#updwrap .upd button{background:var(--acc-ink);color:var(--acc);border:0;border-radius:10px;padding:9px 14px;font-weight:700;min-height:40px}
 .btn{background:var(--acc);color:var(--acc-ink);border:0;border-radius:12px;padding:13px 16px;font-weight:600;min-height:48px;width:100%}
+a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box}
 .btn.sec{background:var(--tile);color:var(--ink);border:1px solid var(--line)}
 .btn.small{width:auto;min-height:40px;padding:8px 12px;font-size:14px}
 .btn:disabled{opacity:.5}
@@ -171,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.34'
+  appVer:'1.35'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -540,7 +541,7 @@ function viewLogin(){
   return h+'</div>';
 }
 function viewBranch(){
-  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':'';
+  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?'<div class="card"><button class="btn sec" data-act="cchead">Колл-центр: смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Это вкладка «Колл-центр» в разделе «Зарплата». Операторы отмечают смены сами, входя под своей фамилией.</p></div>':'');
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly||isHead()).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
@@ -1045,7 +1046,7 @@ function ccHtml(){
       +(d.editable?(d.me?'<button class="btn sec small" style="margin-top:6px" data-act="ccmark" data-dt="'+d.date+'" data-on="0">Снять отметку</button>':(ops<2?'<button class="btn sec small" style="margin-top:6px" data-act="ccmark" data-dt="'+d.date+'" data-on="1">Отметить смену</button>':'')):'')
       +'</div>';
   });
-  return h+'<p class="hint">Отметить или снять смену можно '+(r.edit_from?'с '+ruDate(r.edit_from)+' по сегодня':'за сегодня и до 7 дней назад')+'. Ошиблись раньше — напишите Михаилу.</p></div>';
+  return h+'<p class="hint">Отметить или снять смену можно '+(r.edit_from?'с '+ruDate(r.edit_from)+' по сегодня':'за сегодня и до 7 дней назад')+'. Ошиблись раньше — напишите Михаилу.</p><a class="btn sec small" style="margin-top:8px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a></div>';
 }
 function ccMarkAsk(dt,on){
   S.ccMark={dt:dt,on:on,uid:uid()};
@@ -1156,7 +1157,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -1266,6 +1267,7 @@ document.addEventListener('click',async e=>{
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
     case'saltab':S.salTab=d.t;paint();window.scrollTo(0,0);break;
+    case'cchead':closeOv();S.salTab='cc';showSalary(S.salFrom,S.salTo);break;
     case'salgo':{const f=($('#salf')||{}).value,t=($('#salt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showSalary(f,t);break}
     case'saladd':salAddForm();break;
     case'saladdgo':doSalAdd();break;
