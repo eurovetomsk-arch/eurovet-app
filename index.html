@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.40'
+  appVer:'1.41'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -464,7 +464,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -522,7 +522,9 @@ function render(){
   else if(S.view==='rev')app.innerHTML=revHtml();
   else if(S.view==='sal')app.innerHTML=salHtml();
   else if(S.view==='cc')app.innerHTML=ccHtml();
+  else if(S.view==='mysal')app.innerHTML=mySalHtml();
   if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'))bar.innerHTML=navHtml();
+  else if(!isHead()&&S.person&&S.person.admin===true&&(S.view==='branch'||S.view==='mysal'))bar.innerHTML=navHtml(ANAV);
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
@@ -556,6 +558,7 @@ function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="mar
 function viewBranch(){
   let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
   if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
+  if(isHead()){h+=dayStatusHtml();loadDayStatus()}
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly||isHead()).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
@@ -750,8 +753,9 @@ async function loadFlags(branch,date){
   }catch(e){}
 }
 function paint(){const y=window.scrollY;render();window.scrollTo(0,y)}
+const ANAV=[['branch','Отчёт','✎'],['mysal','Моя зарплата','≡']];
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
-function navHtml(){return '<nav class="nv">'+NAV.map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
+function navHtml(list){return '<nav class="nv">'+(list||NAV).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
   S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);
   try{
@@ -928,6 +932,49 @@ function salHtml(){
   return h+'</div>';
 }
 
+/* ====== Моя зарплата (администратор): только свои цифры, ev_my_salary по токену (с 1.41) ====== */
+async function showMySalary(from,to){
+  const today=omskToday();
+  if(!from){from=perStart(today);to=perEnd(today)}
+  S.myFrom=from;S.myTo=to;closeOv();S.view='mysal';S.mySal=null;S.myErr=null;S.myLoad=true;paint();window.scrollTo(0,0);
+  try{
+    const r=await rpc('ev_my_salary',{p_token:S.token,p_from:from,p_to:to},12000);
+    if(S.myFrom!==from||S.myTo!==to)return;
+    if(!r||!r.ok)S.myErr=SAL_ERR[r&&r.error]||'Не удалось загрузить';else S.mySal=r;
+  }catch(e){if(S.myFrom!==from||S.myTo!==to)return;S.myErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  S.myLoad=false;if(S.view==='mysal')paint();
+}
+function mySalHtml(){
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.myFrom,t=S.myTo,r=S.mySal;
+  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="myper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  let h='<div class="card"><h2>Моя зарплата</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+chip('Прошлый период',ps,pe)+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  if(S.myErr)return h+'<div class="card"><p>'+esc(S.myErr)+'</p><button class="btn sec small" data-act="myper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
+  const pct=Math.round(Number(r.pharm_pct)*10000)/100;
+  h+='<div class="card pay"><h3 style="margin-top:2px">Начислено за период'+(r.provisional?' · предварительно':'')+'</h3>'
+    +srow('Смен: '+r.shifts+' × '+money(Number(r.shift_rate)),money(Number(r.shift_pay)))
+    +srow(pct+'% от выручки аптеки ('+money(Number(r.pharm_val))+')',money(Number(r.pct_pay)))
+    +srow(Number(r.late_hours)>0?'Переработка: '+r.late_hours+' ч × '+money(Number(r.hour_rate)):'Переработка: нет',money(Number(r.late_pay)))
+    +(r.adj_items||[]).map(i=>srow((SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date),sgn(Number(i.amount)))).join('')
+    +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total))+'</b></div>';
+  if(r.provisional)h+='<div class="chk warn"><i>!</i><div>Период не закрыт'+(Number(r.missing_reports)>0?' или не хватает отчётов ('+r.missing_reports+'). ':'. ')+'Сумма изменится, пока идут дни и отчёты.</div></div>';
+  h+='<p class="hint" style="margin:6px 0 0">Расчёт по вашим отчётам. Возможны поправки до выплаты.</p></div>';
+  h+='<div class="card"><h3 style="margin-top:2px">По дням</h3>';
+  if(!(r.days||[]).length)h+='<p class="hint">За этот период у вас нет смен в отчётах.</p>';
+  (r.days||[]).forEach(d=>{h+='<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+(d.left?' · ушли '+esc(d.left):'')+(Number(d.late_hours)>0?' · '+d.late_hours+' ч':'')+'</span><b>аптека '+money(Number(d.pharm))+'</b></div>'});
+  return h+'</div>';
+}
+/* ====== Руководитель: статус отчётов «Сегодня» (ev_day_status, только чтение) ====== */
+async function loadDayStatus(){
+  const dt=omskToday();
+  if(S.day&&S.day.date===dt&&Date.now()-S.day.at<60000)return;
+  try{const r=await rpc('ev_day_status',{p_token:S.token,p_date:dt},6000);
+    if(r&&r.ok){S.day={date:dt,at:Date.now(),list:r.branches||[]};if(S.view==='branch')paint()}}catch(e){}
+}
+function dayStatusHtml(){
+  const d=S.day;if(!d||d.date!==omskToday())return '';
+  return '<div class="card"><h3 style="margin-top:2px">Сегодня, '+ruDate(d.date)+'</h3>'+d.list.map(b=>'<div class="srow"><span>'+esc(brTitle(b.branch))+'</span><b style="color:var(--'+(b.submitted?(Number(b.open_flags)>0?'warn':'ok'):'bad')+')">'+(b.submitted?'сдан'+(Number(b.open_flags)>0?' · расхождений: '+b.open_flags:''):'отчёта нет')+'</b></div>').join('')+'<p class="hint" style="margin:4px 0 0">Днём отчёта ещё может не быть: админы сдают вечером.</p></div>';
+}
 /* ====== Выручка и зарплата за день по филиалу: только руководитель, из последних версий отчётов ====== */
 function dayPays(r){
   const rt=r.rates||{},o=[],hr=Number(rt.admin_shift)/12;
@@ -1240,6 +1287,7 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.classList.contains('ov'))return;
   const a=b.dataset.act,d=b.dataset;
   switch(a){
+    case'myper':showMySalary(d.from,d.to);break;
     case'htab':S.homeTab=d.t;LS.set('ev_htab',d.t);render();break;
     case'ltab':S.loginTab=d.t;LS.set('ev_tab',d.t);S.pick=null;render();break;
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
@@ -1284,7 +1332,7 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='mysal')showMySalary(S.myFrom,S.myTo);else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
