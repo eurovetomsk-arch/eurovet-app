@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.44'
+  appVer:'1.45'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -300,7 +300,10 @@ function compute(){
   const expNc=r2(f.expenses.filter(isNcRet).reduce((a,e)=>a+N(e.amount),0));
   const comp=N(f.comp),cert=N(f.cert),nc=r2(comp+cert);
   const open=N(f.open);
-  const advc=N(f.adv_cash);
+  /* v1.45: с 29.10 «нал» и «безнал» — факт денег за день (касса и терминал), аванс принят/списан отдельно */
+  const advNew=S.date>='2026-10-29';
+  const advc=advNew?0:N(f.adv_cash);
+  const advAdj=advNew?r2(N(f.adv_cash)+N(f.adv_cashless)-N(f.adv_out)):0;
   const expected=r2(open-exp+cash+phc+advc-nc);
   const checks=[];
   const add=(id,label,diff,ready,detail,miss='')=>checks.push({id,label,ready,diff:r2(diff),ok:ready&&Math.abs(diff)<=CFG.tol,detail,miss});
@@ -308,7 +311,7 @@ function compute(){
   add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' vs общая '+money(total),
     ms([f.total===''&&'«Клиника общая»',!(Object.keys(f.doctors).length>0||f.others.length>0)&&'отметьте врачей и введите их вал']));
   const repaid=N(f.repaid);
-  add('pay','Нал + безнал'+(repaid>0?' − погашенный долг':'')+' = Клиника общая',cash+cashless-repaid-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+(repaid>0?' − погашение долга '+money(repaid):'')+' vs общая '+money(total),
+  add('pay','Нал + безнал'+(advNew?' − аванс принят + аванс списан':'')+(repaid>0?' − погашенный долг':'')+' = Клиника общая',cash+cashless-repaid-advAdj-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+(advNew?' − аванс принят '+money(N(f.adv_cash)+N(f.adv_cashless))+' + списан '+money(N(f.adv_out)):'')+(repaid>0?' − погашение долга '+money(repaid):'')+' vs общая '+money(total),
     ms([f.total===''&&'«Клиника общая»',(f.cash===''&&f.cashless==='')&&'«Нал» и «Безнал»']));
   const phAny=f.ph_val!==''||f.ph_cash!==''||f.ph_cashless!=='';
   add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv),
@@ -579,7 +582,7 @@ const HINTS={
   debt:['Долги клиентов','«Клиника общая» — это то, что клиенты реально оплатили за день. Если по счёту оплачена только часть, в «Клиника общая» и в вал врача идёт оплаченная часть, а неоплаченный остаток впишите в «Не оплачено клиентами за день» (общей суммой по всем клиентам за день). Если клиент в этот день внёс деньги в погашение старого долга, впишите эту сумму в «Клиенты погасили прошлый долг»: она входит в «Нал» или «Безнал», но не в «Клиника общая».'],
   adv:['Авансы клиентов','Деньги, которые клиенты внесли вперёд. Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе, поэтому он учитывается в итоге инкассации.'],
   advcash:['Принят наличными','Сумма наличных авансов как в Vetmanager. Если часть аванса была компенсацией без денег, её нужно ещё раз указать ниже, в блоке «Компенсации и сертификаты».'],
-  advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов.'],
+  advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов (с 29.10: деньги внесены раньше, чека терминала или денег в кассе за это нет). Не прибавляйте это в «Безнал» и «Нал».'],
   comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager: страница сама вычтет её из кассы. Причину пишите без фамилии клиента.'],
   open:['Начальная инкассация','Сколько наличных лежало в кассе утром. Подставляется из итога за предыдущий день. Если на деле иначе, исправьте: система подсветит расхождение.'],
   exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму. Если подходящей статьи нет, выберите «Другое» и напишите в комментарии, на что потрачено.'],
@@ -628,7 +631,7 @@ function viewForm(){
     '<label class="f"><span>Пояснение (необязательно, без ФИО клиента)</span><input data-p="debt_comment" value="'+esc(f.debt_comment)+'"></label>'+
     nfield('repaid','Клиенты погасили прошлый долг за день, ₽',f.repaid)+'</div>';
 
-  h+='<div class="card k-adv"><h2>Авансы клиентов'+hbtn('adv')+'</h2><p class="hint">Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out,'','advout')+'</div>';
+  h+='<div class="card k-adv"><h2>Авансы клиентов'+hbtn('adv')+'</h2><p class="hint">'+(S.date>='2026-10-29'?'Аванс не входит в «Клиника общая». «Нал» и «Безнал» вписывайте по факту: нал по кассе, безнал по чекам терминала, включая аванс, принятый сегодня. Списание аванса (деньги внесены раньше) вписывайте только в «Списан в оплату счетов»: чека терминала за него нет.':'Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.')+'</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out,'','advout')+'</div>';
 
   h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
     nfield('comp','Компенсация / бонус клиенту от клиники (аванс без денег), ₽',f.comp)+nfield('cert','Оплата сертификатом (в Vetmanager как нал), ₽',f.cert)+
