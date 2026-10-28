@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.43'
+  appVer:'1.44'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -559,7 +559,7 @@ function viewBranch(){
   let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
   if(!isHead()&&S.person&&S.person.admin===true)h+='<div class="card"><button class="btn big" data-act="go" data-v="mysal">Моя зарплата</button><p class="hint" style="margin:6px 0 0">Сколько начислено за смены и процент с аптеки: по дням и за период. Кнопка есть и внизу экрана.</p></div>';
   if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
-  if(isHead()){h+=dayStatusHtml();loadDayStatus()}
+  if(isHead()){h+='<div class="mrbox">'+mrHtml()+'</div>';loadMr();h+=dayStatusHtml();loadDayStatus()}
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
@@ -721,6 +721,42 @@ function viewDone(){
 /* ====== Расхождения сверки: автору отчёта и руководителю ====== */
 const addDays=(iso,n)=>{const p=iso.split('-').map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]+n)).toISOString().slice(0,10)};
 const sgn=x=>(x>0?'+':x<0?'−':'')+money(Math.abs(x));
+/* ====== Инкассация МР: подтверждение руководителем ====== */
+function mrHtml(){
+  if(!isHead()||!S.mr)return'';
+  const pend=S.mr.filter(x=>x.status==='pending'),done=S.mr.filter(x=>x.status!=='pending').slice(0,5);
+  if(!pend.length&&!done.length)return'';
+  let h='<div class="card k-mr">';
+  if(pend.length){
+    h+='<h2>Подтвердите инкассацию: '+pend.length+'</h2><p class="hint">Администратор записал, что МР забрал эти деньги. Пока вы не ответили, строка висит в сверке как «ждёт подтверждения».</p>';
+    h+=pend.map(x=>{
+      const hrs=Math.max(0,Math.round((Date.now()-new Date(x.created_at).getTime())/3600000));
+      return '<div class="chk warn"><i>!</i><div><b>'+esc(brTitle(x.branch))+' · '+ruDate(x.date)+'</b><br>Админ: '+esc(x.admin||'?')+'<br><span style="font-size:20px;font-weight:700">'+money(Number(x.declared))+'</span><small> · ждёт '+hrs+' ч</small>'
+        +'<br><button class="btn small" style="margin:8px 0 6px" data-act="mrok" data-id="'+x.id+'">Подтверждаю</button>'
+        +'<div class="row" style="align-items:flex-end;gap:6px"><label class="f" style="flex:1;margin:0"><span>Не подтверждаю, фактически ₽</span><input id="mra-'+x.id+'" inputmode="decimal" placeholder="сколько на самом деле"></label>'
+        +'<button class="btn sec small" data-act="mrno" data-id="'+x.id+'">Отправить</button></div></div></div>';
+    }).join('');
+  }
+  if(done.length)h+='<h3 style="margin-top:12px">Недавние решения</h3>'+done.map(x=>'<div class="chk '+(x.status==='confirmed'?'ok':'bad')+'"><i>'+(x.status==='confirmed'?'✓':'✗')+'</i><div><small>'+esc(brTitle(x.branch))+' · '+ruDate(x.date)+' · '+esc(x.admin||'?')+'</small><br>'
+    +(x.status==='confirmed'?'подтверждено '+money(Number(x.declared)):'заявлено '+money(Number(x.declared))+', фактически '+money(Number(x.actual)))+'</div></div>').join('');
+  return h+'</div>';
+}
+function paintMr(){document.querySelectorAll('.mrbox').forEach(el=>{el.innerHTML=mrHtml()})}
+async function loadMr(){
+  if(!S.token||!isHead())return;
+  try{const r=await rpc('ev_mr_list',{p_token:S.token},8000);if(r&&r.ok){S.mr=r.items||[];paintMr()}}catch(e){}
+}
+async function mrDecide(id,decision,actual){
+  const x=(S.mr||[]).find(i=>String(i.id)===String(id));if(!x)return;
+  const q=decision==='confirm'?'Подтверждаете, что МР забрал '+money(Number(x.declared))+'?\n'+brTitle(x.branch)+', '+ruDate(x.date)+', админ '+(x.admin||'?')
+    :'Не подтверждаете. Фактически забрали '+money(actual)+' вместо '+money(Number(x.declared))+'?\nРазница '+money(Number(x.declared)-actual)+' уйдёт в журнал как красная находка.';
+  if(!confirm(q))return;
+  try{
+    const r=await rpc('ev_mr_decide',{p_token:S.token,p_id:Number(id),p_decision:decision,p_actual:decision==='dispute'?actual:null,p_note:null},10000);
+    if(!r||!r.ok){toast(r&&r.error==='not_pending'?'Уже решено, обновляю':(r&&r.error==='session'?'Сессия закончилась, войдите заново':'Не удалось: '+(r&&r.error)),5000);loadMr();return}
+    toast(r.status==='confirmed'?'Подтверждено':'Записано: расхождение',4000);loadMr();
+  }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
+}
 function flagLine(f,where){
   const bad=f.level==='red';
   let nums='';
@@ -758,7 +794,7 @@ const ANAV=[['branch','Отчёт','✎'],['mysal','Моя зарплата','�
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
 function navHtml(list){return '<nav class="nv">'+(list||NAV).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
-  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);
+  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();
   try{
     const to=omskToday(),from=addDays(to,-6);
     const r=await rpc('ev_flags_overview',{p_token:S.token,p_from:from,p_to:to},10000);
@@ -767,7 +803,7 @@ async function showControl(){
   S.ctlLoad=false;if(S.view==='ctl')paint();
 }
 function ctlHtml(){
-  let h='<div class="card"><h2>Контроль · 7 дней</h2>';
+  let h='<div class="mrbox">'+mrHtml()+'</div><div class="card"><h2>Контроль · 7 дней</h2>';
   if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
   else{
@@ -1290,6 +1326,8 @@ document.addEventListener('click',async e=>{
   const a=b.dataset.act,d=b.dataset;
   switch(a){
     case'myper':showMySalary(d.from,d.to);break;
+    case'mrok':mrDecide(d.id,'confirm');break;
+    case'mrno':{const inp=document.getElementById('mra-'+d.id),v=inp?Number(String(inp.value).replace(/\s/g,'').replace(',','.')):NaN;if(!inp||inp.value.trim()===''||!isFinite(v)||v<0){toast('Впишите, сколько на самом деле забрали (0 тоже можно)',5000);break}mrDecide(d.id,'dispute',v);break}
     case'testbr':if(isHead()){closeOv();S.dateManual=S.date!==omskToday();openBranch('test')}break;
     case'htab':S.homeTab=d.t;LS.set('ev_htab',d.t);render();break;
     case'ltab':S.loginTab=d.t;LS.set('ev_tab',d.t);S.pick=null;render();break;
