@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.42'
+  appVer:'1.43'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -557,6 +557,7 @@ function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'ad
 function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
 function viewBranch(){
   let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
+  if(!isHead()&&S.person&&S.person.admin===true)h+='<div class="card"><button class="btn big" data-act="go" data-v="mysal">Моя зарплата</button><p class="hint" style="margin:6px 0 0">Сколько начислено за смены и процент с аптеки: по дням и за период. Кнопка есть и внизу экрана.</p></div>';
   if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
   if(isHead()){h+=dayStatusHtml();loadDayStatus()}
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
@@ -959,9 +960,10 @@ function mySalHtml(){
     +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total))+'</b></div>';
   if(r.provisional)h+='<div class="chk warn"><i>!</i><div>Период не закрыт'+(Number(r.missing_reports)>0?' или не хватает отчётов ('+r.missing_reports+'). ':'. ')+'Сумма изменится, пока идут дни и отчёты.</div></div>';
   h+='<p class="hint" style="margin:6px 0 0">Расчёт по вашим отчётам. Возможны поправки до выплаты.</p></div>';
-  h+='<div class="card"><h3 style="margin-top:2px">По дням</h3>';
+  h+='<div class="card"><h3 style="margin-top:2px">По дням (начислено за день)</h3>';
   if(!(r.days||[]).length)h+='<p class="hint">За этот период у вас нет смен в отчётах.</p>';
-  (r.days||[]).forEach(d=>{h+='<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+(d.left?' · ушли '+esc(d.left):'')+(Number(d.late_hours)>0?' · '+d.late_hours+' ч':'')+'</span><b>аптека '+money(Number(d.pharm))+'</b></div>'});
+  (r.days||[]).forEach(d=>{const dp=Number(r.shift_rate)+Math.round(Number(d.pharm)*Number(r.pharm_pct)*100)/100+Number(d.late_hours||0)*Number(r.shift_rate)/12;
+    h+='<div class="srow"><span><b>'+ruDate(d.date)+'</b> · '+esc(brTitle(d.branch))+'<br><small style="color:var(--mute)">смена '+money(Number(r.shift_rate))+' + '+(Math.round(Number(r.pharm_pct)*10000)/100)+'% от аптеки '+money(Number(d.pharm))+(Number(d.late_hours)>0?' + переработка '+d.late_hours+' ч':'')+(d.left?' · ушли '+esc(d.left):'')+'</small></span><b>'+money(dp)+'</b></div>'});
   return h+'</div>';
 }
 /* ====== Руководитель: статус отчётов «Сегодня» (ev_day_status, только чтение) ====== */
