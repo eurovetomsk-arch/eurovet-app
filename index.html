@@ -172,7 +172,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.39'
+  appVer:'1.40'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -551,8 +551,11 @@ function viewLogin(){
   h+=tab==='cc'?'<a class="btn sec" style="margin-top:10px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
   return h+'</div>';
 }
+function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'adm'}
+function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
 function viewBranch(){
-  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?'<div class="card"><button class="btn sec" data-act="cchead">Колл-центр: смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Это вкладка «Колл-центр» в разделе «Зарплата». Операторы отмечают смены сами, входя под своей фамилией.</p></div>':'');
+  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
+  if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly||isHead()).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
@@ -1237,6 +1240,7 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.classList.contains('ov'))return;
   const a=b.dataset.act,d=b.dataset;
   switch(a){
+    case'htab':S.homeTab=d.t;LS.set('ev_htab',d.t);render();break;
     case'ltab':S.loginTab=d.t;LS.set('ev_tab',d.t);S.pick=null;render();break;
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
     case'login':doLogin(($('#pin')||{}).value||'');break;
