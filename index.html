@@ -1039,11 +1039,12 @@ function wkDetails(d){
     const am=l.amount!=null&&isFinite(Number(l.amount))?money(Number(l.amount)):'';
     return '<div class="srow sub"><span>'+nm+pc+'</span><b>'+am+'</b></div>'}).join('')+'</div>';
 }
+const PAY_START='2026-10-16'; /* учёт зарплат врачей в приложении с 16.10.2026, раньше считалось вручную */
 const WK_PARTS=[['admin','Администратор'],['assistant','Ассистент'],['percent','Врач'],['fixed','Оклад'],['surcharge','Доплата за продажи'],['adj','Доплаты и вычеты']];
 function workHtml(){
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
   const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="wkper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>'+(r&&!r.doctor?'Мои начисления':'Моя работа')+'</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+chip('Прошлый период',ps,pe)+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>'+(r&&!r.doctor?'Мои начисления':'Моя работа')+'</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
   if(S.wkErr)return h+'<div class="card"><p>'+esc(S.wkErr)+'</p><button class="btn sec small" data-act="wkper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const sm=r.summary||{},own=r.own||{},ps2=r.periods||[];
@@ -1096,7 +1097,7 @@ function workHtml(){
 const PAY_PART={admin:'администратор',assistant:'ассистент',extra:'доплаты и вычеты',callcenter:'колл-центр',doctor:'проценты с услуг (Vetmanager)',surcharge:'доплата за продажи',fixed:'оклад'};
 async function showPay(from,to){
   const today=omskToday();
-  if(!from){const cs=perStart(today),pe=addDays(cs,-1);from=perStart(pe);to=pe}
+  if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
   S.payFrom=from;S.payTo=to;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
   try{
     const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:from,p_to:to},20000);
@@ -1107,9 +1108,9 @@ async function showPay(from,to){
   if(S.view==='pay')paint();
 }
 function payHtml(){
-  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.payFrom||ps,t=S.payTo||pe,r=S.pay;
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.payFrom||(ps>=PAY_START?ps:cs),t=S.payTo||(ps>=PAY_START?pe:perEnd(cs)),r=S.pay;
   const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+chip('Прошлый период',ps,pe)+chip('Этот период',cs,perEnd(cs))+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+chip('Этот период',cs,perEnd(cs))+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
   if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   h+='<div class="card pay"><h3 style="margin-top:2px">Итого'+(r.provisional?' · предварительно':'')+'</h3>'
