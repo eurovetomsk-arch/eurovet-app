@@ -846,7 +846,7 @@ async function doAccept(ds){
 const perStart=d=>d.slice(0,8)+(Number(d.slice(8,10))<=15?'01':'16');
 const perEnd=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'15':new Date(Date.UTC(Number(d.slice(0,4)),Number(d.slice(5,7)),0)).toISOString().slice(0,10);
 const SAL_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',period:'Период указан неверно (не больше 46 дней)',rates:'Не найдены ставки в базе'};
-const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет'};
+const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет',recurring:'Постоянная доплата'};
 const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор',callcenter:'оператор колл-центра',doctor:'врач',courier:'курьер'};
 const srow=(a,b)=>'<div class="srow"><span>'+a+'</span><b>'+b+'</b></div>';
 const brTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id).replace(/^ЕВРОВЕТ\s*/,'');
