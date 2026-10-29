@@ -1055,7 +1055,8 @@ function workHtml(){
   h+='<div class="card pay"><h3 style="margin-top:2px">Начислено</h3>';
   if(!ps2.length)h+='<p class="hint">'+(r.doctor?'Начисление за период появится после расчёта зарплаты врачей.':'Начислений пока нет.')+'</p>';
   ps2.forEach(p=>{
-    h+='<div class="srow big"><span><b>'+ruDate(p.from)+' — '+ruDate(p.to)+'</b><br><small style="color:var(--mute)">'+(p.source==='fixed'?'фиксированная оплата':'по расчёту Vetmanager')+(p.closed?'':' · период не закрыт')+'</small></span><b>'+money(Number(p.amount))+'</b></div>'+wkDetails(p.details);
+    h+='<div class="srow big"><span><b>'+ruDate(p.from)+' — '+ruDate(p.to)+'</b><br><small style="color:var(--mute)">'+(p.source==='fixed'?'фиксированная оплата':'по расчёту Vetmanager')+(p.closed?'':' · период не закрыт')+'</small></span><b>'+money(Number(p.amount))+'</b></div>'
+      +((p.parts||[]).length>1?(p.parts||[]).map(x=>'<div class="srow sub"><span>'+esc(String(x.branch).replace(/^ЕВРОВЕТ\s*/,''))+'</span><b>'+money(Number(x.amount))+'</b></div>').join(''):'')+wkDetails(p.details);
   });
   h+='<p class="hint" style="margin:6px 0 0">Возможны поправки до выплаты. Вопросы по расчёту — руководителю.</p></div>';
   return h;
