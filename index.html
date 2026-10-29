@@ -1113,9 +1113,9 @@ function payHtml(){
   let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+chip('Этот период',cs,perEnd(cs))+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
   if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
-  h+='<div class="card pay"><h3 style="margin-top:2px">Итого'+(r.provisional?' · предварительно':'')+'</h3>'
-    +srow('Начислено',money(Number(r.total.accrued)))+srow('Переведено на карту',money(Number(r.total.paid)))
-    +'<div class="srow big"><span>К выдаче на руки</span><b>'+money(Number(r.total.to_pay))+'</b></div></div>';
+  h+='<div class="card pay"><h3 style="margin-top:2px">Итого по ведомости'+(r.provisional?' · предварительно':'')+'</h3>'
+    +srow('Начислено (полная зарплата)',money(Number(r.total.accrued)))+srow('− Переведено на карту',money(Number(r.total.paid)))
+    +'<div class="srow big"><span>= На руки (к выдаче)</span><b>'+money(Number(r.total.to_pay))+'</b></div></div>';
   (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
   const GRP=[['doctor','Врачи'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
   const rows=r.rows||[],has=g=>rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
