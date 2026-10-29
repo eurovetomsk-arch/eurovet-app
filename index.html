@@ -148,6 +148,13 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:700}
 .chips.tabs .chip{flex:1 1 auto;text-align:center}
 .srch{width:100%;margin:8px 0;padding:10px 12px;border:2px solid var(--bd,var(--line));border-radius:12px;font-size:16px;background:var(--card);color:var(--ink)}
+.pernav{display:flex;align-items:center;gap:8px;margin:6px 0}
+.pernav .chip{min-width:48px;font-size:22px;padding:4px 12px}
+.pernav .chip:disabled{opacity:.35}
+.perlab{flex:1;text-align:center;line-height:1.25}
+.perlab small{display:block;color:var(--mute)}
+.hrow{display:flex;justify-content:space-between;width:100%;min-height:44px;align-items:center;background:transparent;border:0;border-bottom:1px solid var(--line);padding:6px 4px;font-size:15px;color:var(--ink)}
+.hrow.on{font-weight:700}
 .person.done{opacity:.65}
 .wktabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
 .wktabs .chip{display:flex;flex-direction:column;align-items:flex-start;gap:0;border-radius:14px;padding:8px 12px;font-size:13px;min-height:48px}
@@ -474,7 +481,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -1000,7 +1007,7 @@ async function showWork(from,to){
   try{
     const r=await rpc('ev_my_work',{p_token:S.token,p_from:from,p_to:to},12000);
     if(S.wkFrom!==from||S.wkTo!==to)return;
-    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
     if(!r||!r.ok)S.wkErr=WK_ERR[r&&r.error]||'Не удалось загрузить';else{S.work=r;S.wkAdm=null;if(r.own&&r.own.admin){const f0=from,t0=to;rpc('ev_my_salary',{p_token:S.token,p_from:f0,p_to:t0},12000).then(x=>{if(x&&x.ok&&S.wkFrom===f0&&S.wkTo===t0){S.wkAdm=x;if(S.view==='work')paint()}}).catch(()=>{})}}
   }catch(e){if(S.wkFrom!==from||S.wkTo!==to)return;S.wkErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='work')paint();
@@ -1017,10 +1024,39 @@ const PART_NAME={admin:'Администратор',assistant:'Ассистен�
 const PAY_PART=PART_NAME;
 const PAY_START='2026-10-16'; /* учёт зарплат врачей в приложении с 16.10.2026, раньше считалось вручную */
 const WK_PARTS=[['admin',PART_NAME.admin],['assistant',PART_NAME.assistant],['callcenter',PART_NAME.callcenter],['percent',PART_NAME.doctor],['fixed',PART_NAME.fixed],['surcharge',PART_NAME.surcharge],['adj',PART_NAME.extra]];
+async function loadHist(){
+  S.wkHistData=null;S.wkHistErr=null;
+  try{const r=await rpc('ev_my_history',{p_token:S.token,p_limit:72},20000);
+    if(r&&r.error==='session'){S.token=null;S.work=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)S.wkHistErr='Не удалось загрузить историю';else S.wkHistData=r}
+  catch(e){S.wkHistErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='work'&&S.wkHist)paint();
+}
+function histHtml(){
+  const d=S.wkHistData;
+  if(S.wkHistErr)return '<div class="card"><p>'+esc(S.wkHistErr)+'</p><button class="btn sec small" data-act="wkhist" data-reload="1">Повторить</button></div>';
+  if(!d)return '<div class="card"><p class="hint">Загружаю историю…</p></div>';
+  const M=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],g=new Map();
+  (d.periods||[]).forEach(p=>{const k=p.from.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(p)});
+  let h='<div class="card"><h3 style="margin-top:2px">История начислений</h3>';
+  g.forEach((ps,k)=>{
+    const tot=ps.reduce((q,p)=>q+Number(p.total),0);
+    h+='<div class="srow big" style="margin-top:10px"><span><b>'+M[Number(k.slice(5))-1]+' '+k.slice(0,4)+'</b></span><b>'+money(tot)+'</b></div>';
+    ps.forEach(p=>{h+='<button class="hrow'+(S.wkFrom===p.from?' on':'')+'" data-act="wkper" data-from="'+p.from+'" data-to="'+p.to+'"><span>'+Number(p.from.slice(8))+'–'+Number(p.to.slice(8))+(p.closed?'':' · не закрыт')+'</span><b>'+money(Number(p.total))+'</b></button>'});
+  });
+  if(!(d.periods||[]).length)h+='<p class="hint">Начислений пока нет.</p>';
+  h+='<p class="hint" style="margin:8px 0 0">'+(d.more?'Показаны последние периоды. ':'')+'До 16.10.2026 начисления считались вручную и в приложении не показываются.</p></div>';
+  return h;
+}
+function perLabel(f,t){const M=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],d=new Date(f+'T00:00:00Z');return Number(f.slice(8))+'–'+Number(t.slice(8))+' '+M[d.getUTCMonth()]+' '+d.getUTCFullYear()}
 function workHtml(){
-  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
-  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="wkper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>Мои начисления</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  const today=omskToday(),cs=perStart(today),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
+  const canPrev=f>PAY_START,canNext=f<cs,isCur=f===cs;
+  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>Мои начисления</h2>'
+    +'<div class="pernav"><button class="chip" data-act="wkshift" data-d="-1"'+(canPrev?'':' disabled')+' aria-label="Предыдущий период">‹</button><div class="perlab"><b>'+perLabel(f,t)+'</b><small>'+(isCur?'текущий период':ruDate(f)+' — '+ruDate(t))+'</small></div><button class="chip" data-act="wkshift" data-d="1"'+(canNext?'':' disabled')+' aria-label="Следующий период">›</button></div>'
+    +'<div class="chips">'+(isCur?'':'<button class="chip" data-act="wkper" data-from="'+cs+'" data-to="'+perEnd(cs)+'">Текущий период</button>')+'<button class="chip'+(S.wkHist?' on':'')+'" data-act="wkhist">История</button></div>'
+    +(canPrev?'':'<p class="hint" style="margin:6px 0 0">Начисления до 16.10.2026 считались вручную и в приложении не показываются.</p>')+'</div>';
+  if(S.wkHist)h+=histHtml();
   if(S.wkErr)return h+'<div class="card"><p>'+esc(S.wkErr)+'</p><button class="btn sec small" data-act="wkper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const sm=r.summary||{},own=r.own||{},ps2=r.periods||[];
@@ -1081,7 +1117,7 @@ async function showPay(from,to){
   try{
     const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:from,p_to:to},20000);
     if(S.payFrom!==from||S.payTo!==to)return;
-    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
     if(!r||!r.ok)S.payErr=SAL_ERR[r&&r.error]||'Не удалось загрузить';else S.pay=r;
   }catch(e){if(S.payFrom!==from||S.payTo!==to)return;S.payErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='pay')paint();
@@ -1464,6 +1500,8 @@ document.addEventListener('click',async e=>{
   switch(a){
     case'wkper':showWork(d.from,d.to);break;
     case'wktab':S.wkTab=d.k;paint();break;
+    case'wkshift':{const f=S.wkFrom,t=S.wkTo;if(!f)break;let a,b;if(d.d==='-1'){b=addDays(f,-1);a=perStart(b)}else{a=addDays(t,1);b=perEnd(a)}if(a<PAY_START||a>perStart(omskToday()))break;showWork(a,b);break}
+    case'wkhist':{if(d.reload||!S.wkHist){S.wkHist=true;paint();loadHist()}else{S.wkHist=false;paint()}break}
     case'sakind':{const k=document.getElementById('sak');if(k)k.value=d.k;document.querySelectorAll('#sakc .chip').forEach(c=>c.classList.toggle('on',c.dataset.k===d.k));break}
     case'paytab':S.payTab=d.k;paint();break;
     case'payissue':payIssue(d.id,d.on==='1');break;
