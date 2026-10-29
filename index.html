@@ -147,6 +147,9 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .chip{background:var(--card);color:var(--ink);border:2px solid var(--bd,var(--line));border-radius:999px;padding:8px 13px;font-size:14px;min-height:40px}
 .chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:700}
 .chips.tabs .chip{flex:1 1 auto;text-align:center}
+.wktabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.wktabs .chip{display:flex;flex-direction:column;align-items:flex-start;gap:0;border-radius:14px;padding:8px 12px;font-size:13px;min-height:48px}
+.wktabs .chip b{font-size:15px}
 .nv{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .nv button{flex:1;background:none;border:0;color:var(--mute);padding:8px 2px 10px;font-size:12px;min-height:56px}
 .nv button i{display:block;font-style:normal;font-size:19px;line-height:1.2}
@@ -1036,31 +1039,54 @@ function wkDetails(d){
     const am=l.amount!=null&&isFinite(Number(l.amount))?money(Number(l.amount)):'';
     return '<div class="srow sub"><span>'+nm+pc+'</span><b>'+am+'</b></div>'}).join('')+'</div>';
 }
+const WK_PARTS=[['admin','Администратор'],['assistant','Ассистент'],['percent','Врач'],['fixed','Оклад'],['surcharge','Доплата за продажи'],['adj','Доплаты и вычеты']];
 function workHtml(){
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
   const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="wkper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
   let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>'+(r&&!r.doctor?'Мои начисления':'Моя работа')+'</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+chip('Прошлый период',ps,pe)+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
   if(S.wkErr)return h+'<div class="card"><p>'+esc(S.wkErr)+'</p><button class="btn sec small" data-act="wkper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
-  if(r.doctor){
-    h+='<div class="card pay"><h3 style="margin-top:2px">Вал за период'+(r.provisional?' · предварительно':'')+'</h3><div class="srow big"><span>Итого вал</span><b>'+money(Number(r.val_total))+'</b></div>';
-    if(r.provisional)h+='<div class="chk warn"><i>!</i><div>Период не закрыт или отчёты администраторов за последние дни ещё не внесены. Сумма изменится.</div></div>';
-    h+='<p class="hint" style="margin:6px 0 0">Вал берётся из вечерних отчётов администраторов, их проверяют по Vetmanager. Начисленная зарплата считается в Vetmanager по процентам за услуги и появляется ниже после расчёта.</p></div>';
-    h+='<div class="card"><h3 style="margin-top:2px">Вал по дням</h3>';
+  const sm=r.summary||{},own=r.own||{},ps2=r.periods||[];
+  const present=WK_PARTS.filter(p=>Number(sm[p[0]])||(p[0]==='percent'&&r.doctor)||(p[0]==='adj'&&(r.adj||[]).length));
+  let tab=S.wkTab||'all';if(tab!=='all'&&!present.some(p=>p[0]===tab))tab='all';
+  const show=k=>tab==='all'||tab===k;
+  /* общий итог на одном экране + переключатель частей */
+  h+='<div class="card pay"><div class="srow big"><span>Итого начислено'+(r.provisional?'<br><small style="color:var(--mute)">предварительно, период не закрыт</small>':'')+'</span><b>'+money(Number(sm.total!=null?sm.total:0))+'</b></div>';
+  if(present.length>1){
+    h+='<div class="wktabs"><button class="chip'+(tab==='all'?' on':'')+'" data-act="wktab" data-k="all">Всё</button>'+present.map(p=>'<button class="chip'+(tab===p[0]?' on':'')+'" data-act="wktab" data-k="'+p[0]+'"><span>'+p[1]+'</span> <b>'+(p[0]==='adj'?sgn(Number(sm.adj||0)):money(Number(sm[p[0]]||0)))+'</b></button>').join('')+'</div>';
+  }else if(present.length===1)h+='<p class="hint" style="margin:4px 0 0">'+present[0][1]+'</p>';
+  h+='</div>';
+  if(r.provisional&&r.doctor&&show('percent'))h+='<div class="chk warn"><i>!</i><div>Период не закрыт или отчёты администраторов за последние дни ещё не внесены. Сумма изменится.</div></div>';
+  /* врач: вал и проценты */
+  if(r.doctor&&show('percent')){
+    h+='<div class="card"><h3 style="margin-top:2px">Врач · вал за период</h3><div class="srow big"><span>Итого вал</span><b>'+money(Number(r.val_total))+'</b></div>';
     if(!(r.days||[]).length)h+='<p class="hint">За этот период в отчётах нет вашего вала.</p>';
     (r.days||[]).forEach(d=>{h+='<div class="srow"><span><b>'+ruDate(d.date)+'</b>'+((d.branches||[]).length?'<br><small style="color:var(--mute)">'+(d.branches||[]).map(esc).join(', ')+'</small>':'')+'</span><b>'+money(Number(d.val))+'</b></div>'});
-    h+='</div>';
+    h+='<p class="hint" style="margin:6px 0 0">Вал берётся из вечерних отчётов администраторов. Проценты с услуг считает Vetmanager, они появляются ниже после расчёта.</p></div>';
   }
-  const ps2=(r.periods||[]);
-  h+='<div class="card pay"><h3 style="margin-top:2px">Начислено</h3>';
-  if(!ps2.length)h+='<p class="hint">'+(r.doctor?'Начисление за период появится после расчёта зарплаты врачей.':'Начислений за этот период пока нет.')+'</p>';
-  ps2.forEach(p=>{
-    h+='<div class="srow big"><span><b>'+ruDate(p.from)+' — '+ruDate(p.to)+'</b><br><small style="color:var(--mute)">'+({fixed:'оклад (фиксированная часть)',surcharge:'доплата за продажи'}[p.source]||'проценты с услуг, расчёт Vetmanager')+(p.closed?'':' · период не закрыт')+'</small></span><b>'+money(Number(p.amount))+'</b></div>'
-      +((p.parts||[]).length>1?(p.parts||[]).map(x=>'<div class="srow sub"><span>'+esc(String(x.branch).replace(/^ЕВРОВЕТ\s*/,''))+'</span><b>'+money(Number(x.amount))+'</b></div>').join(''):'')+wkDetails(p.details);
+  /* начисления по источникам */
+  const srcKey={vetmanager:'percent',fixed:'fixed',surcharge:'surcharge'},srcName={fixed:'оклад (фиксированная часть)',surcharge:'доплата за продажи',vetmanager:'проценты с услуг, расчёт Vetmanager'};
+  const pshow=ps2.filter(p=>show(srcKey[p.source]||'percent'));
+  if(pshow.length||(r.doctor&&show('percent'))){
+    h+='<div class="card"><h3 style="margin-top:2px">Начислено</h3>';
+    if(!pshow.length)h+='<p class="hint">Начисление за период появится после расчёта зарплаты врачей.</p>';
+    pshow.forEach(p=>{
+      h+='<div class="srow big"><span><b>'+ruDate(p.from)+' — '+ruDate(p.to)+'</b><br><small style="color:var(--mute)">'+(srcName[p.source]||srcName.vetmanager)+(p.closed?'':' · период не закрыт')+'</small></span><b>'+money(Number(p.amount))+'</b></div>'
+        +((p.parts||[]).length>1?(p.parts||[]).map(x=>'<div class="srow sub"><span>'+esc(String(x.branch).replace(/^ЕВРОВЕТ\s*/,''))+'</span><b>'+money(Number(x.amount))+'</b></div>').join(''):'')+wkDetails(p.details);
+    });
+    h+='<p class="hint" style="margin:6px 0 0">Возможны поправки до выплаты. Вопросы по расчёту — руководителю.</p></div>';
+  }
+  /* смены администратора и ассистента */
+  [['admin','Администратор'],['assistant','Ассистент']].forEach(([k,l])=>{
+    const o=own[k];if(!o||!show(k))return;
+    h+='<div class="card"><h3 style="margin-top:2px">'+l+'</h3><div class="srow big"><span>Смен: '+Number(o.shifts||0)+'</span><b>'+money(Number(o.total))+'</b></div>'
+      +(Number(o.shift_pay)?'<div class="srow sub"><span>за смены</span><b>'+money(Number(o.shift_pay))+'</b></div>':'')
+      +(Number(o.pharm_pay)?'<div class="srow sub"><span>процент с аптеки</span><b>'+money(Number(o.pharm_pay))+'</b></div>':'')
+      +(Number(o.late_pay)?'<div class="srow sub"><span>переработка</span><b>'+money(Number(o.late_pay))+'</b></div>':'')
+      +(Number(o.fix_pay)?'<div class="srow sub"><span>фиксации</span><b>'+money(Number(o.fix_pay))+'</b></div>':'')+'</div>';
   });
-  h+='<p class="hint" style="margin:6px 0 0">Возможны поправки до выплаты. Вопросы по расчёту — руководителю.</p></div>';
-  if((r.adj||[]).length){
-    h+='<div class="card pay"><h3 style="margin-top:2px">Доплаты и вычеты за период</h3>'+r.adj.map(i=>srow(ruDate(i.date)+' · '+esc(SAL_KIND[i.kind]||i.kind)+(i.comment?'<br><small style="color:var(--mute)">'+esc(i.comment)+'</small>':''),sgn(Number(i.amount)))).join('')
+  if((r.adj||[]).length&&show('adj')){
+    h+='<div class="card"><h3 style="margin-top:2px">Доплаты и вычеты за период</h3>'+r.adj.map(i=>srow(ruDate(i.date)+' · '+esc(SAL_KIND[i.kind]||i.kind)+(i.comment?'<br><small style="color:var(--mute)">'+esc(i.comment)+'</small>':''),sgn(Number(i.amount)))).join('')
       +'<div class="srow big"><span>Итого за период</span><b>'+sgn(Number(r.adj_total))+'</b></div></div>';
   }
   return h;
@@ -1090,13 +1116,19 @@ function payHtml(){
     +srow('Начислено',money(Number(r.total.accrued)))+srow('Переведено на карту',money(Number(r.total.paid)))
     +'<div class="srow big"><span>К выдаче на руки</span><b>'+money(Number(r.total.to_pay))+'</b></div></div>';
   (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
-  h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3>';
-  (r.rows||[]).forEach(x=>{
-    const parts=Object.keys(x.parts||{}).map(k=>(PAY_PART[k]||k)+' '+money(Number(x.parts[k]))).join(' + ');
-    h+='<div class="person"><div class="srow"><span><b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+esc(parts)+'</small></span><b>'+money(Number(x.accrued))+'</b></div>'
+  const GRP=[['doctor','Врачи'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
+  const rows=r.rows||[],has=g=>rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
+  let pt=S.payTab||'all';if(pt!=='all'&&!has(pt))pt='all';
+  const shown=pt==='all'?rows:rows.filter(x=>x.parts&&Number(x.parts[pt]));
+  h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="paytab" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'+GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="paytab" data-k="'+g[0]+'"><span>'+g[1]+'</span> <b>'+has(g[0])+'</b></button>').join('')+'</div>';
+  shown.forEach(x=>{
+    const ks=Object.keys(x.parts||{}).filter(k=>Number(x.parts[k])),op=String(S.payOpen)===String(x.id);
+    h+='<div class="person" data-act="payopenp" data-id="'+x.id+'" style="cursor:pointer"><div class="srow"><span><b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span><b>'+money(Number(x.accrued))+'</b></div>'
       +'<div class="srow sub"><span>переведено на карту</span><b>'+money(Number(x.paid))+'</b></div>'
-      +'<div class="srow sub"><span>'+(x.over_paid?'переплата (проверить)':'на руки')+'</span><b'+(x.over_paid?' style="color:var(--red,#c0392b)"':'')+'>'+money(Number(x.to_pay))+'</b></div></div>';
+      +'<div class="srow sub"><span>'+(x.over_paid?'переплата (проверить)':'на руки')+'</span><b'+(x.over_paid?' style="color:var(--red,#c0392b)"':'')+'>'+money(Number(x.to_pay))+'</b></div>'
+      +(op?ks.map(k=>'<div class="srow sub"><span>· '+esc(PAY_PART[k]||k)+'</span><b>'+money(Number(x.parts[k]))+'</b></div>').join(''):(ks.length>1?'<small style="color:var(--mute)">нажмите, чтобы раскрыть состав</small>':''))+'</div>';
   });
+  if(pt!=='all')h+='<div class="srow big"><span>Итого по группе</span><b>'+money(shown.reduce((q,x)=>q+Number(x.accrued),0))+'</b></div>';
   h+='</div><div class="card"><button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Доплата или вычет</button>';
   const al=(r.adj||[]).filter(i=>!i.is_cancel);
   if(!al.length)h+='<p class="hint">Доплат и вычетов за этот период нет.</p>';
@@ -1437,6 +1469,9 @@ document.addEventListener('click',async e=>{
   switch(a){
     case'myper':showMySalary(d.from,d.to);break;
     case'wkper':showWork(d.from,d.to);break;
+    case'wktab':S.wkTab=d.k;paint();break;
+    case'paytab':S.payTab=d.k;paint();break;
+    case'payopenp':S.payOpen=S.payOpen===d.id?null:d.id;paint();break;
     case'payopen':closeOv();showPay();break;
     case'workopen':closeOv();showWork();break;
     case'payper':showPay(d.from,d.to);break;
