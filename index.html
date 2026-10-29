@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ЕВРОВЕТ · Отчёт администратора</title>
+<title>Мой ЕВРОВЕТ</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-v2.svg" type="image/svg+xml">
 <link rel="icon" href="icon-v2-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="icon-v2-180.png">
-<meta name="description" content="Сдача вечернего отчёта администратора ЕВРОВЕТ с телефона, онлайн и офлайн">
+<meta name="description" content="Мой ЕВРОВЕТ: отчёты, смены и начисления сотрудников сети ветклиник ЕВРОВЕТ, онлайн и офлайн">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Отчёт админа">
+<meta name="apple-mobile-web-app-title" content="Мой ЕВРОВЕТ">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Вечерний отчёт ЕВРОВЕТ">
-<meta property="og:description" content="Сдача отчёта администратора с телефона, онлайн и офлайн">
+<meta property="og:title" content="Мой ЕВРОВЕТ">
+<meta property="og:description" content="Всё о вашей работе — в одном месте: отчёты, смены и начисления">
 <meta property="og:image" content="https://eurovetomsk-arch.github.io/eurovet-app/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -184,7 +184,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.46'
+  appVer:'1.47'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -515,9 +515,9 @@ async function openBranch(id){
 /* ====== Отрисовка ====== */
 function setHeader(){
   const h=$('#hdr');
-  if(S.view==='login'||(S.view==='help'&&!S.person)){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>ЕВРОВЕТ</b><small>вечерний отчёт</small></div></div>'+netBadge();return}
+  if(S.view==='login'||(S.view==='help'&&!S.person)){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>Мой ЕВРОВЕТ</b><small>Всё о вашей работе — в одном месте</small></div></div>'+netBadge();return}
   const bt=S.branch&&(BRANCHES.find(b=>b.id===S.branch)||{}).title;
-  h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'ЕВРОВЕТ')+'</small></div></div><div class="hb">'+netBadge()+
+  h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?S.person.name:'')+'</b><small>'+(S.view==='form'&&bt?esc(bt)+' · '+ruDate(S.date):'Мой ЕВРОВЕТ')+'</small></div></div><div class="hb">'+netBadge()+
     (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
 }
 function netBadge(){
@@ -548,33 +548,45 @@ function viewHelp(){return '<div class="card"><button class="btn sec small" data
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
 function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
-const LCATS=[['adm','Администраторы'],['cc','Колл-центр'],['work','Врачи и ассистенты']];
-const inCat=(p,c)=>c==='adm'?p.adm===true:c==='cc'?p.cc===true:(p.work===true&&p.adm!==true&&p.cc!==true); // врач/курьер без других ролей
+const LCATS=[['adm','Администратор'],['asst','Ассистент'],['doc','Врач'],['cc','Колл-центр'],['oth','Другие']];
+const inCat=(p,c)=>{
+  if(!('doc' in p)&&(c==='doc'||c==='asst'||c==='oth')) return c==='doc'&&p.work===true&&p.adm!==true&&p.cc!==true; // список со старой страницы 1.46: врачи и ассистенты вместе
+  return c==='adm'?p.adm===true:c==='cc'?p.cc===true:c==='doc'?p.doc===true:c==='asst'?p.asst===true:p.cour===true;
+};
 function loginCats(){return LCATS.filter(c=>S.loginList.some(p=>inCat(p,c[0])))}
-function loginTabs(){return loginCats().length>1}
-function loginTab(){
+function loginRole(){ // выбранная или запомненная на устройстве роль (только слово, ни PIN, ни сумм)
   const cs=loginCats().map(c=>c[0]);
-  if(cs.length<2)return cs[0]||'adm';
   if(S.loginTab&&cs.includes(S.loginTab))return S.loginTab;
-  const t=LS.get('ev_tab');if(cs.includes(t))return t;
-  const last=S.loginList.find(p=>String(p.id)===String(LS.get('ev_last')));
-  const mine=last&&cs.find(c=>inCat(last,c));
-  return mine||(cs.includes('adm')?'adm':cs[0]);
+  const t=LS.get('ev_tab');return cs.includes(t)?t:null;
+}
+const loginTab=loginRole;
+function pinForm(){
+  return '<label class="f"><span>PIN (6 цифр)</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]*"></label>'
+    +'<button class="btn" data-act="login"'+(S.busy?' disabled':'')+'>'+(S.busy?'Входим…':'Войти')+'</button>';
 }
 function viewLogin(){
-  const tabs=loginTabs(),tab=loginTab();
-  const list=tabs?S.loginList.filter(p=>inCat(p,tab)):S.loginList;
-  if(S.pick!=null&&!list.some(p=>String(p.id)===String(S.pick)))S.pick=null;
-  let h='<div class="card"><h2>Вход</h2>';
-  if(tabs)h+='<div class="chips tabs" style="margin:0 0 10px">'+loginCats().map(x=>'<button class="chip'+(tab===x[0]?' on':'')+'" data-act="ltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
-  if(!S.loginList.length)h+='<p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p>';
-  else{
+  if(!S.loginList.length)return '<div class="card"><h2>Вход</h2><p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p></div>';
+  const cats=loginCats(),chosen=S.loginTab&&cats.some(c=>c[0]===S.loginTab)?S.loginTab:null;
+  const last=S.loginList.find(p=>String(p.id)===String(LS.get('ev_last'))),lr=loginRole();
+  let h;
+  if(chosen){ // шаг 2: фамилия и PIN
+    const list=S.loginList.filter(p=>inCat(p,chosen)),cn=(cats.find(c=>c[0]===chosen)||[])[1]||'';
+    if(S.pick!=null&&!list.some(p=>String(p.id)===String(S.pick)))S.pick=null;
+    h='<div class="card"><button class="btn sec small" data-act="ltab" data-t="" style="margin:0 0 10px">← Назад</button><h2>'+esc(cn)+': выберите себя</h2>';
     h+='<div class="tiles">'+list.map(p=>'<button class="tile'+(String(S.pick)===String(p.id)?' on':'')+'" data-act="pick" data-id="'+p.id+'">'+esc(p.name)+'</button>').join('')+'</div>';
-    h+='<label class="f"><span>PIN (6 цифр)</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]*"></label>';
-    h+='<button class="btn" data-act="login"'+(S.busy?' disabled':'')+'>'+(S.busy?'Входим…':'Войти')+'</button>';
+    h+=pinForm()+'</div>';
+  }else if(last&&lr&&!S.notMe&&inCat(last,lr)){ // быстрый вход: запомнены только фамилия и роль
+    S.pick=last.id;
+    h='<div class="card"><h2>Здравствуйте!</h2><p class="hint" style="margin:0 0 8px">Это вы — '+esc(last.name)+'?</p>'+pinForm()
+      +'<button class="btn sec" style="margin-top:10px" data-act="notme">Это не я</button></div>';
+  }else{ // шаг 1: роль
+    h='<div class="card"><h2>Здравствуйте! Кто вы?</h2>';
+    h+=cats.filter(c=>['adm','asst','doc'].includes(c[0])).map(c=>'<button class="btn big" style="margin:8px 0" data-act="ltab" data-t="'+c[0]+'">'+c[1]+'</button>').join('');
+    h+=cats.filter(c=>c[0]==='cc').map(c=>'<button class="btn sec big" style="margin:8px 0" data-act="ltab" data-t="cc">'+c[1]+'</button>').join('');
+    h+=cats.filter(c=>c[0]==='oth').map(c=>'<button class="btn sec small" style="margin:8px 0 0" data-act="ltab" data-t="oth">'+c[1]+'</button>').join('');
+    h+='<p class="hint" style="margin:10px 0 0">Нет в списке? Обратитесь к руководителю.</p></div>';
   }
-  h+=tab==='cc'?'<a class="btn sec" style="margin-top:10px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':tab==='work'?'':'<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
-  return h+'</div>';
+  return h+((chosen||lr)==='cc'?'<div class="card"><a class="btn sec" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a></div>':(chosen==='adm'||(!chosen&&!S.notMe&&lr==='adm'))?'<div class="card"><button class="btn sec" data-act="help">Как заполнять отчёт</button></div>':'');
 }
 function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'adm'}
 function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
@@ -1052,7 +1064,7 @@ function perLabel(f,t){const M=['января','февраля','марта','а
 function workHtml(){
   const today=omskToday(),cs=perStart(today),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
   const canPrev=f>PAY_START,canNext=f<cs,isCur=f===cs;
-  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>Мои начисления</h2>'
+  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>Мои начисления</h2>'+(S.person?'<p class="hint" style="margin:0 0 8px">Здравствуйте, '+esc(S.person.name)+'!</p>':'')
     +'<div class="pernav"><button class="chip" data-act="wkshift" data-d="-1"'+(canPrev?'':' disabled')+' aria-label="Предыдущий период">‹</button><div class="perlab"><b>'+perLabel(f,t)+'</b><small>'+(isCur?'текущий период':ruDate(f)+' — '+ruDate(t))+'</small></div><button class="chip" data-act="wkshift" data-d="1"'+(canNext?'':' disabled')+' aria-label="Следующий период">›</button></div>'
     +'<div class="chips">'+(isCur?'':'<button class="chip" data-act="wkper" data-from="'+cs+'" data-to="'+perEnd(cs)+'">Текущий период</button>')+'<button class="chip'+(S.wkHist?' on':'')+'" data-act="wkhist">История</button></div>'
     +(canPrev?'':'<p class="hint" style="margin:6px 0 0">Начисления до 16.10.2026 считались вручную и в приложении не показываются.</p>')+'</div>';
@@ -1514,7 +1526,8 @@ document.addEventListener('click',async e=>{
     case'mrno':{const inp=document.getElementById('mra-'+d.id),v=inp?Number(String(inp.value).replace(/\s/g,'').replace(',','.')):NaN;if(!inp||inp.value.trim()===''||!isFinite(v)||v<0){toast('Впишите, сколько на самом деле забрали (0 тоже можно)',5000);break}mrDecide(d.id,'dispute',v);break}
     case'testbr':if(isHead()){closeOv();S.dateManual=S.date!==omskToday();openBranch('test')}break;
     case'htab':S.homeTab=d.t;LS.set('ev_htab',d.t);render();break;
-    case'ltab':S.loginTab=d.t;LS.set('ev_tab',d.t);S.pick=null;render();break;
+    case'ltab':if(d.t===''){S.loginTab=null;S.notMe=true}else{S.loginTab=d.t;LS.set('ev_tab',d.t)}S.pick=null;render();break;
+    case'notme':S.loginTab=null;S.notMe=true;S.pick=null;render();break;
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
     case'login':doLogin(($('#pin')||{}).value||'');break;
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
