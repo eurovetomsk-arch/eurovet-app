@@ -1,4 +1,4 @@
-const V='ev-shell-v46';
+const V='ev-shell-v50';
 const HELPIMG=["help/02_pin.jpg", "help/03_branch.jpg", "help/04_shift_doctors.jpg", "help/05_clinic_pharmacy.jpg", "help/06_advance_comp.jpg", "help/07_cash.jpg", "help/08_assistants_note.jpg", "help/09_check_green.jpg", "help/10_check_red.jpg", "help/11_hint.jpg", "help/12_done.jpg", "help/13_menu.jpg", "help/14_offline.jpg"];
 const SHELL=['./','index.html','manifest.webmanifest','icon-v2.svg','mark.svg','icon-v2-180.png','icon-v2-192.png','icon-v2-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL).then(()=>Promise.all(HELPIMG.map(u=>c.add(u).catch(()=>{}))))).then(()=>self.skipWaiting()))});

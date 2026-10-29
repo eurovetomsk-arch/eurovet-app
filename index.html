@@ -147,6 +147,18 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .chip{background:var(--card);color:var(--ink);border:2px solid var(--bd,var(--line));border-radius:999px;padding:8px 13px;font-size:14px;min-height:40px}
 .chip.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:700}
 .chips.tabs .chip{flex:1 1 auto;text-align:center}
+.srch{width:100%;margin:8px 0;padding:10px 12px;border:2px solid var(--bd,var(--line));border-radius:12px;font-size:16px;background:var(--card);color:var(--ink)}
+.pernav{display:flex;align-items:center;gap:8px;margin:6px 0}
+.pernav .chip{min-width:48px;font-size:22px;padding:4px 12px}
+.pernav .chip:disabled{opacity:.35}
+.perlab{flex:1;text-align:center;line-height:1.25}
+.perlab small{display:block;color:var(--mute)}
+.hrow{display:flex;justify-content:space-between;width:100%;min-height:44px;align-items:center;background:transparent;border:0;border-bottom:1px solid var(--line);padding:6px 4px;font-size:15px;color:var(--ink)}
+.hrow.on{font-weight:700}
+.person.done{opacity:.65}
+.wktabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
+.wktabs .chip{display:flex;flex-direction:column;align-items:flex-start;gap:0;border-radius:14px;padding:8px 12px;font-size:13px;min-height:48px}
+.wktabs .chip b{font-size:15px}
 .nv{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .nv button{flex:1;background:none;border:0;color:var(--mute);padding:8px 2px 10px;font-size:12px;min-height:56px}
 .nv button i{display:block;font-style:normal;font-size:19px;line-height:1.2}
@@ -172,7 +184,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.45'
+  appVer:'1.46'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -184,7 +196,9 @@ const isHead=()=>!!(S.person&&S.person.head===true);
 const isCC=()=>!!(S.person&&S.person.cc===true); // оператор колл-центра (с 1.34)
 const canReport=()=>!!(S.person&&(S.person.head===true||S.person.admin===true||(S.person.admin==null&&!S.person.cc))); // старый сохранённый вход без поля admin — администратор
 const ccOnly=()=>isCC()&&!canReport();
-const homeView=()=>ccOnly()?'cc':'branch';
+const isWork=()=>!!(S.person&&S.person.work===true); // врач или курьер: вкладка «Моя работа» (с 1.46)
+const workOnly=()=>isWork()&&!canReport()&&!isCC();
+const homeView=()=>ccOnly()?'cc':workOnly()?'work':'branch';
 
 /* ====== Утилиты ====== */
 const $=(s,r=document)=>r.querySelector(s);
@@ -461,13 +475,13 @@ async function doLogin(pin){
   S.busy=true;render();
   try{
     const r=await rpc('ev_login',{p_person:S.pick,p_pin:pin,p_device:DEV});
-    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()||(isCC()&&loginTab()==='cc')){showCC();return}S.view='branch';render();flush();return}
+    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()||(isCC()&&loginTab()==='cc')){showCC();return}if(workOnly()){showWork();return}S.view='branch';render();flush();return}
     const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -525,42 +539,48 @@ function render(){
   else if(S.view==='rev')app.innerHTML=revHtml();
   else if(S.view==='sal')app.innerHTML=salHtml();
   else if(S.view==='cc')app.innerHTML=ccHtml();
-  else if(S.view==='mysal')app.innerHTML=mySalHtml();
+  else if(S.view==='work')app.innerHTML=workHtml();
+  else if(S.view==='pay')app.innerHTML=payHtml();
   if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'))bar.innerHTML=navHtml();
-  else if(!isHead()&&S.person&&S.person.admin===true&&(S.view==='branch'||S.view==='mysal'))bar.innerHTML=navHtml(ANAV);
+  else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'))bar.innerHTML=navHtml(anav());
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
 function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
-function loginTabs(){return S.loginList.some(p=>p.cc===true)&&S.loginList.some(p=>p.adm===true)}
+const LCATS=[['adm','Администраторы'],['cc','Колл-центр'],['work','Врачи и ассистенты']];
+const inCat=(p,c)=>c==='adm'?p.adm===true:c==='cc'?p.cc===true:(p.work===true&&p.adm!==true&&p.cc!==true); // врач/курьер без других ролей
+function loginCats(){return LCATS.filter(c=>S.loginList.some(p=>inCat(p,c[0])))}
+function loginTabs(){return loginCats().length>1}
 function loginTab(){
-  if(!loginTabs())return 'adm';
-  if(S.loginTab)return S.loginTab;
-  const t=LS.get('ev_tab');if(t==='adm'||t==='cc')return t;
+  const cs=loginCats().map(c=>c[0]);
+  if(cs.length<2)return cs[0]||'adm';
+  if(S.loginTab&&cs.includes(S.loginTab))return S.loginTab;
+  const t=LS.get('ev_tab');if(cs.includes(t))return t;
   const last=S.loginList.find(p=>String(p.id)===String(LS.get('ev_last')));
-  return last&&last.cc&&!last.adm?'cc':'adm';
+  const mine=last&&cs.find(c=>inCat(last,c));
+  return mine||(cs.includes('adm')?'adm':cs[0]);
 }
 function viewLogin(){
   const tabs=loginTabs(),tab=loginTab();
-  const list=tabs?S.loginList.filter(p=>tab==='cc'?p.cc:p.adm):S.loginList;
+  const list=tabs?S.loginList.filter(p=>inCat(p,tab)):S.loginList;
   if(S.pick!=null&&!list.some(p=>String(p.id)===String(S.pick)))S.pick=null;
   let h='<div class="card"><h2>Вход</h2>';
-  if(tabs)h+='<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(tab===x[0]?' on':'')+'" data-act="ltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
+  if(tabs)h+='<div class="chips tabs" style="margin:0 0 10px">'+loginCats().map(x=>'<button class="chip'+(tab===x[0]?' on':'')+'" data-act="ltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
   if(!S.loginList.length)h+='<p class="hint">Список сотрудников не загружен. Проверьте интернет и обновите страницу.</p>';
   else{
     h+='<div class="tiles">'+list.map(p=>'<button class="tile'+(String(S.pick)===String(p.id)?' on':'')+'" data-act="pick" data-id="'+p.id+'">'+esc(p.name)+'</button>').join('')+'</div>';
     h+='<label class="f"><span>PIN (6 цифр)</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="[0-9]*"></label>';
     h+='<button class="btn" data-act="login"'+(S.busy?' disabled':'')+'>'+(S.busy?'Входим…':'Войти')+'</button>';
   }
-  h+=tab==='cc'?'<a class="btn sec" style="margin-top:10px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
+  h+=tab==='cc'?'<a class="btn sec" style="margin-top:10px" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':tab==='work'?'':'<button class="btn sec" style="margin-top:10px" data-act="help">Как заполнять отчёт</button>';
   return h+'</div>';
 }
 function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'adm'}
 function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
 function viewBranch(){
   let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
-  if(!isHead()&&S.person&&S.person.admin===true)h+='<div class="card"><button class="btn big" data-act="go" data-v="mysal">Моя зарплата</button><p class="hint" style="margin:6px 0 0">Сколько начислено за смены и процент с аптеки: по дням и за период. Кнопка есть и внизу экрана.</p></div>';
+  if(!isHead()&&S.person)h+='<div class="card"><button class="btn big" data-act="go" data-v="work">Мои начисления</button><p class="hint" style="margin:6px 0 0">Всё начисленное за период в одном месте: итог и все части. Кнопка есть и внизу экрана.</p></div>';
   if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
   if(isHead()){h+='<div class="mrbox">'+mrHtml()+'</div>';loadMr();h+=dayStatusHtml();loadDayStatus()}
   h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
@@ -793,7 +813,7 @@ async function loadFlags(branch,date){
   }catch(e){}
 }
 function paint(){const y=window.scrollY;render();window.scrollTo(0,y)}
-const ANAV=[['branch','Отчёт','✎'],['mysal','Моя зарплата','≡']];
+const anav=()=>(canReport()?[['branch','Отчёт','✎']]:[]).concat(isCC()?[['cc','Смены','☎']]:[],[['work','Мои начисления','₽']]);
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
 function navHtml(list){return '<nav class="nv">'+(list||NAV).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
@@ -833,8 +853,8 @@ async function doAccept(ds){
 const perStart=d=>d.slice(0,8)+(Number(d.slice(8,10))<=15?'01':'16');
 const perEnd=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'15':new Date(Date.UTC(Number(d.slice(0,4)),Number(d.slice(5,7)),0)).toISOString().slice(0,10);
 const SAL_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',period:'Период указан неверно (не больше 46 дней)',rates:'Не найдены ставки в базе'};
-const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет'};
-const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор',callcenter:'оператор колл-центра'};
+const SAL_KIND={taxi:'Такси',manual:'Доплата',other:'Вычет',recurring:'Постоянная доплата'};
+const SAL_ROLE={assistant_clinical:'клинический ассистент',assistant_tech:'технический ассистент',admin:'администратор',callcenter:'оператор колл-центра',doctor:'врач',courier:'курьер'};
 const srow=(a,b)=>'<div class="srow"><span>'+a+'</span><b>'+b+'</b></div>';
 const brTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id).replace(/^ЕВРОВЕТ\s*/,'');
 /* ведомость: один человек = одна строка с расшифровкой (если он и админ, и ассистент — суммы складываются) */
@@ -972,38 +992,183 @@ function salHtml(){
   return h+'</div>';
 }
 
-/* ====== Моя зарплата (администратор): только свои цифры, ev_my_salary по токену (с 1.41) ====== */
-async function showMySalary(from,to){
+/* ====== Мои начисления: часть «Администратор» по дням (ev_my_salary, только владелец токена) ====== */
+function admDaysHtml(r){
+  if(!r||!(r.days||[]).length)return '';
+  return '<div style="margin-top:6px"><small style="color:var(--mute)">По дням</small>'+(r.days||[]).map(d=>{const dp=Number(r.shift_rate)+Math.round(Number(d.pharm)*Number(r.pharm_pct)*100)/100+Number(d.late_hours||0)*Number(r.shift_rate)/12;
+    return '<div class="srow sub"><span>'+ruDate(d.date)+' · '+esc(brTitle(d.branch))+'<br><small style="color:var(--mute)">смена '+money(Number(r.shift_rate))+' + '+(Math.round(Number(r.pharm_pct)*10000)/100)+'% от аптеки '+money(Number(d.pharm))+(Number(d.late_hours)>0?' + переработка '+d.late_hours+' ч':'')+'</small></span><b>'+money(dp)+'</b></div>'}).join('')+'</div>';
+}
+/* ====== Моя работа (врач/курьер, с 1.46): вал по дням и начисления по периодам; ev_my_work по токену ====== */
+const WK_ERR={session:'Сессия закончилась, войдите заново',forbidden:'Нет доступа',period:'Период указан неверно'};
+async function showWork(from,to){
   const today=omskToday();
   if(!from){from=perStart(today);to=perEnd(today)}
-  S.myFrom=from;S.myTo=to;closeOv();S.view='mysal';S.mySal=null;S.myErr=null;S.myLoad=true;paint();window.scrollTo(0,0);
+  S.wkFrom=from;S.wkTo=to;closeOv();S.view='work';S.work=null;S.wkErr=null;paint();window.scrollTo(0,0);
   try{
-    const r=await rpc('ev_my_salary',{p_token:S.token,p_from:from,p_to:to},12000);
-    if(S.myFrom!==from||S.myTo!==to)return;
-    if(!r||!r.ok)S.myErr=SAL_ERR[r&&r.error]||'Не удалось загрузить';else S.mySal=r;
-  }catch(e){if(S.myFrom!==from||S.myTo!==to)return;S.myErr=e.net?'Нет связи.':'Ошибка сервера.'}
-  S.myLoad=false;if(S.view==='mysal')paint();
+    const r=await rpc('ev_my_work',{p_token:S.token,p_from:from,p_to:to},12000);
+    if(S.wkFrom!==from||S.wkTo!==to)return;
+    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)S.wkErr=WK_ERR[r&&r.error]||'Не удалось загрузить';else{S.work=r;S.wkAdm=null;if(r.own&&r.own.admin){const f0=from,t0=to;rpc('ev_my_salary',{p_token:S.token,p_from:f0,p_to:t0},12000).then(x=>{if(x&&x.ok&&S.wkFrom===f0&&S.wkTo===t0){S.wkAdm=x;if(S.view==='work')paint()}}).catch(()=>{})}}
+  }catch(e){if(S.wkFrom!==from||S.wkTo!==to)return;S.wkErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='work')paint();
 }
-function mySalHtml(){
-  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.myFrom,t=S.myTo,r=S.mySal;
-  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="myper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h='<div class="card"><h2>Моя зарплата</h2><div class="chips">'+chip('Этот период',cs,perEnd(cs))+chip('Прошлый период',ps,pe)+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
-  if(S.myErr)return h+'<div class="card"><p>'+esc(S.myErr)+'</p><button class="btn sec small" data-act="myper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+function wkDetails(d){
+  if(!d||!Array.isArray(d.lines)||!d.lines.length)return '';
+  return '<div style="margin:4px 0 8px 10px">'+d.lines.map(l=>{
+    const nm=esc(String(l.title||l.name||l.svc||l.service||'')),pc=l.pct!=null?' · '+esc(String(l.pct))+'%':'';
+    const am=l.amount!=null&&isFinite(Number(l.amount))?money(Number(l.amount)):'';
+    return '<div class="srow sub"><span>'+nm+pc+'</span><b>'+am+'</b></div>'}).join('')+'</div>';
+}
+/* единые названия частей начисления: у сотрудника и в ведомости */
+const PART_NAME={admin:'Администратор',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач (проценты)',fixed:'Оклад',surcharge:'Доплата за продажи',extra:'Доплаты и вычеты'};
+const PAY_PART=PART_NAME;
+const PAY_START='2026-10-16'; /* учёт зарплат врачей в приложении с 16.10.2026, раньше считалось вручную */
+const WK_PARTS=[['admin',PART_NAME.admin],['assistant',PART_NAME.assistant],['callcenter',PART_NAME.callcenter],['percent',PART_NAME.doctor],['fixed',PART_NAME.fixed],['surcharge',PART_NAME.surcharge],['adj',PART_NAME.extra]];
+async function loadHist(){
+  S.wkHistData=null;S.wkHistErr=null;
+  try{const r=await rpc('ev_my_history',{p_token:S.token,p_limit:72},20000);
+    if(r&&r.error==='session'){S.token=null;S.work=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)S.wkHistErr='Не удалось загрузить историю';else S.wkHistData=r}
+  catch(e){S.wkHistErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='work'&&S.wkHist)paint();
+}
+function histHtml(){
+  const d=S.wkHistData;
+  if(S.wkHistErr)return '<div class="card"><p>'+esc(S.wkHistErr)+'</p><button class="btn sec small" data-act="wkhist" data-reload="1">Повторить</button></div>';
+  if(!d)return '<div class="card"><p class="hint">Загружаю историю…</p></div>';
+  const M=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],g=new Map();
+  (d.periods||[]).forEach(p=>{const k=p.from.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(p)});
+  let h='<div class="card"><h3 style="margin-top:2px">История начислений</h3>';
+  g.forEach((ps,k)=>{
+    const tot=ps.reduce((q,p)=>q+Number(p.total),0);
+    h+='<div class="srow big" style="margin-top:10px"><span><b>'+M[Number(k.slice(5))-1]+' '+k.slice(0,4)+'</b></span><b>'+money(tot)+'</b></div>';
+    ps.forEach(p=>{h+='<button class="hrow'+(S.wkFrom===p.from?' on':'')+'" data-act="wkper" data-from="'+p.from+'" data-to="'+p.to+'"><span>'+Number(p.from.slice(8))+'–'+Number(p.to.slice(8))+(p.closed?'':' · не закрыт')+'</span><b>'+money(Number(p.total))+'</b></button>'});
+  });
+  if(!(d.periods||[]).length)h+='<p class="hint">Начислений пока нет.</p>';
+  h+='<p class="hint" style="margin:8px 0 0">'+(d.more?'Показаны последние периоды. ':'')+'До 16.10.2026 начисления считались вручную и в приложении не показываются.</p></div>';
+  return h;
+}
+function perLabel(f,t){const M=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],d=new Date(f+'T00:00:00Z');return Number(f.slice(8))+'–'+Number(t.slice(8))+' '+M[d.getUTCMonth()]+' '+d.getUTCFullYear()}
+function workHtml(){
+  const today=omskToday(),cs=perStart(today),f=S.wkFrom||cs,t=S.wkTo||perEnd(cs),r=S.work;
+  const canPrev=f>PAY_START,canNext=f<cs,isCur=f===cs;
+  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>Мои начисления</h2>'
+    +'<div class="pernav"><button class="chip" data-act="wkshift" data-d="-1"'+(canPrev?'':' disabled')+' aria-label="Предыдущий период">‹</button><div class="perlab"><b>'+perLabel(f,t)+'</b><small>'+(isCur?'текущий период':ruDate(f)+' — '+ruDate(t))+'</small></div><button class="chip" data-act="wkshift" data-d="1"'+(canNext?'':' disabled')+' aria-label="Следующий период">›</button></div>'
+    +'<div class="chips">'+(isCur?'':'<button class="chip" data-act="wkper" data-from="'+cs+'" data-to="'+perEnd(cs)+'">Текущий период</button>')+'<button class="chip'+(S.wkHist?' on':'')+'" data-act="wkhist">История</button></div>'
+    +(canPrev?'':'<p class="hint" style="margin:6px 0 0">Начисления до 16.10.2026 считались вручную и в приложении не показываются.</p>')+'</div>';
+  if(S.wkHist)h+=histHtml();
+  if(S.wkErr)return h+'<div class="card"><p>'+esc(S.wkErr)+'</p><button class="btn sec small" data-act="wkper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
-  const pct=Math.round(Number(r.pharm_pct)*10000)/100;
-  h+='<div class="card pay"><h3 style="margin-top:2px">Начислено за период'+(r.provisional?' · предварительно':'')+'</h3>'
-    +srow('Смен: '+r.shifts+' × '+money(Number(r.shift_rate)),money(Number(r.shift_pay)))
-    +srow(pct+'% от выручки аптеки ('+money(Number(r.pharm_val))+')',money(Number(r.pct_pay)))
-    +srow(Number(r.late_hours)>0?'Переработка: '+r.late_hours+' ч × '+money(Number(r.hour_rate)):'Переработка: нет',money(Number(r.late_pay)))
-    +(r.adj_items||[]).map(i=>srow((SAL_KIND[i.kind]||i.kind)+' '+ruDate(i.date),sgn(Number(i.amount)))).join('')
-    +'<div class="srow big"><span>Итого</span><b>'+money(Number(r.total))+'</b></div>';
-  if(r.provisional)h+='<div class="chk warn"><i>!</i><div>Период не закрыт'+(Number(r.missing_reports)>0?' или не хватает отчётов ('+r.missing_reports+'). ':'. ')+'Сумма изменится, пока идут дни и отчёты.</div></div>';
-  h+='<p class="hint" style="margin:6px 0 0">Расчёт по вашим отчётам. Возможны поправки до выплаты.</p></div>';
-  h+='<div class="card"><h3 style="margin-top:2px">По дням (начислено за день)</h3>';
-  if(!(r.days||[]).length)h+='<p class="hint">За этот период у вас нет смен в отчётах.</p>';
-  (r.days||[]).forEach(d=>{const dp=Number(r.shift_rate)+Math.round(Number(d.pharm)*Number(r.pharm_pct)*100)/100+Number(d.late_hours||0)*Number(r.shift_rate)/12;
-    h+='<div class="srow"><span><b>'+ruDate(d.date)+'</b> · '+esc(brTitle(d.branch))+'<br><small style="color:var(--mute)">смена '+money(Number(r.shift_rate))+' + '+(Math.round(Number(r.pharm_pct)*10000)/100)+'% от аптеки '+money(Number(d.pharm))+(Number(d.late_hours)>0?' + переработка '+d.late_hours+' ч':'')+(d.left?' · ушли '+esc(d.left):'')+'</small></span><b>'+money(dp)+'</b></div>'});
-  return h+'</div>';
+  const sm=r.summary||{},own=r.own||{},ps2=r.periods||[];
+  const docShow=!!(r.doctor&&(Number(r.val_total)||ps2.some(x=>x.source==='vetmanager')));
+  const present=WK_PARTS.filter(p=>Number(sm[p[0]])||(p[0]==='percent'&&docShow)||(p[0]==='adj'&&(r.adj||[]).length));
+  let tab=S.wkTab||'all';if(tab!=='all'&&!present.some(p=>p[0]===tab))tab='all';
+  const show=k=>tab==='all'||tab===k;
+  /* общий итог на одном экране + переключатель частей */
+  h+='<div class="card pay"><div class="srow big"><span>Итого начислено'+(r.provisional?'<br><small style="color:var(--mute)">предварительно, период не закрыт</small>':'')+'</span><b>'+money(Number(sm.total!=null?sm.total:0))+'</b></div>';
+  if(present.length>1){
+    h+='<div class="wktabs"><button class="chip'+(tab==='all'?' on':'')+'" data-act="wktab" data-k="all">Всё</button>'+present.map(p=>'<button class="chip'+(tab===p[0]?' on':'')+'" data-act="wktab" data-k="'+p[0]+'"><span>'+p[1]+'</span> <b>'+(p[0]==='adj'?sgn(Number(sm.adj||0)):money(Number(sm[p[0]]||0)))+'</b></button>').join('')+'</div>';
+  }else if(present.length===1)h+='<p class="hint" style="margin:4px 0 0">'+present[0][1]+'</p>';
+  h+='</div>';
+  if(r.provisional&&docShow&&show('percent'))h+='<div class="chk warn"><i>!</i><div>Период не закрыт или отчёты администраторов за последние дни ещё не внесены. Сумма изменится.</div></div>';
+  /* врач: вал и проценты */
+  if(docShow&&show('percent')){
+    h+='<div class="card"><h3 style="margin-top:2px">'+PART_NAME.doctor+' · вал за период</h3><div class="srow big"><span>Итого вал</span><b>'+money(Number(r.val_total))+'</b></div>';
+    if(!(r.days||[]).length)h+='<p class="hint">За этот период в отчётах нет вашего вала.</p>';
+    (r.days||[]).forEach(d=>{h+='<div class="srow"><span><b>'+ruDate(d.date)+'</b>'+((d.branches||[]).length?'<br><small style="color:var(--mute)">'+(d.branches||[]).map(esc).join(', ')+'</small>':'')+'</span><b>'+money(Number(d.val))+'</b></div>'});
+    h+='<p class="hint" style="margin:6px 0 0">Вал берётся из вечерних отчётов администраторов. Проценты с услуг считает Vetmanager, они появляются ниже после расчёта.</p></div>';
+  }
+  /* начисления по источникам */
+  const srcKey={vetmanager:'percent',fixed:'fixed',surcharge:'surcharge'},srcName={fixed:PART_NAME.fixed,surcharge:PART_NAME.surcharge,vetmanager:PART_NAME.doctor+', расчёт Vetmanager'};
+  const pshow=ps2.filter(p=>show(srcKey[p.source]||'percent'));
+  if(pshow.length||(docShow&&show('percent'))){
+    h+='<div class="card"><h3 style="margin-top:2px">Начисления по периодам</h3>';
+    if(!pshow.length)h+='<p class="hint">Начисление за период появится после расчёта зарплаты врачей.</p>';
+    pshow.forEach(p=>{
+      h+='<div class="srow big"><span><b>'+ruDate(p.from)+' — '+ruDate(p.to)+'</b><br><small style="color:var(--mute)">'+(srcName[p.source]||srcName.vetmanager)+(p.closed?'':' · период не закрыт')+'</small></span><b>'+money(Number(p.amount))+'</b></div>'
+        +((p.parts||[]).length>1?(p.parts||[]).map(x=>'<div class="srow sub"><span>'+esc(String(x.branch).replace(/^ЕВРОВЕТ\s*/,''))+'</span><b>'+money(Number(x.amount))+'</b></div>').join(''):'')+wkDetails(p.details);
+    });
+    h+='<p class="hint" style="margin:6px 0 0">Возможны поправки до выплаты. Вопросы по расчёту — руководителю.</p></div>';
+  }
+  /* смены администратора и ассистента */
+  [['admin',PART_NAME.admin],['assistant',PART_NAME.assistant],['callcenter',PART_NAME.callcenter]].forEach(([k,l])=>{
+    const o=own[k];if(!o||!show(k))return;
+    h+='<div class="card"><h3 style="margin-top:2px">'+l+'</h3><div class="srow big"><span>Смен: '+Number(o.shifts||0)+'</span><b>'+money(Number(o.total))+'</b></div>'
+      +(Number(o.shift_pay)?'<div class="srow sub"><span>за смены</span><b>'+money(Number(o.shift_pay))+'</b></div>':'')
+      +(Number(o.pharm_pay)?'<div class="srow sub"><span>процент с аптеки</span><b>'+money(Number(o.pharm_pay))+'</b></div>':'')
+      +(Number(o.late_pay)?'<div class="srow sub"><span>переработка</span><b>'+money(Number(o.late_pay))+'</b></div>':'')
+      +(k==='callcenter'&&Number(o.pct_pay)?'<div class="srow sub"><span>процент (пул)</span><b>'+money(Number(o.pct_pay))+'</b></div>':'')
+      +(k==='admin'?admDaysHtml(S.wkAdm):'')
+      +(k==='callcenter'?'<button class="btn sec small" style="margin-top:8px" data-act="go" data-v="cc">Мои смены и отметки</button>':'')
+      +(Number(o.fix_pay)?'<div class="srow sub"><span>фиксации</span><b>'+money(Number(o.fix_pay))+'</b></div>':'')+'</div>';
+  });
+  if((r.adj||[]).length&&show('adj')){
+    h+='<div class="card"><h3 style="margin-top:2px">Доплаты и вычеты за период</h3>'+r.adj.map(i=>srow(ruDate(i.date)+' · '+esc(SAL_KIND[i.kind]||i.kind)+(i.comment?'<br><small style="color:var(--mute)">'+esc(i.comment)+'</small>':''),sgn(Number(i.amount)))).join('')
+      +'<div class="srow big"><span>Итого за период</span><b>'+sgn(Number(r.adj_total))+'</b></div></div>';
+  }
+  return h;
+}
+
+/* ====== Ведомость руководителя (с 1.46): начислено, переведено на карту, остаток на руки ======= */
+async function showPay(from,to){
+  const today=omskToday();
+  if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
+  S.payFrom=from;S.payTo=to;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
+  try{
+    const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:from,p_to:to},20000);
+    if(S.payFrom!==from||S.payTo!==to)return;
+    if(r&&r.error==='session'){S.token=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)S.payErr=SAL_ERR[r&&r.error]||'Не удалось загрузить';else S.pay=r;
+  }catch(e){if(S.payFrom!==from||S.payTo!==to)return;S.payErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='pay')paint();
+}
+function payHtml(){
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.payFrom||(ps>=PAY_START?ps:cs),t=S.payTo||(ps>=PAY_START?pe:perEnd(cs)),r=S.pay;
+  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+chip('Этот период',cs,perEnd(cs))+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
+  h+='<div class="card pay"><h3 style="margin-top:2px">Итого по ведомости'+(r.provisional?' · предварительно':'')+'</h3>'
+    +srow('Начислено (полная зарплата)',money(Number(r.total.accrued)))+srow('− Переведено на карту',money(Number(r.total.paid)))
+    +'<div class="srow big"><span>= На руки (к выдаче)</span><b>'+money(Number(r.total.to_pay))+'</b></div></div>';
+  (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
+  const GRP=[['doctor','Врачи'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
+  const rows=r.rows||[],has=g=>rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
+  let pt=S.payTab||'all';const q=(S.paySearch||'').trim().toLowerCase();if(pt!=='all'&&!has(pt))pt='all';
+  const shown=(pt==='all'?rows:rows.filter(x=>x.parts&&Number(x.parts[pt]))).filter(x=>!q||String(x.name).toLowerCase().includes(q));
+  h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="paytab" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'+GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="paytab" data-k="'+g[0]+'"><span>'+g[1]+'</span> <b>'+has(g[0])+'</b></button>').join('')+'</div><input id="paysr" class="srch" placeholder="Найти сотрудника" value="'+esc(S.paySearch||'')+'" autocomplete="off">';
+  shown.forEach(x=>{
+    const ks=Object.keys(x.parts||{}).filter(k=>Number(x.parts[k])),op=String(S.payOpen)===String(x.id);
+    h+='<div class="person'+(x.issued?' done':'')+'" data-act="payopenp" data-id="'+x.id+'" style="cursor:pointer"><div class="srow"><span><b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span><b>'+money(Number(x.accrued))+'</b></div>'
+      +'<div class="srow sub"><span>переведено на карту</span><b>'+money(Number(x.paid))+'</b></div>'
+      +'<div class="srow sub"><span>'+(x.over_paid?'переплата (проверить)':'на руки')+'</span><b'+(x.over_paid?' style="color:var(--red,#c0392b)"':'')+'>'+money(Number(x.to_pay))+'</b></div>'
+      +(op?ks.map(k=>'<div class="srow sub"><span>· '+esc(PAY_PART[k]||k)+'</span><b>'+money(Number(x.parts[k]))+'</b></div>').join(''):(ks.length>1?'<small style="color:var(--mute)">нажмите, чтобы раскрыть состав</small>':''))
+      +'<button class="btn small '+(x.issued?'':'sec')+'" style="margin-top:8px" data-act="payissue" data-id="'+x.id+'" data-on="'+(x.issued?0:1)+'">'+(x.issued?'✓ Выдано (отменить)':'Отметить выдано')+'</button></div>';
+  });
+  if(pt!=='all')h+='<div class="srow big"><span>Итого по группе</span><b>'+money(shown.reduce((q,x)=>q+Number(x.accrued),0))+'</b></div>';
+  h+='</div><div class="card"><button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Доплата или вычет</button>';
+  const al=(r.adj||[]).filter(i=>!i.is_cancel);
+  if(!al.length)h+='<p class="hint">Доплат и вычетов за этот период нет.</p>';
+  al.forEach(i=>{h+='<div class="person"'+(i.cancelled?' style="opacity:.55"':'')+'><div class="srow"><span><b'+(i.cancelled?' style="text-decoration:line-through"':'')+'>'+esc(i.name)+'</b><br><small>'+esc(SAL_KIND[i.kind]||i.kind)+' · '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</small></span><b>'+sgn(Number(i.amount))+'</b></div>'+(i.cancelled?'<small>отменено</small>':'<button class="btn sec small" style="margin-top:6px" data-act="salcancel" data-id="'+i.id+'">Отменить</button>')+'</div>'});
+  h+='</div><div class="card"><button class="btn sec small" data-act="paycopy">Скопировать ведомость</button><p class="hint">Excel-файл с этой ведомостью формирует Claude в общем чате по команде «ведомость за период».</p></div>';
+  return h;
+}
+async function payIssue(id,on){
+  if(S.payBusy)return;S.payBusy=true;
+  try{
+    const r=await rpc('ev_payroll_issue',{p_token:S.token,p_person:Number(id),p_from:S.payFrom,p_to:S.payTo,p_on:on},10000);
+    if(!r||!r.ok){toast('Не удалось отметить: '+(r&&r.error),5000);return}
+    const x=(S.pay&&S.pay.rows||[]).find(z=>String(z.id)===String(id));if(x)x.issued=on;toast(on?'Выдано':'Отметка снята');paint();
+  }catch(e){toast(e.net?'Нет связи, отметка не сохранена':'Ошибка сервера',5000)}
+  finally{S.payBusy=false}
+}
+function copyPayroll(){
+  const r=S.pay;if(!r)return;
+  const L=['Ведомость '+ruDate(r.from)+' — '+ruDate(r.to)+(r.provisional?' (предварительно)':''),'Сотрудник; начислено; переведено; на руки'];
+  (r.rows||[]).forEach(x=>L.push(x.name+'; '+Number(x.accrued)+'; '+Number(x.paid)+'; '+Number(x.to_pay)));
+  L.push('ИТОГО; '+Number(r.total.accrued)+'; '+Number(r.total.paid)+'; '+Number(r.total.to_pay));
+  const txt=L.join('\n');
+  try{navigator.clipboard.writeText(txt).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'))}catch(e){toast('Не удалось скопировать')}
 }
 /* ====== Руководитель: статус отчётов «Сегодня» (ev_day_status, только чтение) ====== */
 async function loadDayStatus(){
@@ -1223,13 +1388,13 @@ async function doCCFor(){
 
 function salAddForm(){
   S.salUid=S.salUid||uid();
-  const r=S.sal||{};
+  const r=(S.view==='pay'?S.pay:S.sal)||{};
   const opts=(r.people||[]).map(p=>'<option value="'+p.id+'">'+esc(p.name)+' — '+esc(SAL_ROLE[p.role]||'')+'</option>').join('');
   overlay('<h2>Такси, доплата или вычет</h2>'
-    +'<label class="f"><span>Кому</span><select id="saw">'+opts+'</select></label>'
-    +'<label class="f"><span>Что</span><select id="sak"><option value="taxi">Такси</option><option value="manual">Доплата</option><option value="other">Вычет</option></select></label>'
+    +'<label class="f"><span>Кому</span><input id="sasr" class="srch" placeholder="Начните вводить фамилию" autocomplete="off"><select id="saw" size="4">'+opts+'</select></label>'
+    +'<div class="f"><span>Что</span><div class="chips" id="sakc">'+[['taxi','Такси'],['manual','Доплата'],['other','Вычет']].map((k,i)=>'<button type="button" class="chip'+(i===1?' on':'')+'" data-act="sakind" data-k="'+k[0]+'">'+k[1]+'</button>').join('')+'</div><input type="hidden" id="sak" value="manual"></div>'
     +'<label class="f"><span>Сумма, ₽ (всегда положительная)</span><input id="saa" inputmode="decimal" placeholder="например 450"></label>'
-    +'<label class="f"><span>За какое число</span><input id="sad" type="date" value="'+esc(omskToday())+'"></label>'
+    +'<label class="f"><span>За какое число</span><input id="sad" type="date" value="'+esc(S.view==='pay'?(omskToday()<S.payFrom?S.payFrom:omskToday()>S.payTo?S.payTo:omskToday()):omskToday())+'"></label>'
     +'<label class="f"><span>Комментарий (для доплаты и вычета обязателен)</span><input id="sac" maxlength="300"></label>'
     +'<button class="btn" data-act="saladdgo" style="margin-top:8px">Добавить</button><button class="btn sec" style="margin-top:8px" data-act="salback">Назад</button>');
 }
@@ -1246,7 +1411,7 @@ async function doSalAdd(){
     const r=await rpc('ev_salary_add',{p_token:S.token,p_person:pid,p_date:dt,p_kind:kind,p_amount:kind==='other'?-v:v,p_comment:cm||null,p_uid:S.salUid},10000);
     if(!r||!r.ok){toast(r&&r.error==='session'?'Сессия закончилась, войдите заново':r&&r.error==='date'?'Дата должна быть с 01.10.2026 и не позже завтра':'Не удалось добавить: '+(r&&r.error),6000);return}
     S.salUid=null;toast('Добавлено на '+ruDate(dt));
-    await showSalary(S.salFrom,S.salTo);
+    if(S.view==='pay')await showPay(S.payFrom,S.payTo);else await showSalary(S.salFrom,S.salTo);
   }catch(e){toast(e.net?'Нет связи, ничего не добавлено. Нажмите ещё раз':'Ошибка сервера',6000)}
   finally{S.salBusy=false}
 }
@@ -1257,7 +1422,7 @@ async function doSalCancel(id){
   try{
     const r=await rpc('ev_salary_cancel',{p_token:S.token,p_id:Number(id),p_uid:uid()},10000);
     if(!r||!r.ok){toast('Не удалось отменить: '+(r&&r.error),6000);return}
-    toast('Отменено');await showSalary(S.salFrom,S.salTo);
+    toast('Отменено');if(S.view==='pay')await showPay(S.payFrom,S.payTo);else await showSalary(S.salFrom,S.salTo);
   }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',6000)}
   finally{S.salBusy=false}
 }
@@ -1265,7 +1430,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>'+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -1310,6 +1475,11 @@ document.addEventListener('input',e=>{
 let typT;
 const isField=el=>!!(el&&el.matches&&el.matches('input,textarea,select'));
 const showBar=()=>{clearTimeout(typT);document.body.classList.remove('typing')};
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t&&t.id==='paysr'){S.paySearch=t.value;const pos=t.selectionStart;paint();const n=document.getElementById('paysr');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}return}
+  if(t&&t.id==='sasr'){const q=t.value.trim().toLowerCase(),sel=document.getElementById('saw');if(sel){[...sel.options].forEach(o=>{o.hidden=!!q&&!o.textContent.toLowerCase().includes(q)});const f=[...sel.options].find(o=>!o.hidden);if(f)sel.value=f.value}}
+});
 document.addEventListener('input',e=>{if(!isField(e.target))return;document.body.classList.add('typing');clearTimeout(typT);typT=setTimeout(showBar,4000)},true);
 document.addEventListener('focusout',()=>{setTimeout(()=>{if(!isField(document.activeElement))showBar()},150)});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.tagName==='INPUT'){e.target.blur();showBar()}});
@@ -1328,7 +1498,18 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.classList.contains('ov'))return;
   const a=b.dataset.act,d=b.dataset;
   switch(a){
-    case'myper':showMySalary(d.from,d.to);break;
+    case'wkper':showWork(d.from,d.to);break;
+    case'wktab':S.wkTab=d.k;paint();break;
+    case'wkshift':{const f=S.wkFrom,t=S.wkTo;if(!f)break;let a,b;if(d.d==='-1'){b=addDays(f,-1);a=perStart(b)}else{a=addDays(t,1);b=perEnd(a)}if(a<PAY_START||a>perStart(omskToday()))break;showWork(a,b);break}
+    case'wkhist':{if(d.reload||!S.wkHist){S.wkHist=true;paint();loadHist()}else{S.wkHist=false;paint()}break}
+    case'sakind':{const k=document.getElementById('sak');if(k)k.value=d.k;document.querySelectorAll('#sakc .chip').forEach(c=>c.classList.toggle('on',c.dataset.k===d.k));break}
+    case'paytab':S.payTab=d.k;paint();break;
+    case'payissue':payIssue(d.id,d.on==='1');break;
+    case'payopenp':S.payOpen=S.payOpen===d.id?null:d.id;paint();break;
+    case'payopen':closeOv();showPay();break;
+    case'workopen':closeOv();showWork();break;
+    case'payper':showPay(d.from,d.to);break;
+    case'paycopy':copyPayroll();break;
     case'mrok':mrDecide(d.id,'confirm');break;
     case'mrno':{const inp=document.getElementById('mra-'+d.id),v=inp?Number(String(inp.value).replace(/\s/g,'').replace(',','.')):NaN;if(!inp||inp.value.trim()===''||!isFinite(v)||v<0){toast('Впишите, сколько на самом деле забрали (0 тоже можно)',5000);break}mrDecide(d.id,'dispute',v);break}
     case'testbr':if(isHead()){closeOv();S.dateManual=S.date!==omskToday();openBranch('test')}break;
@@ -1376,7 +1557,7 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='mysal')showMySalary(S.myFrom,S.myTo);else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
@@ -1435,7 +1616,7 @@ async function checkUpdate(force){
     const m=(await r.text()).match(/appVer:'([^']+)'/);
     if(!m||m[1]===CFG.appVer)return;
     S.newVer=m[1];
-    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
+    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc'||S.view==='work')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
     let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
     if(calm&&now-last>120000){try{sessionStorage.setItem('ev_upd_try',String(now))}catch(e){}reloadNew();return}
     $('#updwrap').innerHTML='<div class="upd"><span>Вышла новая версия '+esc(m[1])+'. Данные сохранены.</span><button data-act="doUpdate">Обновить</button></div>';
@@ -1447,7 +1628,7 @@ setInterval(()=>{if(document.visibilityState==='visible')checkUpdate()},300000);
 /* ====== Запуск ====== */
 (async()=>{
   if(S.token&&S.person)S.view=homeView();
-  if(S.view==='cc')showCC();else render();
+  if(S.view==='cc')showCC();else if(S.view==='work')showWork();else render();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(S.view==='login'){await loadLoginList();render()}
   else if(S.queue.length)flush();
