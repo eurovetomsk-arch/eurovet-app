@@ -184,7 +184,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.47'
+  appVer:'1.48'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -481,7 +481,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -910,7 +910,10 @@ function payText(r,g){
 }
 async function copyPay(){
   if(!S.sal)return;
-  const tx=payText(S.sal,S.salTab);
+  const sp=(S.salTab==='sum'||S.salTab==='doc')?salPayInfo():null;
+  let tx=S.salTab==='doc'?(sp?'Врачи '+ruDate(S.sal.from)+' — '+ruDate(S.sal.to):''):payText(S.sal,S.salTab);
+  if(S.salTab==='doc'&&!sp)return;
+  if(sp)tx+='\nВрачи: '+(sp.docs.length?sp.docs.map(x=>'\n   '+x.name+' — '+money(x.doctor+x.sur)).join(''):'нет данных')+'\nВрачи всего: '+money(sp.docSum)+(Math.abs(sp.rest)>=0.5?'\nОклады и постоянные доплаты: '+money(sp.rest):'')+'\nВсего начислено с врачами и окладами: '+money(sp.total)+'\nПереведено на карту: '+money(sp.paid)+'\nНа руки: '+money(sp.toPay);
   try{await navigator.clipboard.writeText(tx);toast('Ведомость скопирована');return}catch(e){}
   try{const ta=document.createElement('textarea');ta.value=tx;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;left:-999px;top:0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();toast(ok?'Ведомость скопирована':'Не удалось скопировать',4000)}catch(e){toast('Не удалось скопировать',4000)}
 }
@@ -925,6 +928,34 @@ async function showSalary(from,to){
     if(!r||!r.ok)S.salErr=SAL_ERR[r&&r.error]||'Не удалось посчитать';else S.sal=r;
   }catch(e){if(S.salFrom!==from||S.salTo!==to)return;S.salErr=e.net?'Нет связи.':'Ошибка сервера.'}
   S.salLoad=false;if(S.view==='sal')paint();
+  if(S.sal&&!S.salErr)loadSalPay(from,to);
+}
+/* 1.48: врачи, оклады и постоянные доплаты в «Зарплата»: берутся из ведомости за период целиком (ev_payroll_statement) */
+function salPayRange(f,t){
+  const today=omskToday();
+  if(!f||!t||f<PAY_START||perStart(f)!==f)return null;
+  if(t===perEnd(f)||(f===perStart(today)&&t===today))return[f,perEnd(f)];
+  return null;
+}
+async function loadSalPay(f,t){
+  S.salPay=null;S.salPayKey=null;S.salPayErr=null;
+  const rg=salPayRange(f,t);if(!rg)return;
+  const key=f+'|'+t;S.salPayKey=key;S.salPayLoad=true;
+  try{
+    const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:rg[0],p_to:rg[1]},20000);
+    if(S.salPayKey!==key)return;
+    if(r&&r.ok)S.salPay=r;else S.salPayErr='Не удалось загрузить врачей';
+  }catch(e){if(S.salPayKey!==key)return;S.salPayErr=e.net?'Нет связи: врачи не загружены.':'Ошибка сервера: врачи не загружены.'}
+  S.salPayLoad=false;if(S.view==='sal')paint();
+}
+function salPayInfo(){
+  const r=S.salPay,sl=S.sal;
+  if(!r||!sl||S.salPayKey!==S.salFrom+'|'+S.salTo)return null;
+  const tt=sl.totals||{},base=Number(tt.admins||0)+Number(tt.assistants||0)+Number(tt.callcenter||0)+Number(tt.extra||0);
+  const docs=(r.rows||[]).filter(x=>x.parts&&(Number(x.parts.doctor)||Number(x.parts.surcharge))).map(x=>({name:x.name,doctor:Number(x.parts.doctor||0),sur:Number(x.parts.surcharge||0)}));
+  const docSum=docs.reduce((a,x)=>a+x.doctor+x.sur,0),total=Number(r.total.accrued||0),rest=Math.round((total-docSum-base)*100)/100;
+  const own=new Set((sl.warnings||[]).map(String));
+  return{docs,docSum,total,paid:Number(r.total.paid||0),toPay:Number(r.total.to_pay||0),rest,warns:(r.warnings||[]).filter(w=>!own.has(String(w))),prov:!!r.provisional};
 }
 function adjItems(items){
   const it=(items||[]).filter(i=>!i.is_cancel&&!i.cancelled);
@@ -937,7 +968,7 @@ function salHtml(){
   let h='<div class="card"><h2>Зарплата</h2><div class="chips">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',prevStart,prevEnd)+'<button class="chip'+(S.salDates?' on':'')+'" data-act="saldates">Даты ▾</button></div>';
   if(S.salDates)h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="salf" type="date" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="salt" type="date" value="'+esc(t)+'"></label><button class="btn small" data-act="salgo">Показать</button></div>';
   h+='<p class="hint" style="margin:6px 0">'+(f===t?ruDate(f):ruDate(f)+' — '+ruDate(t))+'</p>';
-  h+='<div class="chips tabs">'+[['sum','Сводка'],['adm','Админы'],['ast','Ассистенты'],['cc','Колл-центр'],['add','Добавки']].map(x=>'<button class="chip'+(S.salTab===x[0]?' on':'')+'" data-act="saltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>';
+  h+='<div class="chips tabs">'+[['sum','Сводка'],['doc','Врачи'],['adm','Админы'],['ast','Ассистенты'],['cc','Колл-центр'],['add','Добавки']].map(x=>'<button class="chip'+(S.salTab===x[0]?' on':'')+'" data-act="saltab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div></div>';
   if(S.salErr)return h+'<div class="card"><p>'+esc(S.salErr)+'</p><button class="btn sec small" data-act="salper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Считаю…</p></div>';
   const rt=r.rates||{},pct=Math.round(Number(rt.admin_pharmacy_pct)*10000)/100,tt=r.totals||{};
@@ -945,16 +976,24 @@ function salHtml(){
   const tab=S.salTab;
   if(tab==='sum'){
     (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
-    h+='<div class="card pay"><h3 style="margin-top:2px">Всего к выплате</h3><div class="srow big" style="font-size:24px"><span></span><b>'+money(all)+'</b></div>';
+    const sp=salPayInfo();
+    if(sp)sp.warns.forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
+    h+='<div class="card pay"><h3 style="margin-top:2px">'+(sp?'Всего начислено (с врачами и окладами)':'Всего к выплате')+'</h3><div class="srow big" style="font-size:24px"><span></span><b>'+money(sp?sp.total:all)+'</b></div>';
+    if(sp)h+=srow('− Переведено на карту',money(sp.paid))+srow('= На руки (к выдаче)',money(sp.toPay))+'<p class="hint" style="margin:4px 0 0">Тот же итог, что в «Ведомости» за период'+(sp.prov?' (предварительно)':'')+'.</p>';
+    else if(S.salPayLoad)h+='<p class="hint">Загружаю врачей и оклады…</p>';
+    else if(S.salPayErr)h+='<p class="hint">'+esc(S.salPayErr)+' Итог ниже без врачей и окладов.</p>';
+    else if(!salPayRange(S.salFrom,S.salTo))h+='<p class="hint">Врачи и оклады считаются за период целиком: выберите «Этот период» или «Прошлый период». Итог ниже без них.</p>';
     const pay=payList(r);
     if(!pay.length)h+='<p class="hint">За этот период пока никому не начислено: нет отчётов со сменами.</p>';
     else h+='<button class="btn sec small" data-act="salcopy">Скопировать ведомость</button>';
     h+='</div>';
     h+='<div class="card"><h3 style="margin-top:2px">По группам</h3>'
+      +(sp?'<button class="srow grow" data-act="saltab" data-t="doc"><span>Врачи ›</span><b>'+money(sp.docSum)+'</b></button>':'')
       +'<button class="srow grow" data-act="saltab" data-t="adm"><span>Администраторы ›</span><b>'+money(Number(tt.admins||0))+'</b></button>'
       +'<button class="srow grow" data-act="saltab" data-t="ast"><span>Ассистенты ›</span><b>'+money(Number(tt.assistants||0))+'</b></button>'
       +'<button class="srow grow" data-act="saltab" data-t="cc"><span>Колл-центр ›</span><b>'+money(Number(tt.callcenter||0))+'</b></button>'
       +'<button class="srow grow" data-act="saltab" data-t="add"><span>Только добавки ›</span><b>'+money(Number(tt.extra||0))+'</b></button>'
+      +(sp&&Math.abs(sp.rest)>=0.5?'<div class="srow"><span>Оклады и постоянные доплаты</span><b>'+money(sp.rest)+'</b></div>':'')
       +'<p class="hint" style="margin:4px 0 0">Добавки админов, ассистентов и колл-центра уже внутри их сумм.</p></div>';
     const by=new Map();dayPays(r).forEach(p=>by.set(p.b,(by.get(p.b)||0)+p.pay));
     const adjAll=[].concat(r.admins||[],r.assistants||[],r.callcenter||[],r.extra||[]).reduce((s,a)=>s+Number(a.adj||0),0);
@@ -962,6 +1001,21 @@ function salHtml(){
     h+='<div class="card"><h3 style="margin-top:2px">По филиалам</h3>'+BRANCHES.filter(b=>!b.testOnly).map(b=>'<div class="srow"><span>'+esc(brTitle(b.id))+'</span><b>'+money(by.get(b.id)||0)+'</b></div>').join('')
       +(ccPay?'<div class="srow"><span>Колл-центр (вся сеть)</span><b>'+money(ccPay)+'</b></div>':'')
       +(adjAll?'<div class="srow"><span>Такси, доплаты, вычеты</span><b>'+sgn(adjAll)+'</b></div>':'')+'</div>';
+    return h;
+  }
+  if(tab==='doc'){
+    const sp=salPayInfo();
+    if(!sp){
+      const why=S.salPayLoad?'Загружаю врачей…':S.salPayErr?S.salPayErr:!salPayRange(S.salFrom,S.salTo)?'Врачи считаются за период целиком: выберите «Этот период» или «Прошлый период».':'Нет данных по врачам.';
+      return h+'<div class="card"><p class="hint">'+esc(why)+'</p></div>';
+    }
+    sp.warns.forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
+    h+='<div class="card"><div class="srow big"><span>Врачи</span><b>'+money(sp.docSum)+'</b></div>';
+    if(!sp.docs.length)h+='<p class="hint">За этот период начисления врачей не загружены (файл Vetmanager).</p>';
+    sp.docs.slice().sort((a,b)=>a.name.localeCompare(b.name,'ru')).forEach(x=>{
+      h+='<div class="person"><div class="srow big"><span>'+esc(x.name)+'</span><b>'+money(x.doctor+x.sur)+'</b></div><small style="color:var(--mute)">'+(x.doctor?'расчёт Vetmanager':'')+(x.doctor&&x.sur?' + ':'')+(x.sur?'доплата с файла другого врача':'')+'</small></div>';
+    });
+    h+='<p class="hint">Проценты врачей берутся из файлов Vetmanager (1-го и 16-го числа). Подробности, оклады и «на руки» по каждому: «Ведомость».</p><button class="btn sec small" data-act="salpayopen">Открыть ведомость</button> <button class="btn sec small" data-act="salcopy">Скопировать список</button></div>';
     return h;
   }
   if(tab==='adm'||tab==='ast'){
@@ -1519,6 +1573,7 @@ document.addEventListener('click',async e=>{
     case'payissue':payIssue(d.id,d.on==='1');break;
     case'payopenp':S.payOpen=S.payOpen===d.id?null:d.id;paint();break;
     case'payopen':closeOv();showPay();break;
+    case'salpayopen':{const rg=salPayRange(S.salFrom,S.salTo);closeOv();if(rg)showPay(rg[0],rg[1]);else showPay();break}
     case'workopen':closeOv();showWork();break;
     case'payper':showPay(d.from,d.to);break;
     case'paycopy':copyPayroll();break;
