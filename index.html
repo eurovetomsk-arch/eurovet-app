@@ -190,7 +190,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.52'
+  appVer:'1.53'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -871,11 +871,17 @@ function ctlHtml(){
   }
   return h+'</div>';
 }
-async function doAccept(ds){
+function acceptForm(ds){
+  S.accDs=ds;
+  overlay('<h2>Принять расхождение</h2><p class="hint">'+esc(ds.bid)+', '+esc(ds.dt)+'. Напишите причину (не короче 15 символов): она сохранится в журнале.</p><label class="f"><span>Причина</span><input id="accnote" maxlength="300" autocomplete="off" placeholder="например: исправлено в Vetmanager, в отчёте верно"></label><button class="btn" data-act="acceptgo" style="margin-top:8px">Принять</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>');
+}
+async function doAccept(ds,note){
   const ver=Number(ds.ver)||0;
+  if(note!==undefined&&note.trim().length<15){toast('Причина слишком короткая: нужно минимум 15 символов',4000);return}
   try{
-    const r=await rpc('ev_accept',{p_token:S.token,p_branch:ds.bid,p_date:ds.dt,p_code:ds.code,p_version:ver,p_note:null},8000);
+    const r=await rpc('ev_accept',{p_token:S.token,p_branch:ds.bid,p_date:ds.dt,p_code:ds.code,p_version:ver,p_note:note===undefined?null:note.trim()},8000);
     if(!r||!r.ok){toast(r&&r.error==='session'?'Сессия закончилась, войдите заново':'Не удалось принять: '+(r&&r.error),5000);return}
+    closeOv();
     const mark=f=>{if((f.branch||S.branch)===ds.bid&&(f.date||S.date)===ds.dt&&f.code===ds.code&&(Number(f.version)||0)===ver)f.accepted=true};
     (S.ctl||[]).forEach(mark);(S.flags||[]).forEach(mark);
     if(S.view==='ctl')paint();
@@ -1956,7 +1962,8 @@ document.addEventListener('click',async e=>{
     case'revdates':S.revDates=!S.revDates;paint();break;
     case'revbr':S.revBranch=d.b;paint();window.scrollTo(0,0);break;
     case'revgo':{const f=($('#revf')||{}).value,t=($('#revt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showRevenue(f,t);break}
-    case'accept':doAccept(d);break;
+    case'accept':acceptForm(d);break;
+    case'acceptgo':doAccept(S.accDs,($('#accnote')||{}).value||'');break;
     case'chpin':showPin();break;
     case'dopin':{
       const p0=$('#p0').value,p1=$('#p1').value,p2=$('#p2').value;
