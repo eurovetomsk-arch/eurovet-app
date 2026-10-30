@@ -190,7 +190,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.53'
+  appVer:'1.54'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -419,7 +419,7 @@ async function flush(auto){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
       }else if(res.error==='reason_required'){it.status='needs_reason'}
       else if(res.error==='conflict'){it.status='offline'}
-      else{it.status='error';it.err=res.error==='date_range'?'дата старше 7 дней, такой отчёт подать нельзя, напишите руководителю':res.error}
+      else{it.status='error';it.err=res.error==='date_range'?'дата старше 7 дней, такой отчёт подать нельзя, напишите руководителю':res.error==='window_closed'?'Время правки вышло (до 12:00 следующего дня). Напишите руководителю':res.error}
     }
   }finally{
     flushing=false;saveQueue();
@@ -811,6 +811,7 @@ async function loadVmNames(){
   try{const r=await rpc('ev_vm_names',{p_token:S.token},6000);if(r&&r.ok){S.vmNames=r.names||{};if(S.view==='ctl'||S.view==='form')paint()}}catch(e){}
   S.vmNamesBusy=false;
 }
+const FLAG_HINT={late_edit:'Отчёт изменён после 12:00 следующего дня: проверьте автора и причину.',locked_edit:'Изменён отчёт закрытого периода, по которому зарплата уже рассчитана: цифры могли разойтись с выплатой.'};
 function flagLine(f,where){
   const bad=f.level==='red';
   let nums='';
@@ -821,7 +822,7 @@ function flagLine(f,where){
   const who=where==='ctl'?'<small>'+esc(bt)+' · '+ruDate(dt)+'</small><br>':'';
   return '<div class="chk '+(f.accepted?'wait':bad?'bad':'warn')+'"><i>'+(f.accepted?'✓':'!')+'</i><div>'+who+'<b>'+esc(f.title)+'</b>'
     +(nums?'<br><small>'+esc(nums)+'</small>':'')
-    +(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
+    +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
     +(isHead()&&!f.accepted?'<br><button class="btn sec small" style="margin-top:6px" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>':'')
     +'</div></div>';
