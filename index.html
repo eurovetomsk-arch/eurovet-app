@@ -184,7 +184,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.49'
+  appVer:'1.50'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1180,7 +1180,7 @@ function workHtml(){
 async function showPay(from,to){
   const today=omskToday();
   if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
-  S.payFrom=from;S.payTo=to;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
+  S.payFrom=from;S.payTo=to;S.payMulti=null;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
   try{
     const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:from,p_to:to},20000);
     if(S.payFrom!==from||S.payTo!==to)return;
@@ -1189,10 +1189,57 @@ async function showPay(from,to){
   }catch(e){if(S.payFrom!==from||S.payTo!==to)return;S.payErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='pay')paint();
 }
+function payPeriods(today){
+  const out=[];let a=PAY_START;
+  while(a<=today){const b=perEnd(a);out.push([a,b]);a=addDays(b,1)}
+  return out;
+}
+function mergeStatements(rs,list){
+  const m=new Map(),warn=[],N=v=>Number(v||0);
+  rs.forEach((r,i)=>{
+    (r.rows||[]).forEach(x=>{
+      let o=m.get(x.id);if(!o){o={id:x.id,name:x.name,accrued:0,parts:{},paid:0,paid_card:0,paid_cash:0,paid_adv:0,to_pay:0,over_paid:false,closed:true,diff:0,adv_debt:0};m.set(x.id,o)}
+      o.accrued+=N(x.accrued);o.paid+=N(x.paid);o.paid_card+=N(x.paid_card);o.paid_cash+=N(x.paid_cash);o.paid_adv+=N(x.paid_adv);o.to_pay+=N(x.to_pay);
+      Object.keys(x.parts||{}).forEach(k=>{o.parts[k]=(o.parts[k]||0)+N(x.parts[k])});
+      if(!x.closed)o.closed=false;else o.diff+=N(x.diff);
+      o.adv_debt=Math.max(o.adv_debt,N(x.adv_debt));o.over_paid=o.over_paid||!!x.over_paid;
+    });
+    (r.warnings||[]).forEach(w=>{warn.push(ruDate(list[i][0]).slice(0,5)+'–'+ruDate(list[i][1]).slice(0,5)+': '+w)});
+  });
+  const rows=[...m.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+  const sum=k=>rows.reduce((q,x)=>q+N(x[k]),0);
+  return{ok:true,multi:true,from:list[0][0],to:list[list.length-1][1],provisional:rs.some(r=>r.provisional),rows,adj:[],people:[],
+    total:{accrued:sum('accrued'),paid:sum('paid'),to_pay:sum('to_pay'),diff:rows.reduce((q,x)=>q+(x.closed?N(x.diff):0),0),closed_n:rows.filter(x=>x.closed).length,people_n:rows.length,adv_debt:sum('adv_debt')},warnings:warn.slice(0,12)};
+}
+async function showPayMulti(list){
+  S.payFrom=list[0][0];S.payTo=list[list.length-1][1];S.payMulti=list;S.paySel={};closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
+  try{
+    const rs=await Promise.all(list.map(q=>rpc('ev_payroll_statement',{p_token:S.token,p_from:q[0],p_to:q[1]},25000)));
+    if(S.payMulti!==list)return;
+    const bad=rs.find(r=>!r||!r.ok);
+    if(bad)S.payErr=SAL_ERR[bad&&bad.error]||'Не удалось загрузить';else S.pay=mergeStatements(rs,list);
+  }catch(e){if(S.payMulti!==list)return;S.payErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='pay')paint();
+}
+function payDatesGo(){
+  const f=($('#pdf')||{}).value,t=($('#pdt')||{}).value;
+  if(!f||!t||t<f){toast('Проверьте даты');return}
+  if(f<PAY_START){toast('Учёт в приложении с 16.10.2026');return}
+  const today=omskToday(),list=[];let a=perStart(f);
+  while(a<=t&&a<=today&&list.length<13){list.push([a,perEnd(a)]);a=addDays(perEnd(a),1)}
+  if(!list.length){toast('В этих датах нет периодов');return}
+  S.payDates=false;
+  if(list.length===1)showPay(list[0][0],list[0][1]);else showPayMulti(list);
+}
 function payHtml(){
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.payFrom||(ps>=PAY_START?ps:cs),t=S.payTo||(ps>=PAY_START?pe:perEnd(cs)),r=S.pay;
-  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+(ps>=PAY_START?chip('Прошлый период',ps,pe):'')+chip('Этот период',cs,perEnd(cs))+'</div><p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  const mu=!!(r&&r.multi)||!!S.payMulti;
+  const chip=(l,a,b)=>'<button class="chip'+((!mu&&f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  const pers=payPeriods(today),lastP=pers.length-1;
+  const chips=pers.slice().reverse().slice(0,8).map((q,i)=>chip(i===0?'Этот период':i===1?'Прошлый период':ruDate(q[0]).slice(0,5)+' — '+ruDate(q[1]).slice(0,5),q[0],q[1])).join('');
+  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+chips+'<button class="chip'+((mu||S.payDates)?' on':'')+'" data-act="paydates">Даты ▾</button></div>'
+    +(S.payDates?'<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="pdf" type="date" min="'+PAY_START+'" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="pdt" type="date" min="'+PAY_START+'" value="'+esc(t)+'"></label><button class="btn small" data-act="paydatesgo">Показать</button></div>':'')
+    +'<p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+(mu?' · несколько периодов, только просмотр: «Рассчитан», выплаты и авансы вносятся по одному периоду':'')+'</p>'+(ps<PAY_START&&pers.length<2?'<p class="hint" style="margin:0">Учёт в приложении идёт с 16.10.2026; прошлый период появится после 1.11.</p>':'')+'</div>';
   if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const tt=r.total||{};
@@ -1209,7 +1256,7 @@ function payHtml(){
   let pt=S.payTab||'all';const q=(S.paySearch||'').trim().toLowerCase();if(pt!=='all'&&!has(pt))pt='all';
   const shown=(pt==='all'?rows:rows.filter(x=>x.parts&&Number(x.parts[pt]))).filter(x=>!q||String(x.name).toLowerCase().includes(q));
   h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="paytab" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'+GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="paytab" data-k="'+g[0]+'"><span>'+g[1]+'</span> <b>'+has(g[0])+'</b></button>').join('')+'</div><input id="paysr" class="srch" placeholder="Найти сотрудника" value="'+esc(S.paySearch||'')+'" autocomplete="off">';
-  const sel=S.paySel||(S.paySel={});const canClose=!r.provisional;
+  const sel=S.paySel||(S.paySel={});const canClose=!r.provisional&&!r.multi;
   const list=shown.filter(x=>!S.payOnly||(!x.closed&&Number(x.to_pay)>0.005));
   h+='<div class="chips" style="margin:4px 0"><button class="chip'+(S.payOnly?' on':'')+'" data-act="payonly">Только с остатком</button>'
     +(canClose?'<button class="chip" data-act="payselall">Выбрать всех с остатком</button>':'')+'<button class="chip" data-act="payprint">Печать ведомости</button></div>';
@@ -1228,9 +1275,9 @@ function payHtml(){
   const nsel=Object.keys(sel).filter(k=>sel[k]).length;
   if(canClose&&nsel)h+='<div style="position:sticky;bottom:8px"><button class="btn" data-act="payclosesel">Рассчитать выбранных ('+nsel+')</button></div>';
   if(pt!=='all')h+='<div class="srow big"><span>Итого по группе</span><b>'+money(shown.reduce((q,x)=>q+Number(x.accrued),0))+'</b></div>';
-  h+='</div><div class="card"><button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Доплата или вычет</button>';
+  h+='</div><div class="card">'+(r.multi?'':'<button class="btn sec" style="margin:0 0 8px" data-act="saladd">+ Доплата или вычет</button>')+'';
   const al=(r.adj||[]).filter(i=>!i.is_cancel);
-  if(!al.length)h+='<p class="hint">Доплат и вычетов за этот период нет.</p>';
+  if(r.multi)h+='<p class="hint">Доплаты и вычеты вносятся и видны по одному периоду.</p>';else if(!al.length)h+='<p class="hint">Доплат и вычетов за этот период нет.</p>';
   al.forEach(i=>{h+='<div class="person"'+(i.cancelled?' style="opacity:.55"':'')+'><div class="srow"><span><b'+(i.cancelled?' style="text-decoration:line-through"':'')+'>'+esc(i.name)+'</b><br><small>'+esc(SAL_KIND[i.kind]||i.kind)+' · '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</small></span><b>'+sgn(Number(i.amount))+'</b></div>'+(i.cancelled?'<small>отменено</small>':'<button class="btn sec small" style="margin-top:6px" data-act="salcancel" data-id="'+i.id+'">Отменить</button>')+'</div>'});
   h+='</div><div class="card"><button class="btn sec small" data-act="paycopy">Скопировать ведомость</button><p class="hint">Excel-файл с этой ведомостью формирует Claude в общем чате по команде «ведомость за период».</p></div>';
   return h;
@@ -1274,6 +1321,7 @@ async function payCard(id){
     h+='<h3>Выплаты</h3>'+((r.payments||[]).length?(r.payments).map(p=>'<div class="srow"'+(p.cancelled?' style="opacity:.5;text-decoration:line-through"':'')+'><span>'+ruDate(p.date)+' · '+(MT[p.method]||p.method)+'<br><small style="color:var(--mute)">за '+ruDate(p.from)+' — '+ruDate(p.to)+(p.note?' · '+esc(p.note):'')+'</small></span><b>'+money(Number(p.amount))+(p.source==='manual'&&p.method!=='advance'&&!p.cancelled?' <button class="chip" data-act="paycancel" data-id="'+p.id+'" data-pid="'+id+'">✕</button>':'')+'</b></div>').join(''):'<p class="hint">Выплат нет.</p>');
     h+='<h3>Авансы и долги</h3>'+((r.advances||[]).length?(r.advances).map(a=>'<div class="srow"><span>'+ruDate(a.given_on)+(a.comment?' · '+esc(a.comment):'')+'<br><small style="color:var(--mute)">выдано '+money(Number(a.amount))+'</small></span><b>'+(Number(a.debt)>0.005?'долг '+money(Number(a.debt))+' <button class="chip" data-act="advsettle" data-adv="'+a.id+'" data-debt="'+Number(a.debt)+'" data-id="'+id+'">удержать</button>':'погашен')+'</b></div>').join(''):'<p class="hint">Авансов нет.</p>');
     h+='<div class="chips" style="margin-top:8px"><button class="btn small" data-act="payaddform" data-id="'+id+'">+ Внести выплату</button><button class="btn small sec" data-act="advform" data-id="'+id+'">+ Выдал в долг / аванс</button></div><button class="btn sec" style="margin-top:8px" data-act="paycardback">Закрыть</button>';
+    if(S.pay&&S.pay.multi)h=h.replace(/<button[^>]*data-act="(payaddform|advform|payunclose|advsettle|paycancel)"[\s\S]*?<\/button>/g,'');
     overlay(h);
   }catch(e){overlay('<h2>'+esc(x.name)+'</h2><p>'+(e.net?'Нет связи.':'Ошибка сервера.')+'</p><button class="btn sec" data-act="paycardback">Закрыть</button>')}
 }
@@ -1743,6 +1791,8 @@ document.addEventListener('click',async e=>{
     case'paycardback':closeOv();break;
     case'paymeth':{const k=document.getElementById('pam');if(k)k.value=d.k;b.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.k===d.k));break}
     case'payopenp':S.payOpen=S.payOpen===d.id?null:d.id;paint();break;
+    case'paydates':S.payDates=!S.payDates;paint();break;
+    case'paydatesgo':payDatesGo();break;
     case'payopen':closeOv();showPay();break;
     case'salpayopen':{const rg=salPayRange(S.salFrom,S.salTo);closeOv();if(rg)showPay(rg[0],rg[1]);else showPay();break}
     case'workopen':closeOv();showWork();break;
