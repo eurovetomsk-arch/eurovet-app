@@ -164,7 +164,9 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .nv.hd{background:var(--acc);border-top:0;box-shadow:0 -4px 14px rgba(0,0,0,.22)}
 .nv.hd button{color:var(--acc-ink);opacity:.82;font-size:15px;font-weight:600;min-height:72px;padding:10px 2px 12px}
 .nv.hd button i{font-size:30px;margin-bottom:2px}
-.nv.hd button.on{opacity:1;font-weight:800;background:rgba(255,255,255,.22);box-shadow:inset 0 4px 0 var(--acc-ink)}
+.nv.hd button.on{color:var(--acc-ink);opacity:1;font-weight:800;background:rgba(255,255,255,.22);box-shadow:inset 0 4px 0 var(--acc-ink)}
+.nv.hd.n5 button{font-size:13.5px;padding:10px 0 12px}
+.nv.hd.n5 button i{font-size:27px}
 .nv button i{display:block;font-style:normal;font-size:19px;line-height:1.2}
 .nv button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
 @media (pointer:coarse){body.typing .nv{display:none}}
@@ -188,7 +190,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.51'
+  appVer:'1.52'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -545,7 +547,7 @@ function render(){
   else if(S.view==='cc')app.innerHTML=ccHtml();
   else if(S.view==='work')app.innerHTML=workHtml();
   else if(S.view==='pay')app.innerHTML=payHtml();
-  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'))bar.innerHTML=navHtml();
+  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')))bar.innerHTML=navHtml();
   else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'))bar.innerHTML=navHtml(anav());
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
@@ -595,11 +597,11 @@ function viewLogin(){
 function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'adm'}
 function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
 function viewBranch(){
-  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()?homeTabs():'');
+  let h=isCC()&&!isHead()?'<div class="card"><button class="btn sec big" data-act="ccopen">Колл-центр: мои смены</button><p class="hint" style="margin:6px 0 0">Если сегодня вы на смене администратором, выберите филиал ниже.</p></div>':(isHead()&&!uiNew()?homeTabs():'');
   if(!isHead()&&S.person)h+='<div class="card"><button class="btn big" data-act="go" data-v="work">Мои начисления</button><p class="hint" style="margin:6px 0 0">Всё начисленное за период в одном месте: итог и все части. Кнопка есть и внизу экрана.</p></div>';
-  if(isHead()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
+  if(isHead()&&!uiNew()&&homeTab()==='cc')return h+'<div class="card"><h2>Колл-центр</h2><button class="btn big" data-act="cchead">Смены и оплата операторов</button><p class="hint" style="margin:6px 0 0">Откроется раздел «Зарплата», вкладка «Колл-центр». Операторы отмечают смены сами, входя под своей фамилией.</p></div>';
   if(isHead()){h+='<div class="mrbox">'+mrHtml()+'</div>';loadMr();h+=dayStatusHtml();loadDayStatus()}
-  h+='<div class="card"><h2>Где вы сегодня работаете?</h2>';
+  h+='<div class="card"><h2>'+(uiNew()?'Заполнить отчёт филиала':'Где вы сегодня работаете?')+'</h2>';
   h+='<label class="f"><span>Дата отчёта</span><input type="date" id="dt" value="'+S.date+'" max="'+omskToday()+'"></label>';
   h+=BRANCHES.filter(b=>!b.testOnly).map(b=>'<button class="btn sec big" style="margin:6px 0" data-act="branch" data-id="'+b.id+'"'+(S.busy?' disabled':'')+'>'+esc(b.title)+'</button>').join('');
   h+='<button class="btn sec small" style="margin:10px 0 0" data-act="help">Как заполнять отчёт</button>';
@@ -796,6 +798,19 @@ async function mrDecide(id,decision,actual){
     toast(r.status==='confirmed'?'Подтверждено':'Записано: расхождение',4000);loadMr();
   }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
 }
+/* 1.52: в «Контроле» вместо «ID врача 102» — ФИО (ev_vm_names, только руководитель) */
+function nameDetail(d){
+  const m=S.vmNames,t=String(d);
+  const mt=/^ID врача (\d+)$/.exec(t);
+  if(mt&&m&&m[mt[1]])return '<b>'+esc(m[mt[1]])+'</b> (ID '+mt[1]+')';
+  return esc(t);
+}
+async function loadVmNames(){
+  if(!isHead()||S.vmNames||S.vmNamesBusy)return;
+  S.vmNamesBusy=true;
+  try{const r=await rpc('ev_vm_names',{p_token:S.token},6000);if(r&&r.ok){S.vmNames=r.names||{};if(S.view==='ctl'||S.view==='form')paint()}}catch(e){}
+  S.vmNamesBusy=false;
+}
 function flagLine(f,where){
   const bad=f.level==='red';
   let nums='';
@@ -806,7 +821,7 @@ function flagLine(f,where){
   const who=where==='ctl'?'<small>'+esc(bt)+' · '+ruDate(dt)+'</small><br>':'';
   return '<div class="chk '+(f.accepted?'wait':bad?'bad':'warn')+'"><i>'+(f.accepted?'✓':'!')+'</i><div>'+who+'<b>'+esc(f.title)+'</b>'
     +(nums?'<br><small>'+esc(nums)+'</small>':'')
-    +(isHead()&&f.detail?'<br><small>'+esc(f.detail)+'</small>':'')
+    +(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
     +(isHead()&&!f.accepted?'<br><button class="btn sec small" style="margin-top:6px" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>':'')
     +'</div></div>';
@@ -824,16 +839,20 @@ async function loadFlags(branch,date){
   try{
     const r=await rpc('ev_my_flags',{p_token:S.token,p_branch:branch,p_date:date},6000);
     if(S.flagsFor!==key||!r||!r.ok)return;
-    S.flags=r.flags||[];
+    S.flags=r.flags||[];loadVmNames();
     const fb=$('#flagbox');if(fb)fb.innerHTML=flagsHtml();
   }catch(e){}
 }
 function paint(){const y=window.scrollY;render();window.scrollTo(0,y)}
 const anav=()=>(canReport()?[['branch','Отчёт','✎']]:[]).concat(isCC()?[['cc','Смены','☎']]:[],[['work','Мои начисления','₽']]);
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
-function navHtml(list){return '<nav class="nv'+(list?'':' hd')+'">'+(list||NAV).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(S.view===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
+/* 1.52: новый вид руководителя; старый доступен в Меню («Вернуться к прежнему виду») */
+const uiNew=()=>isHead()&&LS.get('ev_ui')!=='old';
+const NAVN=[['branch','Сегодня','☀'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['pay','Зарплата','≡'],['ppl','Люди','☺']];
+const navCur=()=>S.view==='pay'?(S.pplMode?'ppl':'pay'):S.view==='sal'?'pay':S.view;
+function navHtml(list){const nw=!list&&uiNew(),cur=nw?navCur():S.view;return '<nav class="nv'+(list?'':' hd')+(nw?' n5':'')+'">'+(list||(nw?NAVN:NAV)).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(cur===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
-  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();
+  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();loadVmNames();
   try{
     const to=omskToday(),from=addDays(to,-6);
     const r=await rpc('ev_flags_overview',{p_token:S.token,p_from:from,p_to:to},10000);
@@ -956,7 +975,7 @@ function salPayInfo(){
   const r=S.salPay,sl=S.sal;
   if(!r||!sl||S.salPayKey!==S.salFrom+'|'+S.salTo)return null;
   const tt=sl.totals||{},base=Number(tt.admins||0)+Number(tt.assistants||0)+Number(tt.callcenter||0)+Number(tt.extra||0);
-  const docs=(r.rows||[]).filter(x=>x.parts&&(Number(x.parts.doctor)||Number(x.parts.surcharge))).map(x=>({name:x.name,doctor:Number(x.parts.doctor||0),sur:Number(x.parts.surcharge||0)}));
+  const docs=(r.rows||[]).filter(x=>x.parts&&Number(x.parts.doctor)).map(x=>({name:x.name,doctor:Number(x.parts.doctor||0),sur:Number(x.parts.surcharge||0)}));
   const docSum=docs.reduce((a,x)=>a+x.doctor+x.sur,0),total=Number(r.total.accrued||0),rest=Math.round((total-docSum-base)*100)/100;
   const own=new Set((sl.warnings||[]).map(String));
   return{docs,docSum,total,paid:Number(r.total.paid||0),toPay:Number(r.total.to_pay||0),rest,warns:(r.warnings||[]).filter(w=>!own.has(String(w))),prov:!!r.provisional};
@@ -1149,7 +1168,7 @@ function workHtml(){
     h+='<p class="hint" style="margin:6px 0 0">Вал берётся из вечерних отчётов администраторов. Проценты с услуг считает Vetmanager, они появляются ниже после расчёта.</p></div>';
   }
   /* начисления по источникам */
-  const srcKey={vetmanager:'percent',fixed:'fixed',surcharge:'surcharge'},srcName={fixed:PART_NAME.fixed,surcharge:PART_NAME.surcharge,vetmanager:PART_NAME.doctor+', расчёт Vetmanager'};
+  const srcKey={vetmanager:'percent',fixed:'fixed',surcharge:'surcharge'},srcName={fixed:PART_NAME.fixed,surcharge:PART_NAME.surcharge+' (по расчёту Vetmanager)',vetmanager:PART_NAME.doctor+', расчёт Vetmanager'};
   const pshow=ps2.filter(p=>show(srcKey[p.source]||'percent'));
   if(pshow.length||(docShow&&show('percent'))){
     h+='<div class="card"><h3 style="margin-top:2px">Начисления по периодам</h3>';
@@ -1185,6 +1204,7 @@ async function showPay(from,to){
   const today=omskToday();
   if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
   S.payFrom=from;S.payTo=to;S.payMulti=null;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
+  if(S.pplMode&&uiNew())loadExtras(from,to);
   try{
     const r=await rpc('ev_payroll_statement',{p_token:S.token,p_from:from,p_to:to},20000);
     if(S.payFrom!==from||S.payTo!==to)return;
@@ -1241,7 +1261,8 @@ function payHtml(){
   const chip=(l,a,b)=>'<button class="chip'+((!mu&&f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
   const pers=payPeriods(today),lastP=pers.length-1;
   const chips=pers.slice().reverse().slice(0,8).map((q,i)=>chip(i===0?'Этот период':i===1?'Прошлый период':ruDate(q[0]).slice(0,5)+' — '+ruDate(q[1]).slice(0,5),q[0],q[1])).join('');
-  let h='<div class="card"><button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button><h2>Ведомость</h2><div class="chips">'+chips+'<button class="chip'+((mu||S.payDates)?' on':'')+'" data-act="paydates">Даты ▾</button></div>'
+  if(S.pplMode&&uiNew())return pplHtml();
+  let h='<div class="card">'+(uiNew()?'':'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>')+'<h2>'+(uiNew()?'Зарплата':'Ведомость')+'</h2><div class="chips">'+chips+'<button class="chip'+((mu||S.payDates)?' on':'')+'" data-act="paydates">Даты ▾</button></div>'
     +(S.payDates?'<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="pdf" type="date" min="'+PAY_START+'" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="pdt" type="date" min="'+PAY_START+'" value="'+esc(t)+'"></label><button class="btn small" data-act="paydatesgo">Показать</button></div>':'')
     +'<p class="hint" style="margin:6px 0">'+ruDate(f)+' — '+ruDate(t)+(mu?' · несколько периодов, только просмотр: «Рассчитан», выплаты и авансы вносятся по одному периоду':'')+'</p>'+(ps<PAY_START&&pers.length<2?'<p class="hint" style="margin:0">Учёт в приложении идёт с 16.10.2026; прошлый период появится после 1.11.</p>':'')+'</div>';
   if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
@@ -1285,6 +1306,70 @@ function payHtml(){
   al.forEach(i=>{h+='<div class="person"'+(i.cancelled?' style="opacity:.55"':'')+'><div class="srow"><span><b'+(i.cancelled?' style="text-decoration:line-through"':'')+'>'+esc(i.name)+'</b><br><small>'+esc(SAL_KIND[i.kind]||i.kind)+' · '+ruDate(i.date)+(i.comment?' · '+esc(i.comment):'')+'</small></span><b>'+sgn(Number(i.amount))+'</b></div>'+(i.cancelled?'<small>отменено</small>':'<button class="btn sec small" style="margin-top:6px" data-act="salcancel" data-id="'+i.id+'">Отменить</button>')+'</div>'});
   h+='</div><div class="card"><button class="btn sec small" data-act="paycopy">Скопировать ведомость</button><p class="hint">Excel-файл с этой ведомостью формирует Claude в общем чате по команде «ведомость за период».</p></div>';
   return h;
+}
+
+/* ====== Люди (1.52): всё о человеке за период; сумма та же, что в «Зарплате» (ev_payroll_statement) ====== */
+const PPL_PART={admin:'Администратор: смены и аптека',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач: проценты (расчёт Vetmanager)',fixed:'Оклад',surcharge:'Доплата за продажи (Vetmanager)',extra:'Доплаты и вычеты'};
+const PPL_ORDER=['admin','assistant','callcenter','doctor','fixed','surcharge','extra'];
+const PPL_GRP=[['doctor','Врачи'],['admin','Админы'],['assistant','Ассистенты'],['callcenter','Колл-центр']];
+async function loadExtras(from,to){
+  const key=from+'|'+to;S.pplExKey=key;S.pplEx=null;
+  try{const r=await rpc('ev_payroll_extras',{p_token:S.token,p_from:from,p_to:to},10000);
+    if(S.pplExKey!==key)return;
+    S.pplEx=(r&&r.ok)?(r.items||[]):[];
+  }catch(e){if(S.pplExKey!==key)return;S.pplEx=[]}
+  if(S.view==='pay'&&S.pplMode)paint();
+}
+function pplCard(x){
+  const r=S.pay,N=v=>Number(v||0),parts=x.parts||{};
+  const ex=(S.pplEx||[]).filter(i=>String(i.person)===String(x.id)),exSum=ex.reduce((q,i)=>q+N(i.amount),0);
+  let h='<div class="card"><button class="btn sec small" data-act="pplback" style="margin:0 0 10px">← Люди</button><h2>'+esc(x.name)+(S.person&&String(x.id)===String(S.person.id)?' <span class="chip on" style="padding:1px 8px;font-size:12px">это вы</span>':'')+'</h2><p class="hint" style="margin:0">'+ruDate(r.from)+' — '+ruDate(r.to)+(r.provisional?' · предварительно':'')+'</p></div>';
+  const br=[];if(N(x.paid_card))br.push('банк '+money(N(x.paid_card)));if(N(x.paid_cash))br.push('наличные '+money(N(x.paid_cash)));if(N(x.paid_adv))br.push('аванс '+money(N(x.paid_adv)));
+  h+='<div class="card pay"><div class="srow big"><span>Начислено</span><b>'+money(N(x.accrued))+'</b></div>'
+    +'<div class="srow"><span>− Выплачено'+(br.length?'<br><small style="color:var(--mute)">'+br.join(' · ')+'</small>':'')+'</span><span>'+money(N(x.paid))+'</span></div>'
+    +'<div class="srow big"><span>= '+(x.over_paid?'Переплата (проверить)':'Остаток к выплате')+'</span><b'+(x.over_paid?' style="color:var(--bad)"':'')+'>'+money(N(x.to_pay))+'</b></div>'
+    +(x.closed?'<div class="srow sub"><span>✓ Рассчитан, разница</span><b>'+sgn(N(x.diff))+'</b></div>':'')
+    +(N(x.adv_debt)?'<div class="srow sub"><span>долг по авансу</span><b style="color:var(--bad)">'+money(N(x.adv_debt))+'</b></div>':'')+'</div>';
+  h+='<div class="card"><h3 style="margin-top:2px">Из чего состоит</h3>';
+  PPL_ORDER.filter(k=>N(parts[k])).forEach(k=>{
+    if(k==='extra'&&ex.length){
+      ex.forEach(i=>{h+='<div class="srow"><span>Постоянная доплата<br><small style="color:var(--mute)">'+esc(i.label||'')+' · '+ruDate(i.date)+'</small></span><b>'+money(N(i.amount))+'</b></div>'});
+      const rest=Math.round((N(parts.extra)-exSum)*100)/100;
+      if(Math.abs(rest)>=0.5)h+='<div class="srow"><span>Разовые доплаты и вычеты</span><b>'+sgn(rest)+'</b></div>';
+    }else h+='<div class="srow"><span>'+esc(PPL_PART[k]||k)+'</span><b>'+(k==='extra'?sgn(N(parts[k])):money(N(parts[k])))+'</b></div>';
+  });
+  if(!PPL_ORDER.some(k=>N(parts[k])))h+='<p class="hint">Начислений за период нет.</p>';
+  if(S.pplEx===null&&N(parts.extra))h+='<p class="hint">Загружаю причины доплат…</p>';
+  h+='<p class="hint" style="margin:6px 0 0">Те же суммы видит сам сотрудник в «Моих начислениях». Доплата за продажи подписана без чужого имени.</p></div>';
+  const canClose=!r.provisional&&!r.multi;
+  h+='<div class="card"><div class="chips">'+(canClose&&!x.closed?'<button class="btn small" data-act="payclose1" data-id="'+x.id+'">Рассчитан</button>':'')
+    +'<button class="btn small sec" data-act="paycard" data-id="'+x.id+'">История и выплаты</button>'
+    +'<button class="btn small sec" data-act="pplsal" data-id="'+x.id+'">+ Доплата или вычет</button></div></div>';
+  return h;
+}
+function pplHtml(){
+  const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),r=S.pay;
+  const f=S.payFrom||(ps>=PAY_START?ps:cs),t=S.payTo||(ps>=PAY_START?pe:perEnd(cs));
+  const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
+  const chips=payPeriods(today).slice().reverse().slice(0,4).map((q,i)=>chip(i===0?'Этот период':i===1?'Прошлый период':ruDate(q[0]).slice(0,5)+' — '+ruDate(q[1]).slice(0,5),q[0],q[1])).join('');
+  if(S.payErr)return '<div class="card"><h2>Люди</h2><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
+  const x0=r&&S.pplId!=null?payRow(S.pplId):null;
+  if(x0)return pplCard(x0);
+  let h='<div class="card"><h2>Люди</h2><div class="chips">'+chips+'</div><p class="hint" style="margin:6px 0 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
+  if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
+  const rows=r.rows||[],has=g=>rows.some(x=>x.parts&&Number(x.parts[g]));
+  let pt=S.pplTab||'all';if(pt!=='all'&&!has(pt))pt='all';
+  const q=(S.paySearch||'').trim().toLowerCase();
+  const shown=rows.filter(x=>(pt==='all'||(x.parts&&Number(x.parts[pt])))&&(!q||String(x.name).toLowerCase().includes(q)));
+  h+='<div class="card"><label class="f" style="margin:0 0 6px"><input id="paysr" class="srch" placeholder="Фамилия" autocomplete="off" value="'+esc(S.paySearch||'')+'"></label><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="pplgrp" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'
+    +PPL_GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="pplgrp" data-k="'+g[0]+'"><span>'+g[1]+'</span></button>').join('')+'</div>';
+  shown.forEach(x=>{
+    const pr=x.parts||{},N=v=>Number(v||0),dop=N(pr.surcharge)+N(pr.extra);
+    const kinds=PPL_ORDER.filter(k=>N(pr[k])&&k!=='surcharge'&&k!=='extra').map(k=>({admin:'админ',assistant:'ассистент',callcenter:'колл-центр',doctor:'врач',fixed:'оклад'}[k]));
+    h+='<button class="srow grow" data-act="pplopen" data-id="'+x.id+'"><span><b>'+esc(x.name)+'</b>'+(S.person&&String(x.id)===String(S.person.id)?' <small>· это вы</small>':'')+'<br><small style="color:var(--mute)">'+kinds.join(' + ')+(dop?(kinds.length?' · ':'')+'доплаты '+money(dop):'')+(x.closed?' · ✓ рассчитан':'')+'</small></span><b>'+money(N(x.accrued))+' ›</b></button>';
+  });
+  if(!shown.length)h+='<p class="hint">Никого не найдено.</p>';
+  return h+'</div><p class="hint">Сумма у человека равна сумме в «Зарплате»: расчёт один.</p>';
 }
 const PAY_ERR={forbidden:'Нет доступа',session:'Сессия закончилась, войдите заново',input:'Проверьте данные',closed:'Сотрудник уже рассчитан за этот период: сначала снимите отметку',period_open:'Период ещё не закончился: рассчитать можно после его конца',already:'Уже рассчитан',not_in_statement:'Нет в ведомости',over_debt:'Сумма больше долга',not_found:'Не найдено'};
 const payRow=id=>((S.pay&&S.pay.rows)||[]).find(z=>String(z.id)===String(id));
@@ -1670,6 +1755,7 @@ function salAddForm(){
     +'<label class="f"><span>За какое число</span><input id="sad" type="date" value="'+esc(S.view==='pay'?(omskToday()<S.payFrom?S.payFrom:omskToday()>S.payTo?S.payTo:omskToday()):omskToday())+'"></label>'
     +'<label class="f"><span>Комментарий (для доплаты и вычета обязателен)</span><input id="sac" maxlength="300"></label>'
     +'<button class="btn" data-act="saladdgo" style="margin-top:8px">Добавить</button><button class="btn sec" style="margin-top:8px" data-act="salback">Назад</button>');
+  if(S.salPre!=null){const el=$('#saw');if(el)el.value=String(S.salPre);S.salPre=null}
 }
 async function doSalAdd(){
   if(S.salBusy)return;
@@ -1703,7 +1789,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>'+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -1797,8 +1883,13 @@ document.addEventListener('click',async e=>{
     case'payopenp':S.payOpen=S.payOpen===d.id?null:d.id;paint();break;
     case'paydates':S.payDates=!S.payDates;paint();break;
     case'paydatesgo':payDatesGo();break;
-    case'payopen':closeOv();showPay();break;
-    case'salpayopen':{const rg=salPayRange(S.salFrom,S.salTo);closeOv();if(rg)showPay(rg[0],rg[1]);else showPay();break}
+    case'payopen':closeOv();S.pplMode=false;showPay();break;
+    case'pplopen':S.pplId=d.id;paint();window.scrollTo(0,0);break;
+    case'pplback':S.pplId=null;paint();window.scrollTo(0,0);break;
+    case'pplgrp':S.pplTab=d.k;paint();break;
+    case'pplsal':S.salPre=d.id;salAddForm();break;
+    case'uitoggle':closeOv();if(uiNew())LS.set('ev_ui','old');else LS.del('ev_ui');S.pplMode=false;S.view='branch';render();window.scrollTo(0,0);toast(uiNew()?'Новый вид':'Прежний вид');break;
+    case'salpayopen':{S.pplMode=false;const rg=salPayRange(S.salFrom,S.salTo);closeOv();if(rg)showPay(rg[0],rg[1]);else showPay();break}
     case'workopen':closeOv();showWork();break;
     case'payper':showPay(d.from,d.to);break;
     case'paycopy':copyPayroll();break;
@@ -1850,7 +1941,7 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;showPay(S.payFrom,S.payTo)}else if(v==='ppl'){S.pplMode=true;S.pplId=null;showPay(S.payFrom,S.payTo)}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
