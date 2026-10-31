@@ -190,7 +190,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.54'
+  appVer:'1.55'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -763,7 +763,17 @@ function viewDone(){
 const addDays=(iso,n)=>{const p=iso.split('-').map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]+n)).toISOString().slice(0,10)};
 const sgn=x=>(x>0?'+':x<0?'−':'')+money(Math.abs(x));
 /* ====== Инкассация МР: подтверждение руководителем ====== */
-function mrHtml(){
+function cashHtml(){
+  const c=S.cash;if(!isHead()||!c||!c.ok)return'';
+  const by=c.by_branch||{},ks=Object.keys(by).filter(k=>Number(by[k]));
+  return '<div class="card k-safe"><h2>Наличные в сейфе</h2><div class="srow big"><span>Подтверждённые инкассации с '+ruDate(c.from)+'</span><b>'+money(Number(c.on_hand))+'</b></div>'
+    +ks.map(k=>'<div class="srow sub"><span>'+esc(brTitle(k))+'</span><b>'+money(Number(by[k]))+'</b></div>').join('')
+    +(Number(c.pending)?'<p class="hint">Ещё не подтверждено вами: '+money(Number(c.pending))+' (в сумму не входит).</p>':'')
+    +(Number(c.excluded_from_cash)?'<p class="hint">Не в сейфе (ушло на зарплату): '+money(Number(c.excluded_from_cash))+'.</p>':'')
+    +'<p class="hint">Считаются только инкассации, которые вы подтвердили. Расходы и выдачи не вычитаются.</p></div>';
+}
+function mrHtml(){return cashHtml()+mrHtml0()}
+function mrHtml0(){
   if(!isHead()||!S.mr)return'';
   const pend=S.mr.filter(x=>x.status==='pending'),done=S.mr.filter(x=>x.status!=='pending').slice(0,5);
   if(!pend.length&&!done.length)return'';
@@ -786,6 +796,7 @@ function paintMr(){document.querySelectorAll('.mrbox').forEach(el=>{el.innerHTML
 async function loadMr(){
   if(!S.token||!isHead())return;
   try{const r=await rpc('ev_mr_list',{p_token:S.token},8000);if(r&&r.ok){S.mr=r.items||[];paintMr()}}catch(e){}
+  try{const r=await rpc('ev_cash_on_hand',{p_token:S.token},8000);S.cash=(r&&r.ok)?r:null;paintMr()}catch(e){}
 }
 async function mrDecide(id,decision,actual){
   const x=(S.mr||[]).find(i=>String(i.id)===String(id));if(!x)return;
@@ -1294,7 +1305,7 @@ function payHtml(){
     +(canClose?'<button class="chip" data-act="payselall">Выбрать всех с остатком</button>':'')+'<button class="chip" data-act="payprint">Печать ведомости</button></div>';
   list.forEach(x=>{
     const ks=Object.keys(x.parts||{}).filter(k=>Number(x.parts[k])),op=String(S.payOpen)===String(x.id);
-    const br=[];if(Number(x.paid_card))br.push('банк '+money(Number(x.paid_card)));if(Number(x.paid_cash))br.push('наличные '+money(Number(x.paid_cash)));if(Number(x.paid_adv))br.push('аванс '+money(Number(x.paid_adv)));
+    const br=[];if(Number(x.paid_card))if(Number(x.paid_cash))br.push('наличные '+money(Number(x.paid_cash)));if(Number(x.paid_adv))br.push('аванс '+money(Number(x.paid_adv)));
     h+='<div class="person'+(x.closed?' done':'')+'" style="cursor:pointer"><div class="srow" data-act="payopenp" data-id="'+x.id+'"><span>'+(canClose&&!x.closed?'<input type="checkbox" data-act="paysel" data-id="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:20px;height:20px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span><b>'+money(Number(x.accrued))+'</b></div>'
       +'<div class="srow sub"><span>выплачено'+(br.length?'<br><small style="color:var(--mute)">'+br.join(' · ')+'</small>':'')+'</span><b>'+money(Number(x.paid))+'</b></div>'
       +'<div class="srow sub"><span>'+(x.over_paid?'переплата (проверить)':'остаток к выплате')+'</span><b'+(x.over_paid?' style="color:var(--red,#c0392b)"':'')+'>'+money(Number(x.to_pay))+'</b></div>'
@@ -1331,7 +1342,7 @@ function pplCard(x){
   const r=S.pay,N=v=>Number(v||0),parts=x.parts||{};
   const ex=(S.pplEx||[]).filter(i=>String(i.person)===String(x.id)),exSum=ex.reduce((q,i)=>q+N(i.amount),0);
   let h='<div class="card"><button class="btn sec small" data-act="pplback" style="margin:0 0 10px">← Люди</button><h2>'+esc(x.name)+(S.person&&String(x.id)===String(S.person.id)?' <span class="chip on" style="padding:1px 8px;font-size:12px">это вы</span>':'')+'</h2><p class="hint" style="margin:0">'+ruDate(r.from)+' — '+ruDate(r.to)+(r.provisional?' · предварительно':'')+'</p></div>';
-  const br=[];if(N(x.paid_card))br.push('банк '+money(N(x.paid_card)));if(N(x.paid_cash))br.push('наличные '+money(N(x.paid_cash)));if(N(x.paid_adv))br.push('аванс '+money(N(x.paid_adv)));
+  const br=[];if(N(x.paid_card))if(N(x.paid_cash))br.push('наличные '+money(N(x.paid_cash)));if(N(x.paid_adv))br.push('аванс '+money(N(x.paid_adv)));
   h+='<div class="card pay"><div class="srow big"><span>Начислено</span><b>'+money(N(x.accrued))+'</b></div>'
     +'<div class="srow"><span>− Выплачено'+(br.length?'<br><small style="color:var(--mute)">'+br.join(' · ')+'</small>':'')+'</span><span>'+money(N(x.paid))+'</span></div>'
     +'<div class="srow big"><span>= '+(x.over_paid?'Переплата (проверить)':'Остаток к выплате')+'</span><b'+(x.over_paid?' style="color:var(--bad)"':'')+'>'+money(N(x.to_pay))+'</b></div>'
@@ -1410,7 +1421,7 @@ async function payCard(id){
   try{
     const r=await rpc('ev_payroll_person',{p_token:S.token,p_person:Number(id)},12000);
     if(!r||!r.ok){overlay('<h2>'+esc(x.name)+'</h2><p>'+esc(PAY_ERR[r&&r.error]||'Не удалось загрузить')+'</p><button class="btn sec" data-act="paycardback">Закрыть</button>');return}
-    const MT={card:'банк',cash:'наличные',other:'другое',advance:'аванс'};
+    const MT={card:'Выплата',cash:'наличные',other:'другое',advance:'аванс'};
     let h='<h2>'+esc(x.name)+'</h2><div class="srow big"><span>Накопленная разница (с 16.10)</span><b>'+sgn(Number(r.diff_total))+'</b></div>';
     h+='<h3>Периоды</h3>'+((r.closures||[]).length?(r.closures).map(c=>'<div class="srow"><span>'+ruDate(c.from)+' — '+ruDate(c.to)+'<br><small style="color:var(--mute)">начислено '+money(Number(c.accrued))+', выплачено '+money(Number(c.paid_total))+'</small></span><b>'+sgn(Number(c.diff))+'</b></div>').join(''):'<p class="hint">Рассчитанных периодов нет.</p>');
     if(x.closed)h+='<button class="btn sec small" data-act="payunclose" data-id="'+id+'">Снять отметку «Рассчитан» за текущий период</button>';
