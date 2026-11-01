@@ -191,7 +191,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.58'
+  appVer:'1.59'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -854,7 +854,7 @@ function flagLine(f,where){
     +(nums?'<br><small>'+esc(nums)+'</small>':'')
     +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
-    +(isHead()?'<br><span class="fbtns">'+(f.accepted?'':'<button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>')+'<button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
+    +(isHead()&&!f.accepted?'<br><span class="fbtns"><button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button><button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
     +'</div></div>';
 }
 function flagsHtml(){
