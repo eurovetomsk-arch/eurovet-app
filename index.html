@@ -191,7 +191,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.60'
+  appVer:'1.61'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1203,7 +1203,7 @@ function wkDetails(d){
     return '<div class="srow sub"><span>'+nm+pc+'</span><b>'+am+'</b></div>'}).join('')+'</div>';
 }
 /* единые названия частей начисления: у сотрудника и в ведомости */
-const PART_NAME={admin:'Администратор',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач (проценты)',fixed:'Оклад',surcharge:'Доплата за продажи',extra:'Доплаты и вычеты'};
+const PART_NAME={admin:'Администратор',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач (проценты)',fixed:'Оклад',surcharge:'Доплата за продажи',extra:'Доплаты и вычеты',outsource:'Аутсорс: описания снимков'};
 const PAY_PART=PART_NAME;
 const PAY_START='2026-10-16'; /* учёт зарплат врачей в приложении с 16.10.2026, раньше считалось вручную */
 const WK_PARTS=[['admin',PART_NAME.admin],['assistant',PART_NAME.assistant],['callcenter',PART_NAME.callcenter],['percent',PART_NAME.doctor],['fixed',PART_NAME.fixed],['surcharge',PART_NAME.surcharge],['adj',PART_NAME.extra]];
@@ -1428,7 +1428,7 @@ function payHtml(){
     +(Number(tt.adv_debt)?'<div class="srow sub"><span>Выдано в долг, не удержано</span><b>'+money(Number(tt.adv_debt))+'</b></div>':'')
     +'</div>';
   (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
-  const GRP=[['doctor','Врачи'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
+  const GRP=[['doctor','Врачи'],['outsource','Аутсорс'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
   const rows=r.rows||[],has=g=>rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
   let pt=S.payTab||'all';const q=(S.paySearch||'').trim().toLowerCase();if(pt!=='all'&&!has(pt))pt='all';
   const shown=(pt==='all'?rows:rows.filter(x=>x.parts&&Number(x.parts[pt]))).filter(x=>!q||String(x.name).toLowerCase().includes(q));
@@ -1461,9 +1461,9 @@ function payHtml(){
 }
 
 /* ====== Люди (1.52): всё о человеке за период; сумма та же, что в «Зарплате» (ev_payroll_statement) ====== */
-const PPL_PART={admin:'Администратор: смены и аптека',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач: проценты (расчёт Vetmanager)',fixed:'Оклад',surcharge:'Доплата за продажи (Vetmanager)',extra:'Доплаты и вычеты'};
-const PPL_ORDER=['admin','assistant','callcenter','doctor','fixed','surcharge','extra'];
-const PPL_GRP=[['doctor','Врачи'],['admin','Админы'],['assistant','Ассистенты'],['callcenter','Колл-центр']];
+const PPL_PART={admin:'Администратор: смены и аптека',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач: проценты (расчёт Vetmanager)',fixed:'Оклад',surcharge:'Доплата за продажи (Vetmanager)',extra:'Доплаты и вычеты',outsource:'Аутсорс: описания снимков'};
+const PPL_ORDER=['admin','assistant','callcenter','doctor','outsource','fixed','surcharge','extra'];
+const PPL_GRP=[['doctor','Врачи'],['admin','Админы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['outsource','Аутсорс']];
 async function loadExtras(from,to){
   const key=from+'|'+to;S.pplExKey=key;S.pplEx=null;
   try{const r=await rpc('ev_payroll_extras',{p_token:S.token,p_from:from,p_to:to},10000);
@@ -1517,7 +1517,7 @@ function pplHtml(){
     +PPL_GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="pplgrp" data-k="'+g[0]+'"><span>'+g[1]+'</span></button>').join('')+'</div>';
   shown.forEach(x=>{
     const pr=x.parts||{},N=v=>Number(v||0),dop=N(pr.surcharge)+N(pr.extra);
-    const kinds=PPL_ORDER.filter(k=>N(pr[k])&&k!=='surcharge'&&k!=='extra').map(k=>({admin:'админ',assistant:'ассистент',callcenter:'колл-центр',doctor:'врач',fixed:'оклад'}[k]));
+    const kinds=PPL_ORDER.filter(k=>N(pr[k])&&k!=='surcharge'&&k!=='extra').map(k=>({admin:'админ',assistant:'ассистент',callcenter:'колл-центр',doctor:'врач',outsource:'аутсорс',fixed:'оклад'}[k]));
     h+='<button class="srow grow" data-act="pplopen" data-id="'+x.id+'"><span><b>'+esc(x.name)+'</b>'+(S.person&&String(x.id)===String(S.person.id)?' <small>· это вы</small>':'')+'<br><small style="color:var(--mute)">'+kinds.join(' + ')+(dop?(kinds.length?' · ':'')+'доплаты '+money(dop):'')+(x.closed?' · ✓ рассчитан':'')+'</small></span><b>'+money(N(x.accrued))+' ›</b></button>';
   });
   if(!shown.length)h+='<p class="hint">Никого не найдено.</p>';
