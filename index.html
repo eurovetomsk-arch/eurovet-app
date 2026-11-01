@@ -72,6 +72,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 .step button{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--tile);color:var(--ink);font-size:22px}
 .step output{min-width:34px;text-align:center;font-size:20px;font-weight:600}
 .step span{flex:1}
+.fbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.fdet h3{font-size:15px;margin:14px 0 4px}.fdet .vr{border-left:3px solid var(--bd);padding:2px 0 2px 10px;margin:8px 0;font-size:14px}.fdet .vr small,.fdet small{color:var(--mute)}.fdet .chg{display:block;font-size:13px}.fdet{max-height:82vh;overflow-y:auto}
 .chk{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;margin:6px 0;font-size:14px}
 .chk.ok{background:var(--okbg);color:var(--ok)}
 .chk.bad{background:var(--badbg);color:var(--bad)}
@@ -190,7 +191,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.57'
+  appVer:'1.58'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -853,7 +854,7 @@ function flagLine(f,where){
     +(nums?'<br><small>'+esc(nums)+'</small>':'')
     +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
-    +(isHead()&&!f.accepted?'<br><button class="btn sec small" style="margin-top:6px" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>':'')
+    +(isHead()?'<br><span class="fbtns">'+(f.accepted?'':'<button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button>')+'<button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
     +'</div></div>';
 }
 function flagsHtml(){
@@ -900,6 +901,63 @@ function ctlHtml(){
     h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):'<p>Расхождений нет.</p>';
   }
   return h+'</div>';
+}
+
+/* 1.58: «Подробнее» к находке контроля (только руководитель; данные ev_flag_detail, при её отсутствии — только то, что уже на экране) */
+const FDET_WHY={
+  many_edits:'Отчёт за день отправляли несколько раз. Каждая версия сохраняется: ниже видно, кто и что менял. Само по себе не ошибка; смотрите, менялись ли деньги.',
+  two_authors:'Отчёт подавали или правили разные люди (администратор, другой администратор или руководитель). Проверьте, что каждая правка законная.',
+  correction_money:'Исправление изменило суммы относительно предыдущей версии. Строки «что изменилось» ниже показывают, что именно.',
+  vm_doctor:'Вал врача в отчёте не равен счетам в Vetmanager. Частая причина: смешанный счёт (в шапке один врач, в строках ответственный другой) или перенос суммы между врачами.',
+  pay_split:'Наличные + безнал не равны «Клиника общая»: где-то неверно разнесена оплата.',
+  box:'Остаток кассы не равен ожидаемому по отчёту (нал, расходы, инкассация, аванс).',
+  no_report:'За этот день отчёт не подан.',
+  late_edit:FLAG_HINT.late_edit,locked_edit:FLAG_HINT.locked_edit
+};
+const omskAt=t=>{try{return new Date(t).toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+const fnum=x=>(x==null||x==='')?'—':(isNaN(Number(x))?esc(String(x)):money(Number(x)));
+function fdetBody(ds,r,fallback){
+  const f0=((S.ctl||[]).concat(S.flags||[])).find(f=>(f.branch||S.branch)===ds.bid&&(f.date||S.date)===ds.dt&&f.code===ds.code&&(Number(f.version)||0)===(Number(ds.ver)||0))||{};
+  const bt=(BRANCHES.find(b=>b.id===ds.bid)||{}).title||ds.bid;
+  let h='<div class="fdet"><h2>'+esc(f0.title||ds.code)+'</h2><p class="hint">'+esc(bt)+' · '+ruDate(ds.dt)+(Number(ds.ver)?' · версия отчёта '+Number(ds.ver):'')+'</p>';
+  h+='<h3>Что это значит</h3><p style="margin:0">'+esc(FDET_WHY[ds.code]||'Описание для этого типа находки не заготовлено: смотрите цифры ниже.')+'</p>';
+  const nums=[];
+  if(f0.expected!=null&&f0.actual!=null)nums.push('в отчёте '+money(Number(f0.actual))+', ожидалось '+money(Number(f0.expected))+(f0.diff!=null?', разница '+sgn(Number(f0.diff)):''));
+  else if(f0.actual!=null)nums.push(({many_edits:'версий отчёта: ',two_authors:'разных авторов: '}[ds.code]||'значение: ')+esc(String(f0.actual)));
+  if(f0.detail)nums.push(nameDetail(f0.detail));
+  if(nums.length)h+='<h3>Цифры находки</h3><p style="margin:0">'+nums.join('<br>')+'</p>';
+  if(r&&r.ok){
+    const vs=r.versions||[];
+    if(vs.length){
+      h+='<h3>Кто и что подавал и правил</h3>';
+      vs.forEach(v=>{
+        h+='<div class="vr"><b>v'+v.version+'</b> · '+esc(v.by||'?')+' · '+omskAt(v.at)+(v.correction?' · правка':' · первая подача')+' · итог '+fnum(v.total)
+          +(v.reason?'<br><small>Причина: '+esc(v.reason)+'</small>':'')
+          +((v.changes||[]).length?(v.changes).map(c=>'<span class="chg">'+esc(c.field)+': '+fnum(c.from)+' → '+fnum(c.to)+'</span>').join(''):(v.version>1?'<small>Цифры не менялись (только текст/состав).</small>':''))+'</div>';
+      });
+    }
+    const sib=(r.findings||[]).filter(x=>!(x.code===ds.code&&(Number(x.version)||0)===(Number(ds.ver)||0)));
+    if(sib.length)h+='<h3>Другие находки за этот день</h3>'+sib.map(x=>'<div class="vr"><b>'+esc(x.title)+'</b> (v'+(x.version||'?')+', '+(x.level==='red'?'красная':'жёлтая')+')'+(x.detail?'<br><small>'+nameDetail(x.detail)+'</small>':'')+'</div>').join('');
+    if((r.accepted||[]).length)h+='<h3>Что уже принималось</h3>'+r.accepted.map(a=>'<div class="vr"><b>'+esc(a.code)+'</b> v'+(a.version||0)+' · '+esc(a.by||'')+' · '+omskAt(a.at)+(a.note?'<br><small>'+esc(a.note)+'</small>':'')+'</div>').join('');
+    if((r.agent_notes||[]).length)h+='<h3>Записи агентов</h3>'+r.agent_notes.map(a=>'<div class="vr"><b>'+esc(a.agent)+'</b> · '+omskAt(a.at)+'<br><small>'+esc(a.summary)+'</small></div>').join('');
+    h+='<p class="hint" style="margin-top:12px">Пояснение выше шаблонное, а не расследование: причину устанавливаете вы по версиям и записям.</p>';
+  }else{
+    const sib=(S.ctl||[]).filter(x=>(x.branch||S.branch)===ds.bid&&(x.date||S.date)===ds.dt&&x!==f0);
+    if(sib.length)h+='<h3>Другие находки за этот день</h3>'+sib.map(x=>'<div class="vr"><b>'+esc(x.title)+'</b>'+(x.detail?'<br><small>'+nameDetail(x.detail)+'</small>':'')+'</div>').join('');
+    h+='<p class="hint" style="margin-top:12px">'+(fallback==='load'?'Загружаю версии и авторов…':'Версии отчёта и авторы сейчас недоступны'+(fallback==='net'?' (нет связи).':'.'))+'</p>';
+  }
+  const open=!f0.accepted;
+  h+=(open?'<button class="btn" style="margin-top:8px" data-act="accept" data-bid="'+esc(ds.bid)+'" data-dt="'+esc(ds.dt)+'" data-code="'+esc(ds.code)+'" data-ver="'+(Number(ds.ver)||0)+'">Принять</button>':'<p class="hint">Уже принято руководителем.</p>')
+    +'<button class="btn sec" style="margin-top:8px" data-act="ovclose">Назад</button></div>';
+  return h;
+}
+async function showFlagDetail(ds){
+  if(!isHead())return;
+  overlay(fdetBody(ds,null,'load'));
+  let r=null,fb='err';
+  try{r=await rpc('ev_flag_detail',{p_token:S.token,p_branch:ds.bid,p_date:ds.dt,p_code:ds.code},10000);if(r&&r.error==='session'){toast('Сессия закончилась, войдите заново',5000);return}}catch(e){fb=e&&e.net?'net':'err'}
+  if(!$('#ovwrap .fdet'))return; /* закрыли или открыли другое окно */
+  overlay(fdetBody(ds,r&&r.ok?r:null,fb));
 }
 function acceptForm(ds){
   S.accDs=ds;
@@ -2055,6 +2113,7 @@ document.addEventListener('click',async e=>{
     case'revbr':S.revBranch=d.b;paint();window.scrollTo(0,0);break;
     case'revgo':{const f=($('#revf')||{}).value,t=($('#revt')||{}).value;if(!f||!t||t<f){toast('Проверьте даты периода');break}showRevenue(f,t);break}
     case'accept':acceptForm(d);break;
+    case'fdet':showFlagDetail(d);break;
     case'acceptgo':doAccept(S.accDs,($('#accnote')||{}).value||'');break;
     case'chpin':showPin();break;
     case'dopin':{
