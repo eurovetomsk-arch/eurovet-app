@@ -191,7 +191,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.59'
+  appVer:'1.60'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1319,12 +1319,12 @@ function safeBody(){
   if(S.payErr)return '<div class="card"><p>'+esc(S.payErr)+'</p></div>';
   if(!r)return '<div class="card"><p class="hint">Загружаю…</p></div>';
   const rows=r.rows||[],tot=r.total||{},card=rows.reduce((q,x)=>q+N(x.paid_card),0),cashPaid=rows.reduce((q,x)=>q+N(x.paid_cash),0),adv=rows.reduce((q,x)=>q+N(x.paid_adv),0);
-  const need=rows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null,short=bal==null?null:need-bal;
+  const CASH_SKIP=[17],skipRows=rows.filter(x=>CASH_SKIP.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!CASH_SKIP.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null,short=bal==null?null:need-bal;
   h+='<div class="card"><h3 style="margin-top:2px">Зарплата за период</h3>'
     +'<div class="srow"><span>К выплате всего (начислено)</span><b>'+money(N(tot.accrued))+'</b></div>'
     +'<div class="srow"><span>Уже выплачено</span><b>'+money(N(tot.paid))+'</b></div>'
     +'<div class="srow sub"><span>картой</span><b>'+money(card)+'</b></div><div class="srow sub"><span>наличными</span><b>'+money(cashPaid)+'</b></div>'+(adv?'<div class="srow sub"><span>авансом</span><b>'+money(adv)+'</b></div>':'')
-    +'<div class="srow big"><span>Осталось выплатить наличными</span><b>'+money(need)+'</b></div>'
+    +'<div class="srow big"><span>Осталось выплатить наличными</span><b>'+money(need)+'</b></div>'+(skipRows.length?'<div class="srow sub"><span>не в расчёте кэша: '+skipRows.map(x=>esc(x.name)).join(', ')+' (начислено, рассчитываетесь сами)</span><b>'+money(skip)+'</b></div>':'')
     +((r.warnings||[]).length?'<p class="hint" style="margin-top:8px">'+r.warnings.map(esc).join('<br>')+'</p>':'')+'</div>';
   h+='<div class="card"><h3 style="margin-top:2px">Сейф</h3>';
   if(!c)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
