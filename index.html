@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.69'
+  appVer:'1.70'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -2319,6 +2319,18 @@ function muRandPin(){
     return p;
   }
 }
+/* «Состояние системы»: пороги в часах. Красное = давно не было события. */
+function muHealthRows(h,nowMs,tt){tt=tt||(x=>x);
+  const age=t=>t?Math.max(0,(nowMs-new Date(t).getTime())/36e5):null;
+  const row=(label,t,lim,note)=>{const a=age(t);return{label,age:a,lim,bad:a==null||a>lim,note:note||''}};
+  const rows=[];
+  (h.branches||[]).forEach(x=>rows.push(row('Последний отчёт: '+tt(x.branch),x.last,30)));
+  rows.push(row('Последняя сверка отчётов (печать)',h.last_seal,30,'запускают агенты'));
+  rows.push(row('Копия базы на Mac с проверкой восстановления',h.last_copy,14));
+  rows.push(row('Последняя запись агентов Claude',h.last_agent,26,'если красное, контроль идёт без агентов'));
+  return rows;
+}
+const muAgeTxt=a=>a==null?'нет данных':a<1?'меньше часа назад':a<48?Math.round(a)+' ч назад':Math.round(a/24)+' дн назад';
 /*MU-PARSE-END*/
 const muF=n=>Number(n||0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
 const MU_ERR={session:'Сессия закончилась. Войдите заново.',forbidden:'Раздел только для руководителя.',duplicate_file:'Этот файл уже загружен.',period_or_kind:'Период должен быть 1–15 или 16–конец месяца.',before_start:'Учёт в системе начинается с 16.10.2026.',row:'В файле есть сотрудник, которого нет в списке.',duplicate_person:'Один сотрудник дважды в файле.',branch:'Выберите филиал.',branch_already_loaded:'По этому филиалу и периоду файл уже загружен. Сначала отмените прежнюю загрузку.',input:'Файл не прошёл проверку.',pin_format:'PIN: ровно 6 цифр.',person:'Сотрудник не найден.'};
@@ -2336,7 +2348,8 @@ async function showMU(){
   closeOv();S.view='mu';S.mu={files:[],bank:null,people:[],idx:{},batches:null,pin:null,pinPerson:'',busy:false,msg:null,err:null};
   paint();window.scrollTo(0,0);
   try{
-    const [p,b]=await Promise.all([rpc('ev_mu_people',{p_token:S.token},15000),rpc('ev_mu_batches',{p_token:S.token},15000)]);
+    const [p,b,hl]=await Promise.all([rpc('ev_mu_people',{p_token:S.token},15000),rpc('ev_mu_batches',{p_token:S.token},15000),rpc('ev_mu_health',{p_token:S.token},15000).catch(()=>null)]);
+    if(S.mu&&hl&&hl.ok)S.mu.health=hl;
     if(!S.mu)return;
     if((p&&p.error==='session')||(b&&b.error==='session')){S.mu=null;S.token=null;LS.del('ev_token');S.view='login';toast(MU_ERR.session);render();return}
     if(!p||!p.ok){S.mu.err=MU_ERR[p&&p.error]||'Не удалось загрузить список сотрудников';}
@@ -2448,6 +2461,11 @@ function muHtml(){
   if(m.err)h+='<div class="note bad" style="color:var(--bad)">'+esc(m.err)+'</div>';
   if(m.msg)h+='<div style="margin:6px 0;padding:8px 10px;border-radius:8px;background:var(--okbg);color:var(--ok)">'+esc(m.msg)+'</div>';
   h+='</div>';
+  if(m.health){const hr=muHealthRows(m.health,Date.now(),muBrTitle);const bad=hr.filter(x=>x.bad).length;
+    h+='<div class="card"><h2>Состояние системы</h2><div style="margin:4px 0 8px;padding:8px 10px;border-radius:8px;font-weight:700;background:var(--'+(bad?'badbg':'okbg')+');color:var(--'+(bad?'bad':'ok')+')">'+(bad?'Есть что проверить: '+bad:'Всё в норме')+'</div>'
+      +hr.map(x=>'<div class="srow"><span>'+esc(x.label)+(x.note&&x.bad?'<br><small style="color:var(--mute)">'+esc(x.note)+'</small>':'')+'</span><b style="color:var(--'+(x.bad?'bad':'ok')+')">'+muAgeTxt(x.age)+'</b></div>').join('')
+      +(m.health.no_pin>0?'<div class="srow"><span>Сотрудников без PIN</span><b style="color:var(--bad)">'+m.health.no_pin+'</b></div>':'')
+      +'<p class="hint">Красное: событие давнее порога (отчёты и сверка 30 ч, копия Mac 14 ч, агенты 26 ч). Только чтение, ничего не меняет.</p></div>';}
   /* A. начисления врачей */
   h+='<div class="card"><h2>1. Начисления врачей (Vetmanager)</h2><p class="hint">Файлы .xls, по одному на филиал, колонки «Период», «ФИО», «Сумма ЗП». Можно выбрать сразу три файла.</p>'
     +'<label class="btn sec" style="display:block;text-align:center;margin:6px 0">Выбрать файлы<input type="file" class="mufile" data-k="vm" accept=".xls,.xlsx" multiple style="display:none"></label>';
