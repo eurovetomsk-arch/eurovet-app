@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.65'
+  appVer:'1.66'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -556,8 +556,9 @@ function viewHelp(){return '<div class="card"><button class="btn sec small" data
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
 function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
-const LCATS=[['adm','Администратор'],['asst','Ассистент'],['doc','Врач'],['cc','Колл-центр'],['oth','Другие']];
+const LCATS=[['head','Руководитель'],['adm','Администратор'],['asst','Ассистент'],['doc','Врач'],['cc','Колл-центр'],['oth','Другие']];
 const inCat=(p,c)=>{
+  if(c==='head')return p.head===true; // 1.66: отдельный вход руководителя (флаг head отдаёт ev_login_list после миграции ev_v155)
   if(!('doc' in p)&&(c==='doc'||c==='asst'||c==='oth')) return c==='doc'&&p.work===true&&p.adm!==true&&p.cc!==true; // список со старой страницы 1.46: врачи и ассистенты вместе
   return c==='adm'?p.adm===true:c==='cc'?p.cc===true:c==='doc'?p.doc===true:c==='asst'?p.asst===true:p.cour===true;
 };
