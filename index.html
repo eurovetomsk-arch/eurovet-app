@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.63'
+  appVer:'1.64'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -399,7 +399,7 @@ function buildData(calc){
 let flushing=false,wantAgain=false;const flushRef={c:null};
 async function flush(auto){
   if(flushing||!S.queue.length)return;
-  if(!S.token){render();return}
+  if(!S.token){if(!auto)render();return} // 1.64: фоновая отправка без входа НЕ перерисовывает экран входа (раньше раз в 8 с стирала PIN)
   flushing=true;
   const sig=()=>S.queue.map(x=>x.uid+(x.status==='new'?'offline':x.status)).join()+S.online;const sig0=sig();
   try{
@@ -1957,7 +1957,9 @@ function showQueue(){
   S.queue.forEach(it=>{
     h+='<div class="person"><b>'+esc(it.branchTitle)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc({new:'ожидает',offline:'нет связи, повторим',error:'ошибка: '+(it.err||''),needs_reason:'нужна причина исправления',need_login:'нужно войти заново'}[it.status]||it.status)+'</small>';
     if(it.status==='needs_reason')h+='<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'"></label><button class="btn small" data-act="setReason" data-id="'+it.uid+'">Отправить с причиной</button>';
-    h+=' <button class="btn sec small" data-act="copyq" data-id="'+it.uid+'">Копировать итоги</button></div>';
+    h+=' <button class="btn sec small" data-act="copyq" data-id="'+it.uid+'">Копировать итоги</button>';
+    if(it.status==='error'||it.status==='need_login'||it.status==='needs_reason')h+=' <button class="btn sec small" data-act="dropq" data-id="'+it.uid+'">Убрать из очереди</button>';
+    h+='</div>';
   });
   h+='<button class="btn" style="margin:6px 0" data-act="flush">Отправить сейчас</button><button class="btn sec" data-act="ovclose">Закрыть</button>';
   overlay(h);
@@ -2091,6 +2093,7 @@ document.addEventListener('click',async e=>{
     case'submit':if(!S.busy)submit();break;
     case'copy':if(S.done)clip(S.done.summary);break;
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
+    case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;render();break;
     case'menu':showMenu();break;
     case'help':openHelp();break;
