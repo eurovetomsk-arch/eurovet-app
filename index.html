@@ -79,6 +79,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 .chk.wait{background:var(--tile);color:var(--mute)}
 .chk.warn{background:var(--warnbg);color:var(--warn)}
 .card.pay.demo{outline:2px dashed var(--warn);outline-offset:-2px}.paysum{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}.paytot{border-top:1px solid var(--line);margin-top:6px;padding-top:8px}.paydet>summary{cursor:pointer;font-weight:600;margin:10px 0;color:var(--mute)}.paybl{padding:6px 0 8px;border-top:1px solid var(--line)}.paybl:first-of-type{border-top:0}
+.person.pc .pcrow{display:block}.pc .topay{margin:10px 0 6px;padding:10px 12px;border-radius:12px;background:var(--warnbg);border:2px solid var(--warn);display:flex;justify-content:space-between;align-items:baseline;gap:8px}.pc .topay span{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--warn)}.pc .topay b{font-size:26px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}.pc .topay.zero{background:var(--okbg);border-color:var(--ok)}.pc .topay.zero span{color:var(--ok)}.pc .topay.zero b{font-size:18px;color:var(--ok)}.pc .topay.over{background:var(--badbg);border-color:var(--bad)}.pc .topay.over span,.pc .topay.over b{color:var(--bad)}.pc .two{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--mute);padding:0 2px}.pc .two b{font-weight:500;color:var(--mute);font-variant-numeric:tabular-nums}@media(min-width:700px){.person.pc .pcrow{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}.pc .topay{margin:0;min-width:300px}}
 .srow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:14px}.srow b{font-variant-numeric:tabular-nums;white-space:nowrap}.srow.big{font-size:17px;padding:4px 0}.srow.sub{font-size:13px;color:var(--mute)}details summary{font-size:13px;color:var(--mute);padding:6px 0;cursor:pointer}.ov .card h3{margin:14px 0 4px;font-size:16px}
 .chk i{font-style:normal;font-weight:700;width:18px;flex:none}
 @media (pointer:coarse){body.typing .bar{display:none}}
@@ -191,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.61'
+  appVer:'1.62'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1440,9 +1441,10 @@ function payHtml(){
   list.forEach(x=>{
     const ks=Object.keys(x.parts||{}).filter(k=>Number(x.parts[k])),op=String(S.payOpen)===String(x.id);
     const br=[];if(Number(x.paid_card))if(Number(x.paid_cash))br.push('наличные '+money(Number(x.paid_cash)));if(Number(x.paid_adv))br.push('аванс '+money(Number(x.paid_adv)));
-    h+='<div class="person'+(x.closed?' done':'')+'" style="cursor:pointer"><div class="srow" data-act="payopenp" data-id="'+x.id+'"><span>'+(canClose&&!x.closed?'<input type="checkbox" data-act="paysel" data-id="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:20px;height:20px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span><b>'+money(Number(x.accrued))+'</b></div>'
-      +'<div class="srow sub"><span>выплачено'+(br.length?'<br><small style="color:var(--mute)">'+br.join(' · ')+'</small>':'')+'</span><b>'+money(Number(x.paid))+'</b></div>'
-      +'<div class="srow sub"><span>'+(x.over_paid?'переплата (проверить)':'остаток к выплате')+'</span><b'+(x.over_paid?' style="color:var(--red,#c0392b)"':'')+'>'+money(Number(x.to_pay))+'</b></div>'
+    const tp=Number(x.to_pay),tcls=x.over_paid?' over':(tp<=0.005?' zero':''),tlab=x.over_paid?'Переплата (проверить)':(tp<=0.005?'Выплачено полностью ✓':'К выплате сейчас');
+    h+='<div class="person pc'+(x.closed?' done':'')+'" style="cursor:pointer"><div class="pcrow"><div><div class="srow" data-act="payopenp" data-id="'+x.id+'"><span>'+(canClose&&!x.closed?'<input type="checkbox" data-act="paysel" data-id="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:20px;height:20px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span></div>'
+      +'<div class="two"><span>начислено <b>'+money(Number(x.accrued))+'</b></span><span>выплачено <b>'+money(Number(x.paid))+'</b></span></div>'+(br.length?'<small class="two" style="display:block;margin-top:2px">'+br.join(' · ')+'</small>':'')+'</div>'
+      +'<div class="topay'+tcls+'"><span>'+tlab+'</span><b>'+money(tp)+'</b></div></div>'
       +(x.closed?'<div class="srow sub"><span>✓ Рассчитан, разница</span><b>'+sgn(Number(x.diff||0))+'</b></div>':'')
       +(Number(x.adv_debt)?'<div class="srow sub"><span>долг по авансу</span><b style="color:var(--red,#c0392b)">'+money(Number(x.adv_debt))+'</b></div>':'')
       +(op?ks.map(k=>'<div class="srow sub"><span>· '+esc(PAY_PART[k]||k)+'</span><b>'+money(Number(x.parts[k]))+'</b></div>').join(''):(ks.length>1?'<small style="color:var(--mute)">нажмите на имя, чтобы раскрыть состав</small>':''))
