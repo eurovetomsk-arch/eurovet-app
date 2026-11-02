@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.68'
+  appVer:'1.69'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -549,6 +549,7 @@ function render(){
   else if(S.view==='cc')app.innerHTML=ccHtml();
   else if(S.view==='work')app.innerHTML=workHtml();
   else if(S.view==='pay')app.innerHTML=payHtml();
+  else if(S.view==='mu')app.innerHTML=muHtml();
   if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')))bar.innerHTML=navHtml();
   else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'))bar.innerHTML=navHtml(anav());
 }
@@ -1952,7 +1953,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -2010,6 +2011,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.t
 document.addEventListener('pointerdown',e=>{const a=document.activeElement;if(isField(a)&&!e.target.closest('input,textarea,select,label,button'))a.blur()});
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.classList&&t.classList.contains('mufile')){if(t.dataset.k==='bank')muPickBank(t);else muPickVM(t);return}
+  if(t.classList&&t.classList.contains('mubr')&&S.mu){const f=S.mu.files[Number(t.dataset.i)];if(f){f.branch=t.value;paint()}return}
+  if(t.id==='mupinp'&&S.mu){S.mu.pinPerson=t.value;S.mu.pin=null;return}
   if(t.id==='dt'){S.date=t.value||omskToday();S.dateManual=S.date!==omskToday();return}
   if(t.dataset&&t.dataset.p&&S.form&&t.tagName==='SELECT'){setPath(S.form,t.dataset.p,t.value);
     const mm=/^expenses\.(\d+)\.article$/.exec(t.dataset.p);
@@ -2058,6 +2062,16 @@ document.addEventListener('click',async e=>{
     case'uitoggle':closeOv();if(uiNew())LS.set('ev_ui','old');else LS.del('ev_ui');S.pplMode=false;S.view='branch';render();window.scrollTo(0,0);toast(uiNew()?'Новый вид':'Прежний вид');break;
     case'salpayopen':{S.pplMode=false;const rg=salPayRange(S.salFrom,S.salTo);closeOv();if(rg)showPay(rg[0],rg[1]);else showPay();break}
     case'workopen':closeOv();showWork();break;
+    case'muopen':showMU();break;
+    case'muback':S.mu=null;S.view=homeView();render();window.scrollTo(0,0);break;
+    case'muvmgo':muLoadVMFile(Number(d.i));break;
+    case'muvmdrop':if(S.mu){S.mu.files.splice(Number(d.i),1);paint()}break;
+    case'mubankgo':muLoadBank();break;
+    case'mubankdrop':if(S.mu){S.mu.bank=null;paint()}break;
+    case'mucancel':muCancel(d.kind,d.key);break;
+    case'mupin':muIssuePin();break;
+    case'mupinhide':if(S.mu){S.mu.pin=null;paint()}break;
+    case'mupincopy':{const t=S.mu&&S.mu.pin?S.mu.pin.pin:'';try{await navigator.clipboard.writeText(t);toast('PIN скопирован')}catch(e){toast('Не удалось скопировать')}break}
     case'payper':showPay(d.from,d.to);break;
     case'paycopy':copyPayroll();break;
     case'mrok':mrDecide(d.id,'confirm');break;
@@ -2193,6 +2207,309 @@ function idleCheck(){
 setInterval(idleCheck,30000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')idleCheck()});
 window.addEventListener('pageshow',idleCheck);
+
+/* ====== 1.69: «Ручная загрузка руководителя» (меню → только руководитель). Начисления врачей из Vetmanager (xls), выплаты банка, выдача PIN ====== */
+/*MU-PARSE-BEGIN*/
+const MU_LAT={A:'А',a:'а',B:'В',C:'С',c:'с',E:'Е',e:'е',H:'Н',K:'К',k:'к',M:'М',O:'О',o:'о',P:'Р',p:'р',T:'Т',X:'Х',x:'х',y:'у'};
+const muWords=s=>String(s==null?'':s).replace(/[AaBCcEeHKkMOoPpTXxy]/g,c=>MU_LAT[c]).replace(/ё/g,'е').replace(/Ё/g,'Е').toLowerCase().match(/[а-я]+/g)||[];
+const muKey=s=>{const t=muWords(s);return t.length>1?t[0]+'|'+t[1][0]:t.length?t[0]+'|':null};
+function muIndex(people){const m={};(people||[]).forEach(p=>{[p.full_name,p.short_name].forEach(n=>{const k=n?muKey(n):null;if(k){(m[k]=m[k]||new Set()).add(p.id)}})});return m}
+function muMatch(idx,fio){const ids=idx[muKey(fio)];if(!ids||!ids.size)return{err:'нет в списке сотрудников'};if(ids.size>1)return{err:'несколько совпадений'};return{id:[...ids][0]}}
+const muR2=x=>Math.round(x*100)/100;
+const muPeriodEnd=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'15':new Date(Date.UTC(Number(d.slice(0,4)),Number(d.slice(5,7)),0)).toISOString().slice(0,10);
+const muPeriodStart=d=>Number(d.slice(8,10))<=15?d.slice(0,8)+'01':d.slice(0,8)+'16';
+const muPeriodOk=(f,t)=>/^\d{4}-\d{2}-\d{2}$/.test(f)&&/^\d{4}-\d{2}-\d{2}$/.test(t)&&muPeriodStart(f)===f&&muPeriodEnd(f)===t;
+/* rows2d: массив строк листа (массивы ячеек). Ожидаются колонки «Период», «ФИО», «Сумма ЗП». */
+function muParseVM(rows2d,idx){
+  const out={period:null,rows:[],issues:[],total:0,fatal:null};
+  if(!rows2d||!rows2d.length){out.fatal='Файл пустой';return out}
+  const head=(rows2d[0]||[]).slice(0,3).map(x=>String(x==null?'':x).trim());
+  if(head[0]!=='Период'||head[1]!=='ФИО'||head[2]!=='Сумма ЗП'){out.fatal='Это не файл начислений Vetmanager: ожидаются колонки «Период», «ФИО», «Сумма ЗП». Нашёл: '+head.join(' | ');return out}
+  const periods=new Set(),seen=new Set();
+  rows2d.slice(1).forEach(r=>{
+    const per=String(r[0]==null?'':r[0]).trim(),fio=String(r[1]==null?'':r[1]).trim(),amt=r[2];
+    if(!per&&!fio&&(amt===''||amt==null))return;
+    const m=/^(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/.exec(per);
+    if(!m){out.issues.push('«'+fio+'»: период не распознан ('+per+')');return}
+    periods.add(m[1]+'|'+m[2]);
+    if(typeof amt!=='number'||!isFinite(amt)){out.issues.push(fio+': сумма не число ('+amt+')');return}
+    if(amt<0)out.issues.push(fio+': отрицательная сумма '+amt);
+    const mt=muMatch(idx,fio);
+    if(mt.err){out.issues.push(fio+': '+mt.err+' (строка пропущена)');return}
+    if(seen.has(mt.id)){out.issues.push(fio+': дубль строки в файле (пропущена)');return}
+    seen.add(mt.id);out.rows.push({person_id:mt.id,amount:muR2(amt),name_in_file:fio});
+  });
+  if(periods.size!==1){out.fatal='В файле '+(periods.size?'несколько периодов: '+[...periods].join('; '):'нет распознанных периодов');return out}
+  const p=[...periods][0].split('|');out.period=p;
+  if(!muPeriodOk(p[0],p[1]))out.fatal='Период '+p[0]+' — '+p[1]+' не 1–15 и не 16–конец месяца';
+  out.total=muR2(out.rows.reduce((s,r)=>s+r.amount,0));
+  return out;
+}
+const muNum=s=>{const t=String(s==null?'':s).replace(/[\s ]/g,'').replace(',','.');return/^-?\d+(\.\d+)?$/.test(t)?Number(t):null};
+const MU_FIO=/[А-ЯЁA-Z][а-яёa-z\-]+(?:\s+[А-ЯЁA-Z][а-яёa-z\-]+){1,2}/;
+const MU_DATE=/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})|(\d{4})-(\d{2})-(\d{2})/;
+const MU_CARD=/\b\d{13,20}\b/;
+function muIso(s){const m=MU_DATE.exec(s||'');if(!m)return null;return m[1]?m[3]+'-'+m[2]+'-'+m[1]:m[4]+'-'+m[5]+'-'+m[6]}
+/* Текст реестра банка: START;ддммгггг;...;CREDIT / счёт;сумма;ФИО;СНИЛС;1 / END;строк;сумма;RUR; либо 1С; либо таблица. Номера счетов и карт не сохраняются. */
+function muParseBankText(text){
+  const res={rows:[],issues:[],format:''};
+  const T=String(text).replace(/^﻿/,'');
+  if(/^\s*START;/.test(T)){
+    res.format='банк (START/END)';
+    const L=T.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const st=L[0].split(';'),en=L[L.length-1].split(';'),d=st[1]||'';
+    const date=/^\d{8}$/.test(d)?d.slice(4)+'-'+d.slice(2,4)+'-'+d.slice(0,2):null;
+    L.slice(1,-1).forEach(l=>{const c=l.split(';');res.rows.push({fio:(c[2]||'').trim(),amount:muNum(c[1]),date})});
+    const cnt=Number(en[1]),tot=muNum(en[2]);
+    const ssum=muR2(res.rows.reduce((s,r)=>s+(r.amount||0),0));
+    if(en[0]!=='END')res.issues.push('Нет строки END в конце файла');
+    else if(res.rows.length!==cnt||(tot!=null&&Math.abs(ssum-tot)>0.005))res.issues.push('Итог файла не сходится: строк '+res.rows.length+' (в END '+cnt+'), сумма '+ssum+' (в END '+tot+')');
+    return res;
+  }
+  if(/СекцияДокумент/.test(T)){
+    res.format='1С';
+    (T.match(/СекцияДокумент[\s\S]*?КонецДокумента/g)||[]).forEach(blk=>{
+      const d={};blk.split(/\r?\n/).forEach(l=>{const i=l.indexOf('=');if(i>0)d[l.slice(0,i)]=l.slice(i+1)});
+      const pur=d['НазначениеПлатежа']||'',name=d['Получатель']||d['Получатель1']||'';
+      const m=MU_FIO.exec(name)||MU_FIO.exec(pur);
+      res.rows.push({fio:m?m[0]:name.trim(),amount:muNum(d['Сумма']),date:muIso(d['ДатаПлатежа']||d['ДатаДокумента']||d['Дата'])});
+    });
+    return res;
+  }
+  res.format='таблица';
+  const lines=T.split(/\r?\n/).filter(l=>l.trim());
+  const delim=[';','\t','|'].find(c=>lines.slice(0,20).every(l=>l.includes(c)))||',';
+  lines.forEach(l=>{
+    const cells=(l.split(delim).length>1?l.split(delim):l.split(/\s{2,}/)).map(c=>c.trim().replace(/^"|"$/g,''));
+    const fc=cells.find(c=>MU_FIO.test(c));if(!fc)return;
+    const fio=MU_FIO.exec(fc)[0];
+    const cand=cells.filter(c=>/^[\d\s .,]+$/.test(c)&&!MU_CARD.test(c.replace(/\s/g,''))&&!MU_DATE.test(c)&&muNum(c)!=null);
+    const dec=cand.filter(c=>/[.,]\d{1,2}$/.test(c)).map(muNum);
+    const nums=dec.length?dec:cand.map(muNum);
+    res.rows.push({fio,amount:nums.length?Math.max(...nums):null,date:muIso(l)});
+  });
+  return res;
+}
+function muMatchBank(rows,idx){
+  return rows.map(r=>{
+    const o={fio:r.fio,amount:r.amount,date:r.date,person_id:null,err:null};
+    if(r.amount==null||!(r.amount>0))o.err='сумма не распознана';
+    else{const m=muMatch(idx,r.fio);if(m.err)o.err=m.err;else o.person_id=m.id}
+    return o;
+  });
+}
+/* Период по умолчанию для выплаты: последний ЗАКОНЧИВШИЙСЯ до даты платежа */
+function muDefaultPeriod(payDate){
+  const s=muPeriodStart(payDate);
+  const prevEnd=new Date(Date.UTC(Number(s.slice(0,4)),Number(s.slice(5,7))-1,Number(s.slice(8,10))-1)).toISOString().slice(0,10);
+  const f=muPeriodStart(prevEnd);return[f,muPeriodEnd(f)];
+}
+function muPrevPeriods(today,n){const out=[];let s=muPeriodStart(today);for(let i=0;i<n;i++){const prevEnd=new Date(Date.UTC(Number(s.slice(0,4)),Number(s.slice(5,7))-1,Number(s.slice(8,10))-1)).toISOString().slice(0,10);s=muPeriodStart(prevEnd);out.push([s,muPeriodEnd(s)])}return out}
+const muGuessBranch=n=>/маркс|marks/i.test(n)?'marksa':/перел|perel/i.test(n)?'pereleta':/70|октябр/i.test(n)?'70let':'';
+function muDecode(buf){
+  const u=new Uint8Array(buf);
+  for(const enc of['utf-8','windows-1251','ibm866']){try{return{text:new TextDecoder(enc,{fatal:true}).decode(u),enc}}catch(e){}}
+  return{text:new TextDecoder('windows-1251').decode(u),enc:'windows-1251?'};
+}
+function muRandPin(){
+  for(;;){
+    const a=new Uint32Array(6);crypto.getRandomValues(a);const p=Array.from(a,x=>x%10).join('');
+    if(/^(\d)\1{5}$/.test(p))continue;
+    if('0123456789'.includes(p)||'9876543210'.includes(p))continue;
+    return p;
+  }
+}
+/*MU-PARSE-END*/
+const muF=n=>Number(n||0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+const MU_ERR={session:'Сессия закончилась. Войдите заново.',forbidden:'Раздел только для руководителя.',duplicate_file:'Этот файл уже загружен.',period_or_kind:'Период должен быть 1–15 или 16–конец месяца.',before_start:'Учёт в системе начинается с 16.10.2026.',row:'В файле есть сотрудник, которого нет в списке.',duplicate_person:'Один сотрудник дважды в файле.',branch:'Выберите филиал.',branch_already_loaded:'По этому филиалу и периоду файл уже загружен. Сначала отмените прежнюю загрузку.',input:'Файл не прошёл проверку.',pin_format:'PIN: ровно 6 цифр.',person:'Сотрудник не найден.'};
+const muBrTitle=id=>(BRANCHES.find(b=>b.id===id)||{title:id||'—'}).title;
+function muLoadX(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((res,rej)=>{const s=document.createElement('script');s.src='xlsx.core.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('xlsx'));document.head.appendChild(s)});
+}
+async function muSha(buf){
+  if(!(window.crypto&&crypto.subtle))throw new Error('nocrypto');
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buf)),b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function showMU(){
+  if(!isHead())return;
+  closeOv();S.view='mu';S.mu={files:[],bank:null,people:[],idx:{},batches:null,pin:null,pinPerson:'',busy:false,msg:null,err:null};
+  paint();window.scrollTo(0,0);
+  try{
+    const [p,b]=await Promise.all([rpc('ev_mu_people',{p_token:S.token},15000),rpc('ev_mu_batches',{p_token:S.token},15000)]);
+    if(!S.mu)return;
+    if((p&&p.error==='session')||(b&&b.error==='session')){S.mu=null;S.token=null;LS.del('ev_token');S.view='login';toast(MU_ERR.session);render();return}
+    if(!p||!p.ok){S.mu.err=MU_ERR[p&&p.error]||'Не удалось загрузить список сотрудников';}
+    else{S.mu.people=p.people;S.mu.idx=muIndex(p.people)}
+    if(b&&b.ok)S.mu.batches=b;
+  }catch(e){if(S.mu)S.mu.err=e.net?'Нет связи.':'Ошибка сервера.'}
+  if(S.view==='mu')paint();
+}
+async function muReloadBatches(){try{const b=await rpc('ev_mu_batches',{p_token:S.token},15000);if(S.mu&&b&&b.ok){S.mu.batches=b}}catch(e){}if(S.view==='mu')paint()}
+function muBatchDupVM(f){ // предупреждение до отправки
+  const b=S.mu.batches;if(!b||!f.parsed||!f.parsed.period)return'';
+  const hit=(b.vm||[]).find(x=>!x.cancelled&&x.branch===f.branch&&x.from===f.parsed.period[0]&&x.to===f.parsed.period[1]);
+  return hit?'По этому филиалу и периоду уже есть загрузка №'+hit.id+' ('+hit.rows+' строк, '+muF(hit.total)+' ₽). Сначала отмените её ниже.':'';
+}
+async function muPickVM(input){
+  const files=Array.from(input.files||[]);input.value='';
+  if(!files.length||!S.mu)return;
+  S.mu.msg=null;paint();
+  try{await muLoadX()}catch(e){S.mu.err='Не загрузился модуль чтения Excel (xlsx.core.min.js). Проверьте связь и повторите.';paint();return}
+  for(const file of files){
+    const f={name:file.name,branch:muGuessBranch(file.name),hash:null,parsed:null,done:null,err:null};
+    try{
+      const buf=await file.arrayBuffer();
+      f.hash=await muSha(buf);
+      const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+      f.parsed=muParseVM(rows,S.mu.idx);
+    }catch(e){f.err=e&&e.message==='nocrypto'?'Нужно открывать приложение по https.':'Не удалось прочитать файл.'}
+    S.mu.files.push(f);
+  }
+  paint();
+}
+async function muLoadVMFile(i){
+  const f=S.mu.files[i];if(!f||!f.parsed||f.parsed.fatal||!f.branch||S.mu.busy)return;
+  const dup=muBatchDupVM(f);if(dup){toast(dup,6000);return}
+  const p=f.parsed;
+  const warn=p.issues.length?('\n\nБудут пропущены строки ('+p.issues.length+'):\n'+p.issues.slice(0,6).join('\n')):'';
+  if(!confirm('Загрузить начисления врачей?\n'+muBrTitle(f.branch)+', '+ruDate(p.period[0])+' — '+ruDate(p.period[1])+'\nСтрок: '+p.rows.length+', итого '+muF(p.total)+' ₽'+warn))return;
+  S.mu.busy=true;paint();
+  try{
+    const r=await rpc('ev_mu_load_vm',{p_token:S.token,p_from:p.period[0],p_to:p.period[1],p_branch:f.branch,p_hash:f.hash,p_file:f.name.slice(0,120),p_rows:p.rows.map(x=>({person_id:x.person_id,amount:x.amount})),p_note:null},25000);
+    if(r&&r.ok){f.done='Загружено: загрузка №'+r.batch+', строк '+r.rows;S.mu.msg='Начисления загружены. Ведомость и «Мои начисления» обновятся сами.'}
+    else{f.err=MU_ERR[r&&r.error]||'Не загружено'+(r&&r.error?' ('+r.error+')':'');if(r&&r.error==='session'){S.mu=null;S.token=null;LS.del('ev_token');S.view='login';render();return}}
+  }catch(e){f.err=e.net?'Нет связи. Ничего не загружено, повторите.':'Ошибка сервера.'}
+  S.mu.busy=false;await muReloadBatches();
+}
+async function muPickBank(input){
+  const file=(input.files||[])[0];input.value='';
+  if(!file||!S.mu)return;
+  S.mu.msg=null;
+  const b={name:file.name,hash:null,format:'',rows:[],issues:[],period:null,done:null,err:null,enc:''};
+  try{
+    const buf=await file.arrayBuffer();
+    b.hash=await muSha(buf);
+    const dec=muDecode(buf);b.enc=dec.enc;
+    const pr=muParseBankText(dec.text);
+    b.format=pr.format;b.issues=pr.issues.slice();
+    b.rows=muMatchBank(pr.rows,S.mu.idx);
+    const dates=b.rows.map(r=>r.date).filter(Boolean).sort();
+    const pd=dates.length?dates[dates.length-1]:omskToday();
+    b.period=muDefaultPeriod(pd);
+    if(!b.rows.length)b.issues.push('В файле не найдено ни одной строки с ФИО. Формат не распознан.');
+  }catch(e){b.err=e&&e.message==='nocrypto'?'Нужно открывать приложение по https.':'Не удалось прочитать файл.'}
+  S.mu.bank=b;paint();
+}
+async function muLoadBank(){
+  const b=S.mu.bank;if(!b||S.mu.busy)return;
+  const ok=b.rows.filter(r=>!r.err);if(!ok.length)return;
+  const miss=b.rows.filter(r=>r.err);
+  const tot=muR2(ok.reduce((s,r)=>s+r.amount,0));
+  const sel=document.getElementById('mubper');const per=sel?sel.value.split('|'):b.period;
+  if(!confirm('Загрузить выплаты банка за период '+ruDate(per[0])+' — '+ruDate(per[1])+'?\nСтрок: '+ok.length+', итого '+muF(tot)+' ₽'+(miss.length?'\n\nБудут пропущены ('+miss.length+'): '+miss.slice(0,5).map(r=>r.fio+' ('+r.err+')').join(', '):'')))return;
+  S.mu.busy=true;paint();
+  try{
+    const r=await rpc('ev_mu_load_bank',{p_token:S.token,p_from:per[0],p_to:per[1],p_hash:b.hash,p_rows:ok.map(x=>({person_id:x.person_id,amount:x.amount,date:x.date}))},25000);
+    if(r&&r.ok){
+      const ns=(r.not_salary||[]).length,sk=(r.skipped||[]).length;
+      b.done='Загружено строк: '+r.rows+(sk?'; уже были (пропущены): '+sk:'')+(ns?'; переводы не за зарплату (не учтены): '+ns:'');
+      S.mu.msg='Выплаты загружены.';
+    }else{b.err=MU_ERR[r&&r.error]||'Не загружено'+(r&&r.error?' ('+r.error+')':'');if(r&&r.error==='session'){S.mu=null;S.token=null;LS.del('ev_token');S.view='login';render();return}}
+  }catch(e){b.err=e.net?'Нет связи. Ничего не загружено, повторите.':'Ошибка сервера.'}
+  S.mu.busy=false;await muReloadBatches();
+}
+async function muCancel(kind,key){
+  if(S.mu.busy)return;
+  if(!confirm(kind==='vm'?'Отменить загрузку начислений №'+key+'? Расчёт зарплаты по ней пересчитается.':'Отменить загрузку выплат банка (все строки этого файла)?'))return;
+  S.mu.busy=true;paint();
+  try{
+    const r=kind==='vm'?await rpc('ev_mu_cancel_vm',{p_token:S.token,p_batch:Number(key)},20000):await rpc('ev_mu_cancel_bank',{p_token:S.token,p_hash:key},20000);
+    S.mu.msg=r&&r.ok?'Отменено.':(MU_ERR[r&&r.error]||'Не отменено'+(r&&r.error?' ('+r.error+')':''));
+  }catch(e){S.mu.msg=e.net?'Нет связи.':'Ошибка сервера.'}
+  S.mu.busy=false;await muReloadBatches();
+}
+async function muIssuePin(){
+  const m=S.mu;if(!m||m.busy||!m.pinPerson)return;
+  const pe=m.people.find(p=>String(p.id)===String(m.pinPerson));if(!pe)return;
+  if(!confirm('Выдать новый PIN сотруднику «'+pe.short_name+'»?\nСтарый PIN перестанет работать.'))return;
+  const pin=muRandPin();m.busy=true;m.pin=null;paint();
+  try{
+    const r=await rpc('ev_mu_set_pin',{p_token:S.token,p_person:pe.id,p_pin:pin},15000);
+    if(r&&r.ok){m.pin={name:pe.short_name,pin}}
+    else m.msg=MU_ERR[r&&r.error]||'PIN не выдан';
+  }catch(e){m.msg=e.net?'Нет связи. PIN не менялся.':'Ошибка сервера.'}
+  m.busy=false;paint();
+}
+function muHtml(){
+  const m=S.mu||{};let h='<div class="card"><button class="btn sec small" data-act="muback" style="margin:0 0 10px">← Назад</button><h2>Ручная загрузка</h2><p class="hint">Раздел только для руководителя. Сюда загружаются файлы Vetmanager (начисления врачей), выплаты из банка и выдаются PIN. Файлы разбираются на вашем устройстве, в базу уходят только ФИО-сопоставленные суммы. Номера карт и счетов не сохраняются.</p>';
+  if(m.err)h+='<div class="note bad" style="color:var(--bad)">'+esc(m.err)+'</div>';
+  if(m.msg)h+='<div style="margin:6px 0;padding:8px 10px;border-radius:8px;background:var(--okbg);color:var(--ok)">'+esc(m.msg)+'</div>';
+  h+='</div>';
+  /* A. начисления врачей */
+  h+='<div class="card"><h2>1. Начисления врачей (Vetmanager)</h2><p class="hint">Файлы .xls, по одному на филиал, колонки «Период», «ФИО», «Сумма ЗП». Можно выбрать сразу три файла.</p>'
+    +'<label class="btn sec" style="display:block;text-align:center;margin:6px 0">Выбрать файлы<input type="file" class="mufile" data-k="vm" accept=".xls,.xlsx" multiple style="display:none"></label>';
+  (m.files||[]).forEach((f,i)=>{
+    h+='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"><b>'+esc(f.name)+'</b>';
+    if(f.err)h+='<div style="color:var(--bad);margin-top:4px">'+esc(f.err)+'</div>';
+    const p=f.parsed;
+    if(p&&p.fatal)h+='<div style="color:var(--bad);margin-top:4px">'+esc(p.fatal)+'</div>';
+    if(p&&!p.fatal){
+      h+='<div class="srow"><span>Период</span><b>'+ruDate(p.period[0])+' — '+ruDate(p.period[1])+'</b></div>'
+        +'<label class="f"><span>Филиал</span><select class="mubr" data-i="'+i+'"><option value="">— выберите —</option>'+BRANCHES.filter(b=>!b.testOnly).map(b=>'<option value="'+b.id+'"'+(f.branch===b.id?' selected':'')+'>'+esc(b.title)+'</option>').join('')+'</select></label>'
+        +'<div class="srow"><span>Строк / итого</span><b>'+p.rows.length+' / '+muF(p.total)+' ₽</b></div>';
+      h+='<details><summary>Состав ('+p.rows.length+')</summary>'+p.rows.map(r=>'<div class="srow sub"><span>'+esc(((m.people||[]).find(x=>x.id===r.person_id)||{}).short_name||r.name_in_file)+'</span><b>'+muF(r.amount)+'</b></div>').join('')+'</details>';
+      if(p.issues.length)h+='<div style="color:var(--warn);margin-top:4px;font-size:13px">Замечания ('+p.issues.length+'):<br>'+p.issues.map(esc).join('<br>')+'</div>';
+      const dup=f.branch&&!f.done?muBatchDupVM(f):'';
+      if(dup)h+='<div style="color:var(--bad);margin-top:4px;font-size:13px">'+esc(dup)+'</div>';
+    }
+    if(f.done)h+='<div style="color:var(--ok);margin-top:6px;font-weight:700">'+esc(f.done)+'</div>';
+    else if(p&&!p.fatal)h+='<button class="btn" style="margin-top:8px" data-act="muvmgo" data-i="'+i+'"'+((!f.branch||m.busy||muBatchDupVM(f))?' disabled':'')+'>'+(m.busy?'Загрузка…':'Загрузить')+'</button>';
+    h+=' <button class="btn sec small" data-act="muvmdrop" data-i="'+i+'">Убрать из списка</button></div>';
+  });
+  h+='</div>';
+  /* B. банк */
+  h+='<div class="card"><h2>2. Выплаты из банка</h2><p class="hint">Файл переводов (реестр банка, 1С, txt или csv). Выплата относится к периоду, который вы выберете (по умолчанию последний закончившийся перед датой платежа).</p>'
+    +'<label class="btn sec" style="display:block;text-align:center;margin:6px 0">Выбрать файл<input type="file" class="mufile" data-k="bank" accept=".txt,.csv,.tsv,.xml,.1c,.dat,text/*" style="display:none"></label>';
+  const bk=m.bank;
+  if(bk){
+    h+='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"><b>'+esc(bk.name)+'</b>';
+    if(bk.err)h+='<div style="color:var(--bad);margin-top:4px">'+esc(bk.err)+'</div>';
+    else{
+      const ok=bk.rows.filter(r=>!r.err),bad=bk.rows.filter(r=>r.err);
+      h+='<div class="srow sub"><span>Формат: '+esc(bk.format)+', кодировка '+esc(bk.enc)+'</span></div>';
+      const sel=muPrevPeriods(omskToday(),4);
+      if(!sel.some(p=>p[0]===bk.period[0]))sel.unshift(bk.period);
+      h+='<label class="f"><span>Период выплаты</span><select id="mubper">'+sel.map(p=>'<option value="'+p[0]+'|'+p[1]+'"'+(p[0]===bk.period[0]?' selected':'')+'>'+ruDate(p[0])+' — '+ruDate(p[1])+'</option>').join('')+'</select></label>'
+        +'<div class="srow"><span>Распознано / итого</span><b>'+ok.length+' / '+muF(ok.reduce((s,r)=>s+r.amount,0))+' ₽</b></div>';
+      h+='<details open><summary>Строки ('+bk.rows.length+')</summary>'+bk.rows.map(r=>{const pe=r.person_id?(m.people||[]).find(x=>x.id===r.person_id):null;return'<div class="srow sub"><span>'+esc(pe?pe.short_name:r.fio)+(r.date?' · '+ruDate(r.date):'')+(r.err?'<br><span style="color:var(--bad)">'+esc(r.err)+' — будет пропущена</span>':'')+'</span><b>'+(r.amount!=null?muF(r.amount):'—')+'</b></div>'}).join('')+'</details>';
+      if(bk.issues.length)h+='<div style="color:var(--bad);margin-top:4px;font-size:13px">'+bk.issues.map(esc).join('<br>')+'</div>';
+      if(bad.length)h+='<div style="color:var(--warn);margin-top:4px;font-size:13px">Не сопоставлено строк: '+bad.length+'. Они не загрузятся.</div>';
+      if(bk.done)h+='<div style="color:var(--ok);margin-top:6px;font-weight:700">'+esc(bk.done)+'</div>';
+      else h+='<button class="btn" style="margin-top:8px" data-act="mubankgo"'+((!ok.length||m.busy||bk.issues.length)?' disabled':'')+'>'+(m.busy?'Загрузка…':'Загрузить выплаты')+'</button>';
+    }
+    h+=' <button class="btn sec small" data-act="mubankdrop">Убрать из списка</button></div>';
+  }
+  h+='</div>';
+  /* C. загруженное */
+  const bt=m.batches;
+  h+='<div class="card"><h2>3. Что уже загружено</h2>';
+  if(!bt)h+='<p class="hint">Загрузка списка…</p>';
+  else{
+    h+='<h3>Начисления врачей</h3>'+((bt.vm||[]).length?bt.vm.map(x=>'<div class="srow"><span'+(x.cancelled?' style="text-decoration:line-through;color:var(--mute)"':'')+'><b>№'+x.id+'</b> '+esc(muBrTitle(x.branch))+'<br><small>'+ruDate(x.from)+' — '+ruDate(x.to)+' · '+x.rows+' стр. · '+muF(x.total)+' ₽</small></span>'+(x.cancelled?'<small>отменена</small>':'<button class="btn sec small" data-act="mucancel" data-kind="vm" data-key="'+x.id+'"'+(m.busy?' disabled':'')+'>Отменить</button>')+'</div>').join(''):'<p class="hint">Пока ничего.</p>');
+    h+='<h3>Выплаты банка</h3>'+((bt.bank||[]).length?bt.bank.map(x=>'<div class="srow"><span'+(x.cancelled?' style="text-decoration:line-through;color:var(--mute)"':'')+'><small>'+ruDate(x.from)+' — '+ruDate(x.to)+(x.date?' · платёж '+ruDate(x.date):'')+'</small><br>'+esc((x.who||[]).join(', '))+(x.rows>(x.who||[]).length?' и др.':'')+' · '+x.rows+' стр. · '+muF(x.total)+' ₽</span>'+(x.cancelled?'<small>отменена</small>':'<button class="btn sec small" data-act="mucancel" data-kind="bank" data-key="'+esc(x.hash)+'"'+(m.busy?' disabled':'')+'>Отменить</button>')+'</div>').join(''):'<p class="hint">Пока ничего.</p>');
+  }
+  h+='</div>';
+  /* D. PIN */
+  h+='<div class="card"><h2>4. Выдать PIN сотруднику</h2><p class="hint">PIN из 6 цифр создаётся случайно и показывается один раз. Старый PIN перестаёт работать, блокировка входа снимается.</p>'
+    +'<label class="f"><span>Сотрудник</span><select id="mupinp"><option value="">— выберите —</option>'+(m.people||[]).map(p=>'<option value="'+p.id+'"'+(String(m.pinPerson)===String(p.id)?' selected':'')+'>'+esc(p.short_name)+(p.has_pin?'':' (PIN не выдан)')+'</option>').join('')+'</select></label>'
+    +'<button class="btn" style="margin-top:8px" data-act="mupin"'+(m.busy?' disabled':'')+'>Выдать новый PIN</button>';
+  if(m.pin)h+='<div style="margin-top:10px;padding:12px;border-radius:10px;background:var(--okbg);color:var(--ok);text-align:center"><div>'+esc(m.pin.name)+'</div><div style="font-size:34px;font-weight:800;letter-spacing:6px">'+esc(m.pin.pin)+'</div><div class="hint" style="color:var(--ink)">Покажется только сейчас. Передайте сотруднику лично.</div><button class="btn sec small" data-act="mupincopy">Скопировать</button> <button class="btn sec small" data-act="mupinhide">Скрыть</button></div>';
+  h+='</div>';
+  return h;
+}
 
 /* ====== Запуск ====== */
 (async()=>{
