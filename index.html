@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.66'
+  appVer:'1.67'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1322,30 +1322,37 @@ function safeBody(){
   if(!r)return '<div class="card"><p class="hint">Загружаю…</p></div>';
   const rows=r.rows||[],tot=r.total||{},card=rows.reduce((q,x)=>q+N(x.paid_card),0),cashPaid=rows.reduce((q,x)=>q+N(x.paid_cash),0),adv=rows.reduce((q,x)=>q+N(x.paid_adv),0);
   const CASH_SKIP=[17],skipRows=rows.filter(x=>CASH_SKIP.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!CASH_SKIP.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null,short=bal==null?null:need-bal;
+  const prov=!!r.provisional||(r.warnings||[]).some(w=>/не закрыт|не загружен/i.test(String(w)));
+  /* 1.67: сначала сейф и вердикт «хватает / не хватает» (красный / зелёный), ниже зарплата и форма «взял из сейфа» */
+  h+='<div class="card k-safe"><h3 style="margin-top:2px">Сейф</h3>';
+  if(!c)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
+  else{
+    const lack=short>0.005;
+    h+='<div class="srow big"><span>В сейфе сейчас<br><small style="color:var(--mute)">считаем с '+ruDate(c.from)+' (точка ноль)</small></span><b'+(bal<0?' style="color:var(--bad)"':'')+'>'+money(bal)+'</b></div>'
+      +'<div class="chk '+(lack?'bad':'ok')+'" style="margin:8px 0"><i>'+(lack?'✗':'✓')+'</i><div><b>'+(lack?'Не хватает кэша':'Кэша хватает')+': '+money(Math.abs(short))+(lack?'':' запас')+'</b><br><small>Нужно выплатить наличными '+money(need)+', в сейфе '+money(bal)+'.'+(prov?' Предварительно: период не закрыт или данные не полные.':'')+'</small></div></div>'
+      +'<div class="srow sub"><span>Было на '+ruDate(c.zero_on||c.from)+'</span><b>'+money(N(c.opening))+'</b></div>'
+      +'<div class="srow sub"><span>+ Пришло (подтверждённые инкассации)</span><b>'+money(N(c.on_hand))+'</b></div>'
+      +'<div class="srow sub"><span>− Взято из сейфа на выплаты</span><b>'+money(N(c.taken))+'</b></div>'
+      +'<p class="hint">'+(bal<0?'Минус: вы взяли больше, чем подтверждено инкассаций. Дождитесь подтверждения или поправьте отметки ниже. ':'')+(N(c.pending)?'Ещё не подтверждено вами: '+money(N(c.pending))+' (в остаток не входит). ':'')+'Остаток сейфа не зависит от выбранного периода: он всегда на сегодня.</p>';
+  }
+  h+='</div>';
   h+='<div class="card"><h3 style="margin-top:2px">Зарплата за период</h3>'
     +'<div class="srow"><span>К выплате всего (начислено)</span><b>'+money(N(tot.accrued))+'</b></div>'
     +'<div class="srow"><span>Уже выплачено</span><b>'+money(N(tot.paid))+'</b></div>'
     +'<div class="srow sub"><span>картой</span><b>'+money(card)+'</b></div><div class="srow sub"><span>наличными</span><b>'+money(cashPaid)+'</b></div>'+(adv?'<div class="srow sub"><span>авансом</span><b>'+money(adv)+'</b></div>':'')
     +'<div class="srow big"><span>Осталось выплатить наличными</span><b>'+money(need)+'</b></div>'+(skipRows.length?'<div class="srow sub"><span>не в расчёте кэша: '+skipRows.map(x=>esc(x.name)).join(', ')+' (начислено, рассчитываетесь сами)</span><b>'+money(skip)+'</b></div>':'')
     +((r.warnings||[]).length?'<p class="hint" style="margin-top:8px">'+r.warnings.map(esc).join('<br>')+'</p>':'')+'</div>';
-  h+='<div class="card"><h3 style="margin-top:2px">Сейф</h3>';
-  if(!c)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
-  else{
-    h+='<div class="srow"><span>Подтверждённые инкассации с '+ruDate(c.from)+'</span><b>'+money(N(c.on_hand))+'</b></div>'
-      +'<div class="srow"><span>Взято из сейфа на выплаты</span><b>−'+money(N(c.taken))+'</b></div>'
-      +'<div class="srow big"><span>Остаток в сейфе</span><b'+(bal<0?' style="color:var(--bad,#c0392b)"':'')+'>'+money(bal)+'</b></div>'
-      +(bal<0?'<p class="hint">Минус: вы взяли больше, чем подтверждено инкассаций. Дождитесь подтверждения или поправьте отметки ниже.</p>':'')
-      +'<div class="srow big" style="margin-top:8px"><span>'+(short>0.005?'Не хватает кэша':'Кэша хватает, запас')+'</span><b'+(short>0.005?' style="color:var(--bad,#c0392b)"':'')+'>'+money(Math.abs(short))+'</b></div>'
-      +'<p class="hint">Не хватает = осталось выплатить наличными − остаток в сейфе.'+(N(c.pending)?' Ещё не подтверждено вами: '+money(N(c.pending))+' (не входит).':'')+'</p>';
+  if(c){
     S.safeUid=S.safeUid||uid();
-    h+='<h3>Взял из сейфа</h3><label class="f"><span>Сумма, ₽</span><input id="soa" inputmode="decimal"></label>'
+    h+='<div class="card"><h3 style="margin-top:2px">Взял из сейфа</h3><label class="f"><span>Сумма, ₽</span><input id="soa" inputmode="decimal"></label>'
       +'<label class="f"><span>Дата</span><input id="sod" type="date" min="2026-10-16" value="'+esc(omskToday())+'"></label>'
       +'<label class="f"><span>Комментарий</span><input id="son" maxlength="300" placeholder="например, выплата админам"></label>'
       +'<button class="btn" data-act="safeadd">Отметить</button>';
     const outs=c.outs||[];
     if(outs.length)h+='<h3>Что взято</h3>'+outs.map(o=>'<div class="srow"><span>'+ruDate(o.date)+(o.note?'<br><small style="color:var(--mute)">'+esc(o.note)+'</small>':'')+'</span><span><b>'+money(N(o.amount))+'</b> <button class="btn sec small" data-act="safecancel" data-id="'+o.id+'">Отменить</button></span></div>').join('');
+    h+='</div>';
   }
-  return h+'</div>';
+  return h;
 }
 async function doSafeAdd(){
   if(S.safeBusy)return;
