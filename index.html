@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.64'
+  appVer:'1.65'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -483,7 +483,7 @@ async function doLogin(pin){
   S.busy=true;render();
   try{
     const r=await rpc('ev_login',{p_person:S.pick,p_pin:pin,p_device:DEV});
-    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()||(isCC()&&loginTab()==='cc')){showCC();return}if(workOnly()){showWork();return}S.view='branch';render();flush();return}
+    if(r.ok){S.token=r.token;S.person=r.person;LS.set('ev_token',r.token);touchAct();LS.set('ev_person',r.person);LS.set('ev_last',r.person.id);S.busy=false;if(ccOnly()||(isCC()&&loginTab()==='cc')){showCC();return}if(workOnly()){showWork();return}S.view='branch';render();flush();return}
     const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
@@ -2094,7 +2094,7 @@ document.addEventListener('click',async e=>{
     case'copy':if(S.done)clip(S.done.summary);break;
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
-    case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;render();break;
+    case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
     case'menu':showMenu();break;
     case'help':openHelp();break;
     case'helpback':closeHelp();break;
@@ -2178,8 +2178,22 @@ async function checkUpdate(force){
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 setInterval(()=>{if(document.visibilityState==='visible')checkUpdate()},300000);
 
+/* ====== 1.65: автовыход по простою (не руководитель): следующий человек на этом устройстве увидит только вход по PIN ====== */
+const IDLE_MS=30*60*1000;
+function touchAct(){try{LS.set('ev_act',Date.now())}catch(e){}}
+function idleCheck(){
+  if(!S.token||isHead())return;
+  const a=+LS.get('ev_act',0)||0;
+  if(Date.now()-a>IDLE_MS){try{saveDraftNow()}catch(e){}closeOv();logout()}
+}
+['click','keydown','touchstart','input'].forEach(ev=>document.addEventListener(ev,()=>{if(S.token)touchAct()},{passive:true,capture:true}));
+setInterval(idleCheck,30000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')idleCheck()});
+window.addEventListener('pageshow',idleCheck);
+
 /* ====== Запуск ====== */
 (async()=>{
+  idleCheck();
   if(S.token&&S.person)S.view=homeView();
   if(S.view==='cc')showCC();else if(S.view==='work')showWork();else render();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
