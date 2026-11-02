@@ -192,7 +192,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.62'
+  appVer:'1.63'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1421,6 +1421,12 @@ function payHtml(){
   if(S.payErr)return h+'<div class="card"><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const tt=r.total||{};
+  /* 1.63: сводка закрытия периода */
+  if(!r.provisional){
+    const open=(r.rows||[]).filter(x=>!x.closed),pn=Number(tt.people_n||0);
+    if(pn&&!open.length)h+='<div class="chk ok"><i>✓</i><div><b>Период закрыт</b>: рассчитано '+pn+' из '+pn+(Number(tt.diff)?', разница '+sgn(Number(tt.diff)):'')+'</div></div>';
+    else if(open.length)h+='<div class="chk warn"><i>!</i><div><b>Период не закрыт</b>: не рассчитано '+open.length+' из '+pn+'<br><small>'+open.map(x=>esc(x.name)).slice(0,12).join(', ')+(open.length>12?' и ещё '+(open.length-12):'')+'</small></div></div>';
+  }
   h+='<div class="card pay"><h3 style="margin-top:2px">Итого по ведомости'+(r.provisional?' · предварительно':'')+'</h3>'
     +srow('К выплате всего (начислено)',money(Number(tt.accrued)))+srow('− Выплачено',money(Number(tt.paid)))
     +'<div class="srow big"><span>= Остаток к выплате</span><b>'+money(Number(tt.to_pay))+'</b></div>'
