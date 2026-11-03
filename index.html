@@ -167,8 +167,8 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .nv.hd button{color:var(--acc-ink);opacity:.82;font-size:15px;font-weight:600;min-height:72px;padding:10px 2px 12px}
 .nv.hd button i{font-size:30px;margin-bottom:2px}
 .nv.hd button.on{color:var(--acc-ink);opacity:1;font-weight:800;background:rgba(255,255,255,.22);box-shadow:inset 0 4px 0 var(--acc-ink)}
-.nv.hd.n5 button{font-size:12px;padding:10px 0 12px}
-.nv.hd.n5 button i{font-size:25px}
+.nv.hd.n5 button{font-size:11px;padding:10px 0 12px}
+.nv.hd.n5 button i{font-size:22px}
 .nv button i{display:block;font-style:normal;font-size:19px;line-height:1.2}
 .nv button.on{color:var(--acc);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
 @media (pointer:coarse){body.typing .nv{display:none}}
@@ -191,7 +191,10 @@ button.person.revrow{display:block;width:100%;text-align:left;background:var(--c
 .sch-d.o{opacity:.4}
 .sch-d.today{outline:2px solid var(--ink);outline-offset:-1px}
 .sch-d.f{color:#fff;border-color:transparent}
-.sch-d.f small{font-size:12px;font-weight:700;text-transform:none}
+.sch-d.f small{font-size:10px;font-weight:700;text-transform:none;line-height:1.1}
+.sch-d.m{padding:3px 2px}
+.sch-ms{display:flex;flex-direction:column;gap:2px;width:100%}
+.sch-ms small{display:block;color:#fff;border-radius:4px;font-size:9px;font-weight:700;text-align:center;padding:1px 0;line-height:1.1}
 button.sch-d{cursor:pointer}
 button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .sch-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
@@ -221,7 +224,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.71'
+  appVer:'1.72'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -912,7 +915,7 @@ const anav=()=>(canReport()?[['branch','Отчёт','✎']]:[]).concat(isCC()?[[
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
 /* 1.52: новый вид руководителя; старый доступен в Меню («Вернуться к прежнему виду») */
 const uiNew=()=>isHead()&&LS.get('ev_ui')!=='old';
-const NAVN=[['branch','Сегодня','☀'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['pay','Зарплата','≡'],['safe','Сейф','▣'],['ppl','Люди','☺']];
+const NAVN=[['branch','Сегодня','☀'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['pay','Зарплата','≡'],['safe','Сейф','▣'],['sched','График','▦'],['ppl','Люди','☺']];
 const navCur=()=>S.view==='pay'?(S.pplMode?'ppl':S.paySafe?'safe':'pay'):S.view==='sal'?'pay':S.view;
 function navHtml(list){const nw=!list&&uiNew(),cur=nw?navCur():S.view;return '<nav class="nv'+(list?'':' hd')+(nw?' n5':'')+'">'+(list||(nw?NAVN:NAV)).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(cur===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
@@ -1838,7 +1841,7 @@ async function showCC(from,to){
   if(S.view==='cc')paint();
 }
 /* ====== 1.71 График: «Мои смены» и «Кто где». Отдельно от финансов: читает только ev_whos_where, в ответе нет ни денег, ни часов ====== */
-const SCH_B={marksa:['Маркса, 45','М','#b5185c'],'70let':['70 Лет Октября, 20','О','#0e8a6a'],pereleta:['Перелёта, 19','П','#1d4ed8'],cc:['Колл-центр','К','#6b7280']};
+const SCH_B={marksa:['Маркса, 45','Маркса','#b5185c'],'70let':['70 Лет Октября, 20','70 лет','#0e8a6a'],pereleta:['Перелёта, 19','Перелёта','#1d4ed8'],cc:['Колл-центр','КЦ','#6b7280']};
 const SCH_BO=['marksa','70let','pereleta','cc'];
 const SCH_R={admin:'Администратор',doctor:'Врач',assistant:'Ассистент',callcenter:'Колл-центр'};
 const SCH_RO={admin:0,doctor:1,assistant:2,callcenter:3};
@@ -1888,10 +1891,12 @@ function schMy(s,rows){
   const cnt={};mine.forEach(r=>{const k=schBk(r);cnt[k]=(cnt[k]||0)+1});
   const by={};mine.forEach(r=>{(by[r.date]=by[r.date]||[]).push(r)});
   let h='<div class="sch-tiles"><div><b>'+mine.length+'</b><small>смен в месяце</small></div><div><b>'+mine.filter(r=>r.date>=today).length+'</b><small>ещё впереди</small></div></div>';
-  h+='<div class="sch-leg">'+SCH_BO.filter(k=>cnt[k]).map(k=>'<span><i style="background:'+SCH_B[k][2]+'"></i>'+esc(SCH_B[k][0])+': '+cnt[k]+'</span>').join('')+(mine.length?'':'<span>В этом месяце у вас нет смен</span>')+'</div>';
+  h+='<div class="sch-leg">'+SCH_BO.filter(k=>k!=='cc'||cnt[k]).map(k=>'<span><i style="background:'+SCH_B[k][2]+'"></i>'+esc(SCH_B[k][0])+(cnt[k]?': '+cnt[k]:'')+'</span>').join('')+'</div>'+(mine.length?'':'<p class="hint">В этом месяце у вас нет смен</p>');
   h+=schCal(s.m,(dt,d,t)=>{const l=by[dt];const cl='sch-d'+(dt===t?' today':'');
     if(!l)return '<div class="'+cl+'">'+d+'</div>';
-    const k=schBk(l[0]);return '<div class="'+cl+' f" style="background:'+SCH_B[k][2]+'">'+d+'<small>'+SCH_B[k][1]+(l.length>1?'×'+l.length:'')+'</small></div>'});
+    const ks=[...new Set(l.map(schBk))];
+    if(ks.length===1)return '<div class="'+cl+' f" style="background:'+SCH_B[ks[0]][2]+'">'+d+'<small>'+esc(SCH_B[ks[0]][1])+'</small></div>';
+    return '<div class="'+cl+' m">'+d+'<span class="sch-ms">'+ks.map(k=>'<small style="background:'+SCH_B[k][2]+'">'+esc(SCH_B[k][1])+'</small>').join('')+'</span></div>'});
   const up=mine.filter(r=>r.date>=today).sort((a,b)=>a.date<b.date?-1:1);
   h+=up.map(r=>{const k=schBk(r),dw=SCH_DW[schDow(r.date)];return '<div class="sch-row"><span class="bar" style="background:'+SCH_B[k][2]+'"></span><span class="t"><b>'+(r.date===today?'Сегодня, ':'')+dw.charAt(0).toUpperCase()+dw.slice(1)+', '+ruDate(r.date)+'</b><small>'+esc(SCH_R[r.slot]||'')+'</small></span><span style="color:var(--mute);font-size:14px">'+esc(SCH_B[k][0])+'</span></div>'}).join('');
   return h}
@@ -1900,7 +1905,7 @@ function schAll(s,rows){
   const by={};vis.forEach(r=>{(by[r.date]=by[r.date]||[]).push(r)});
   const mineD={};rows.forEach(r=>{if(r.mine)mineD[r.date]=1});
   let h='<div class="chips">'+[['','Все'],['marksa','Маркса'],['70let','70 лет'],['pereleta','Перелёта'],['cc','КЦ']].map(x=>'<button class="tile'+(f===x[0]?' on':'')+'" data-act="schflt" data-f="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
-  h+='<div class="sch-leg"><span>Точка: филиал и число людей. ★ ваша смена</span></div>';
+  h+='<div class="sch-leg">'+SCH_BO.map(k=>'<span><i style="background:'+SCH_B[k][2]+'"></i>'+esc(SCH_B[k][1])+'</span>').join('')+'</div><div class="sch-leg"><span>Цветная точка: сколько людей на филиале. ★ ваша смена</span></div>';
   h+=schCal(s.m,(dt,d,t)=>{const l=by[dt]||[];const c={};l.forEach(r=>{const k=schBk(r);c[k]=(c[k]||0)+1});
     const dots=SCH_BO.filter(k=>c[k]).map(k=>'<span class="sch-dt" style="background:'+SCH_B[k][2]+'">'+c[k]+'</span>').join('');
     return '<button class="sch-d'+(dt===t?' today':'')+(dt===s.day?' sel':'')+'" data-act="schday" data-d="'+dt+'" aria-label="'+ruDate(dt)+'">'+d+(mineD[dt]?'<span class="sch-star">★</span>':'')+'<span class="sch-dots">'+dots+'</span></button>'});
