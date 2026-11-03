@@ -195,16 +195,16 @@ button.person.revrow{display:block;width:100%;text-align:left;background:var(--c
 .sch-d.m{padding:3px 2px}
 .sch-ms{display:flex;flex-direction:column;gap:2px;width:100%}
 .sch-ms small{display:block;color:#fff;border-radius:4px;font-size:11px;font-weight:700;text-align:center;padding:1px 0;line-height:1.1}
-button.sch-d{cursor:pointer}
+button.sch-d{cursor:pointer;aspect-ratio:auto;min-height:86px;justify-content:flex-start;gap:3px;padding:4px 2px}
 button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
-.sch-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
+.sch-dots{display:flex;flex-direction:column;gap:2px;width:100%}
 .sch-star{position:absolute;top:2px;right:4px;font-size:11px;color:var(--acc)}
-.sch-dt{min-width:20px;height:20px;border-radius:99px;font-size:12px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0 3px}
-.sch-row{display:flex;gap:12px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);font-size:19px}
+.sch-dt{width:100%;height:17px;border-radius:6px;font-size:13px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0 3px}
+.sch-row{display:flex;gap:12px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);font-size:18px}
 .sch-row .bar{width:5px;align-self:stretch;border-radius:3px;flex:none}
 .sch-row .t{flex:1;min-width:0}
 .sch-row .t small{display:block;color:var(--mute);font-size:14px}
-.sch-rl{flex:none;color:#fff;border-radius:99px;font-size:14px;font-weight:700;padding:4px 12px;white-space:nowrap}
+.sch-rl{flex:none;color:#fff;border-radius:99px;font-size:13px;font-weight:700;padding:4px 10px;white-space:nowrap}
 .sch-cc{background:var(--tile);border-radius:12px;padding:12px 14px;margin:8px 0;font-size:18px}
 .sch-cc b{display:block;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
 .sch-row.me{background:var(--tile);border-radius:8px;font-weight:700}
@@ -1916,7 +1916,7 @@ function schAll(s,rows){
   let h='<div class="chips">'+[['','Все'],['marksa','Маркса'],['70let','70 лет'],['pereleta','Перелёта'],['cc','КЦ']].map(x=>'<button class="tile'+(f===x[0]?' on':'')+'" data-act="schflt" data-f="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
   h+='<div class="sch-leg">'+SCH_BO.map(k=>'<span><i style="background:'+SCH_B[k][2]+'"></i>'+esc(SCH_B[k][1])+'</span>').join('')+'</div><div class="sch-leg"><span>Точка в календаре: сколько людей на филиале. ★ ваша смена</span></div><div class="sch-leg">'+['admin','doctor','assistant'].map(k=>'<span><i style="background:'+SCH_RC[k]+'"></i>'+SCH_R[k]+'</span>').join('')+'</div>'+schCcToday(rows);
   h+=schCal(s.m,(dt,d,t)=>{const l=by[dt]||[];const c={};l.forEach(r=>{const k=schBk(r);c[k]=(c[k]||0)+1});
-    const dots=SCH_BO.filter(k=>c[k]).map(k=>'<span class="sch-dt" style="background:'+SCH_B[k][2]+'">'+c[k]+'</span>').join('');
+    const dots=SCH_BO.filter(k=>c[k]&&(k!=='cc'||f==='cc')).map(k=>'<span class="sch-dt" style="background:'+SCH_B[k][2]+'">'+c[k]+'</span>').join('');
     return '<button class="sch-d'+(dt===t?' today':'')+(dt===s.day?' sel':'')+'" data-act="schday" data-d="'+dt+'" aria-label="'+ruDate(dt)+'">'+d+(mineD[dt]?'<span class="sch-star">★</span>':'')+'<span class="sch-dots">'+dots+'</span></button>'});
   const dl=rows.filter(r=>r.date===s.day);
   if(s.day.slice(0,7)===s.m){
