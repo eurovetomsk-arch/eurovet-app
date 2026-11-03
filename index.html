@@ -174,6 +174,35 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 @media (pointer:coarse){body.typing .nv{display:none}}
 button.srow.grow{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;text-align:left;padding:10px 0;font-size:16px;min-height:44px}
 button.person.revrow{display:block;width:100%;text-align:left;background:var(--card);color:inherit}
+
+/* ====== 1.71 График ====== */
+.sch-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0}
+.sch-top b{font-size:17px}
+.sch-top button{min-width:44px;min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;font-size:20px}
+.sch-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0}
+.sch-tiles>div{background:var(--tile);border-radius:12px;padding:10px 12px}
+.sch-tiles b{display:block;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.sch-tiles small{color:var(--mute);font-size:13px}
+.sch-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:6px 0}
+.sch-leg i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-1px}
+.sch-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0}
+.sch-cal .h{font-size:12px;color:var(--mute);text-align:center}
+.sch-d{position:relative;aspect-ratio:1/1.25;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;padding:3px 4px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;min-width:0}
+.sch-d.o{opacity:.4}
+.sch-d.today{outline:2px solid var(--ink);outline-offset:-1px}
+.sch-d.f{color:#fff;border-color:transparent}
+.sch-d.f small{font-size:12px;font-weight:700;text-transform:none}
+button.sch-d{cursor:pointer}
+button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
+.sch-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
+.sch-star{position:absolute;top:2px;right:4px;font-size:11px;color:var(--acc)}
+.sch-dt{min-width:15px;height:15px;border-radius:99px;font-size:9px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0 3px}
+.sch-row{display:flex;gap:10px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.sch-row .bar{width:5px;align-self:stretch;border-radius:3px;flex:none}
+.sch-row .t{flex:1;min-width:0}
+.sch-row .t small{display:block;color:var(--mute);font-size:12px}
+.sch-row.me{background:var(--tile);border-radius:8px;font-weight:700}
+.sch-grp{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:12px 0 2px}
 </style>
 </head>
 <body>
@@ -192,7 +221,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.70'
+  appVer:'1.71'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -489,7 +518,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.sch=null;S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -550,8 +579,9 @@ function render(){
   else if(S.view==='work')app.innerHTML=workHtml();
   else if(S.view==='pay')app.innerHTML=payHtml();
   else if(S.view==='mu')app.innerHTML=muHtml();
-  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')))bar.innerHTML=navHtml();
-  else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'))bar.innerHTML=navHtml(anav());
+  else if(S.view==='sched')app.innerHTML=schedHtml();
+  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')||S.view==='sched'))bar.innerHTML=navHtml();
+  else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'||S.view==='sched'))bar.innerHTML=navHtml(anav());
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
@@ -878,7 +908,7 @@ async function loadFlags(branch,date){
   }catch(e){}
 }
 function paint(){const y=window.scrollY;render();window.scrollTo(0,y)}
-const anav=()=>(canReport()?[['branch','Отчёт','✎']]:[]).concat(isCC()?[['cc','Смены','☎']]:[],[['work','Мои начисления','₽']]);
+const anav=()=>(canReport()?[['branch','Отчёт','✎']]:[]).concat(isCC()?[['cc','Смены','☎']]:[],[['sched','График','▦']],[['work','Мои начисления','₽']]);
 const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['sal','Зарплата','≡']];
 /* 1.52: новый вид руководителя; старый доступен в Меню («Вернуться к прежнему виду») */
 const uiNew=()=>isHead()&&LS.get('ev_ui')!=='old';
@@ -1807,6 +1837,94 @@ async function showCC(from,to){
   }catch(e){if(S.ccFrom!==from||S.ccTo!==to)return;S.ccErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='cc')paint();
 }
+/* ====== 1.71 График: «Мои смены» и «Кто где». Отдельно от финансов: читает только ev_whos_where, в ответе нет ни денег, ни часов ====== */
+const SCH_B={marksa:['Маркса, 45','М','#b5185c'],'70let':['70 Лет Октября, 20','О','#0e8a6a'],pereleta:['Перелёта, 19','П','#1d4ed8'],cc:['Колл-центр','К','#6b7280']};
+const SCH_BO=['marksa','70let','pereleta','cc'];
+const SCH_R={admin:'Администратор',doctor:'Врач',assistant:'Ассистент',callcenter:'Колл-центр'};
+const SCH_RO={admin:0,doctor:1,assistant:2,callcenter:3};
+const SCH_MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const SCH_DW=['пн','вт','ср','чт','пт','сб','вс'];
+const schBk=r=>r.branch||'cc';
+function schEnsure(){if(!S.sch){const t=omskToday();S.sch={m:t.slice(0,7),tab:'my',day:t,flt:'',data:{},err:null,load:false,demo:false}}return S.sch}
+const schLast=m=>{const p=m.split('-').map(Number);return new Date(Date.UTC(p[0],p[1],0)).getUTCDate()};
+const schDow=iso=>{const p=iso.split('-').map(Number);return (new Date(Date.UTC(p[0],p[1]-1,p[2])).getUTCDay()+6)%7};
+const schShift=(m,n)=>{const p=m.split('-').map(Number),d=new Date(Date.UTC(p[0],p[1]-1+n,1));return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')};
+const schTitle=m=>SCH_MN[Number(m.slice(5,7))-1]+' '+m.slice(0,4);
+function schDemo(m){ // выдуманные данные для просмотра внешнего вида (только руководитель)
+  const out=[],n=schLast(m);
+  for(let d=1;d<=n;d++){const dt=m+'-'+String(d).padStart(2,'0');
+    out.push({date:dt,branch:'marksa',slot:'admin',name:'Пример А'+(d%3),mine:d%3===0});
+    out.push({date:dt,branch:'marksa',slot:'doctor',name:'Пример врач '+(d%4),mine:false});
+    out.push({date:dt,branch:'marksa',slot:'assistant',name:'Пример ассистент '+(d%2),mine:false});
+    out.push({date:dt,branch:'pereleta',slot:'admin',name:'Пример А'+((d+1)%3),mine:false});
+    out.push({date:dt,branch:'pereleta',slot:'doctor',name:'Пример врач '+((d+1)%4),mine:false});
+    if(d%4)out.push({date:dt,branch:'70let',slot:'doctor',name:'Пример врач 70',mine:d%5===0});
+    out.push({date:dt,branch:'70let',slot:'admin',name:'Пример А'+((d+2)%3),mine:false});
+    out.push({date:dt,branch:null,slot:'callcenter',name:'Пример оператор '+(d%3),mine:false});}
+  return out}
+const schRows=m=>{const s=schEnsure();return s.demo?schDemo(m):(s.data[m]||null)};
+async function showSched(){closeOv();schEnsure();S.view='sched';paint();window.scrollTo(0,0);loadSched(S.sch.m)}
+async function loadSched(m){
+  const s=schEnsure();s.load=true;s.err=null;paint();
+  try{
+    const r=await rpc('ev_whos_where',{p_token:S.token,p_from:m+'-01',p_to:m+'-'+String(schLast(m)).padStart(2,'0')},12000);
+    if(r&&r.error==='session'){S.token=null;LS.del('ev_token');S.view='login';toast('Сессия закончилась. Войдите заново.');render();loadLoginList().then(render);return}
+    if(!r||!r.ok)s.err=r&&r.error==='forbidden'?'График для вашей роли недоступен.':'Не удалось загрузить';else s.data[m]=r.shifts||[];
+  }catch(e){s.err=e.net?'Нет связи.':'Ошибка сервера.'}
+  s.load=false;if(S.view==='sched')paint();
+}
+function schCal(m,cell){
+  const n=schLast(m),lead=schDow(m+'-01'),today=omskToday();let h=SCH_DW.map(x=>'<div class="h">'+x+'</div>').join('');
+  const pm=schShift(m,-1),pn=schLast(pm);
+  for(let i=lead-1;i>=0;i--)h+='<div class="sch-d o">'+(pn-i)+'</div>';
+  for(let d=1;d<=n;d++)h+=cell(m+'-'+String(d).padStart(2,'0'),d,today);
+  const tail=(7-(lead+n)%7)%7;for(let j=1;j<=tail;j++)h+='<div class="sch-d o">'+j+'</div>';
+  return '<div class="sch-cal">'+h+'</div>'}
+function schHead(s){
+  return '<div class="chips"><button class="tile'+(s.tab==='my'?' on':'')+'" data-act="schtab" data-t="my">Мои смены</button><button class="tile'+(s.tab==='all'?' on':'')+'" data-act="schtab" data-t="all">Кто где</button></div>'
+   +'<div class="sch-top"><button data-act="schmon" data-n="-1" aria-label="Предыдущий месяц">‹</button><b>'+schTitle(s.m)+'</b><button data-act="schmon" data-n="1" aria-label="Следующий месяц">›</button></div>'}
+function schMy(s,rows){
+  const today=omskToday(),mine=rows.filter(r=>r.mine);
+  const cnt={};mine.forEach(r=>{const k=schBk(r);cnt[k]=(cnt[k]||0)+1});
+  const by={};mine.forEach(r=>{(by[r.date]=by[r.date]||[]).push(r)});
+  let h='<div class="sch-tiles"><div><b>'+mine.length+'</b><small>смен в месяце</small></div><div><b>'+mine.filter(r=>r.date>=today).length+'</b><small>ещё впереди</small></div></div>';
+  h+='<div class="sch-leg">'+SCH_BO.filter(k=>cnt[k]).map(k=>'<span><i style="background:'+SCH_B[k][2]+'"></i>'+esc(SCH_B[k][0])+': '+cnt[k]+'</span>').join('')+(mine.length?'':'<span>В этом месяце у вас нет смен</span>')+'</div>';
+  h+=schCal(s.m,(dt,d,t)=>{const l=by[dt];const cl='sch-d'+(dt===t?' today':'');
+    if(!l)return '<div class="'+cl+'">'+d+'</div>';
+    const k=schBk(l[0]);return '<div class="'+cl+' f" style="background:'+SCH_B[k][2]+'">'+d+'<small>'+SCH_B[k][1]+(l.length>1?'×'+l.length:'')+'</small></div>'});
+  const up=mine.filter(r=>r.date>=today).sort((a,b)=>a.date<b.date?-1:1);
+  h+=up.map(r=>{const k=schBk(r),dw=SCH_DW[schDow(r.date)];return '<div class="sch-row"><span class="bar" style="background:'+SCH_B[k][2]+'"></span><span class="t"><b>'+(r.date===today?'Сегодня, ':'')+dw.charAt(0).toUpperCase()+dw.slice(1)+', '+ruDate(r.date)+'</b><small>'+esc(SCH_R[r.slot]||'')+'</small></span><span style="color:var(--mute);font-size:14px">'+esc(SCH_B[k][0])+'</span></div>'}).join('');
+  return h}
+function schAll(s,rows){
+  const today=omskToday(),f=s.flt;const vis=rows.filter(r=>!f||schBk(r)===f);
+  const by={};vis.forEach(r=>{(by[r.date]=by[r.date]||[]).push(r)});
+  const mineD={};rows.forEach(r=>{if(r.mine)mineD[r.date]=1});
+  let h='<div class="chips">'+[['','Все'],['marksa','Маркса'],['70let','70 лет'],['pereleta','Перелёта'],['cc','КЦ']].map(x=>'<button class="tile'+(f===x[0]?' on':'')+'" data-act="schflt" data-f="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
+  h+='<div class="sch-leg"><span>Точка: филиал и число людей. ★ ваша смена</span></div>';
+  h+=schCal(s.m,(dt,d,t)=>{const l=by[dt]||[];const c={};l.forEach(r=>{const k=schBk(r);c[k]=(c[k]||0)+1});
+    const dots=SCH_BO.filter(k=>c[k]).map(k=>'<span class="sch-dt" style="background:'+SCH_B[k][2]+'">'+c[k]+'</span>').join('');
+    return '<button class="sch-d'+(dt===t?' today':'')+(dt===s.day?' sel':'')+'" data-act="schday" data-d="'+dt+'" aria-label="'+ruDate(dt)+'">'+d+(mineD[dt]?'<span class="sch-star">★</span>':'')+'<span class="sch-dots">'+dots+'</span></button>'});
+  const dl=rows.filter(r=>r.date===s.day);
+  if(s.day.slice(0,7)===s.m){
+    const dw=SCH_DW[schDow(s.day)];
+    h+='<h3 style="margin:10px 0 0">'+ruDate(s.day)+', '+dw+(s.day===today?' · сегодня':'')+'</h3>';
+    SCH_BO.filter(k=>!f||k===f).forEach(k=>{
+      const rr=dl.filter(r=>schBk(r)===k).sort((a,b)=>(SCH_RO[a.slot]-SCH_RO[b.slot])||(a.name<b.name?-1:1));
+      if(k==='cc'&&!rr.length)return;
+      h+='<div class="sch-grp">'+esc(SCH_B[k][0])+'</div>';
+      if(k==='70let'&&dl.length&&!rr.some(r=>r.slot==='doctor'))h+='<div class="sch-row"><span class="bar" style="background:'+SCH_B[k][2]+'"></span><span class="t"><small>Врача нет</small></span></div>';
+      if(!rr.length&&k!=='70let')h+='<div class="sch-row"><span class="t"><small>Никого в графике</small></span></div>';
+      h+=rr.map(r=>'<div class="sch-row'+(r.mine?' me':'')+'"><span class="bar" style="background:'+SCH_B[k][2]+'"></span><span class="t">'+esc(r.name)+(r.mine?' (вы)':'')+'<small>'+esc(SCH_R[r.slot]||'')+'</small></span></div>').join('')})}
+  return h}
+function schedHtml(){
+  const s=schEnsure(),rows=schRows(s.m);
+  let h='<div class="card">'+(isHead()?'<button class="btn sec small" data-act="go" data-v="branch" style="margin:0 0 10px">← На главную</button>':'')+'<h2>График</h2>'+schHead(s);
+  if(s.demo)h+='<p class="hint" style="background:var(--warnbg);color:var(--warn);border-radius:10px;padding:8px 10px">ПРИМЕР с выдуманными данными. Показывается только вам, настоящий график не загружен. <button class="pill" data-act="schdemo">Выключить пример</button></p>';
+  if(s.load&&!rows)h+='<p class="hint">Загружаем…</p>';
+  else if(s.err&&!rows)h+='<p class="hint" style="color:var(--bad)">'+esc(s.err)+'</p><button class="btn sec" data-act="schretry">Повторить</button>';
+  else if(!rows||!rows.length){h+='<p class="hint">График на '+schTitle(s.m).toLowerCase()+' ещё не опубликован.</p>';if(isHead())h+='<button class="btn sec" data-act="schdemo">Показать пример (выдуманные данные)</button>'}
+  else h+=s.tab==='my'?schMy(s,rows):schAll(s,rows);
+  return h+'</div>'}
 function ccHtml(){
   if(!S.ccFrom){S.ccFrom=perStart(omskToday());S.ccTo=omskToday()}
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.ccFrom,t=S.ccTo,r=S.cc;
@@ -1953,7 +2071,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="schedopen">График смен</button><button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
@@ -2113,6 +2231,13 @@ document.addEventListener('click',async e=>{
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
     case'menu':showMenu();break;
+    case'schedopen':showSched();break;
+    case'schtab':schEnsure().tab=d.t;paint();break;
+    case'schday':schEnsure().day=d.d;paint();break;
+    case'schflt':schEnsure().flt=d.f;paint();break;
+    case'schretry':loadSched(schEnsure().m);break;
+    case'schdemo':{const s=schEnsure();if(isHead()){s.demo=!s.demo;paint()}break}
+    case'schmon':{const s=schEnsure();s.m=schShift(s.m,Number(d.n));s.day=s.m===omskToday().slice(0,7)?omskToday():s.m+'-01';if(s.demo)paint();else if(s.data[s.m])paint();else loadSched(s.m);break}
     case'help':openHelp();break;
     case'helpback':closeHelp();break;
     case'queue':showQueue();break;
@@ -2125,7 +2250,7 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay(S.payFrom,S.payTo)}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay(S.payFrom,S.payTo)}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay(S.payFrom,S.payTo)}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay(S.payFrom,S.payTo)}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
