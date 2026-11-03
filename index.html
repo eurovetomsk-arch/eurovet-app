@@ -208,6 +208,8 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .sch-cc{background:var(--tile);border-radius:12px;padding:12px 14px;margin:8px 0;font-size:18px}
 .sch-cc b{display:block;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
 .sch-row.me{background:var(--tile);border-radius:8px;font-weight:700}
+.sch-tap{cursor:pointer}.sch-ch{color:var(--mute);font-size:22px;flex:none}
+.sch-pc{text-align:left}.sch-pn{font-size:28px;font-weight:700;margin:12px 0 2px}.sch-pf{font-size:20px;color:var(--mute);margin:0 0 12px}
 .sch-grp{font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:12px 0 2px}
 </style>
 </head>
@@ -227,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.73'
+  appVer:'1.74'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1918,6 +1920,7 @@ function schAll(s,rows){
   h+=schCal(s.m,(dt,d,t)=>{const l=by[dt]||[];const c={};l.forEach(r=>{const k=schBk(r);c[k]=(c[k]||0)+1});
     const dots=SCH_BO.filter(k=>c[k]&&(k!=='cc'||f==='cc')).map(k=>'<span class="sch-dt" style="background:'+SCH_B[k][2]+'">'+c[k]+'</span>').join('');
     return '<button class="sch-d'+(dt===t?' today':'')+(dt===s.day?' sel':'')+'" data-act="schday" data-d="'+dt+'" aria-label="'+ruDate(dt)+'">'+d+(mineD[dt]?'<span class="sch-star">★</span>':'')+'<span class="sch-dots">'+dots+'</span></button>'});
+  s.pp=[];
   const dl=rows.filter(r=>r.date===s.day);
   if(s.day.slice(0,7)===s.m){
     const dw=SCH_DW[schDow(s.day)];
@@ -1928,7 +1931,7 @@ function schAll(s,rows){
       h+='<div class="sch-grp">'+esc(SCH_B[k][0])+'</div>';
       if(k==='70let'&&dl.length&&!rr.some(r=>r.slot==='doctor'))h+='<div class="sch-row"><span class="bar" style="background:'+SCH_B[k][2]+'"></span><span class="t"><small>Врача нет</small></span></div>';
       if(!rr.length&&k!=='70let')h+='<div class="sch-row"><span class="t"><small>Никого в графике</small></span></div>';
-      h+=rr.map(r=>'<div class="sch-row'+(r.mine?' me':'')+'"><span class="bar" style="background:'+(SCH_RC[r.slot]||SCH_B[k][2])+'"></span><span class="t">'+esc(r.name)+(r.mine?' (вы)':'')+'</span>'+schPill(r)+'</div>').join('')})}
+      h+=rr.map(r=>'<div class="sch-row'+(r.full?' sch-tap':'')+(r.mine?' me':'')+'"'+(r.full?' data-act="schp" data-i="'+(s.pp.push(r)-1)+'"':'')+'><span class="bar" style="background:'+(SCH_RC[r.slot]||SCH_B[k][2])+'"></span><span class="t">'+esc(r.name)+(r.mine?' (вы)':'')+'</span>'+schPill(r)+(r.full?'<span class="sch-ch">›</span>':'')+'</div>').join('')})}
   return h}
 function schedHtml(){
   const s=schEnsure(),rows=schRows(s.m);
@@ -2248,6 +2251,7 @@ document.addEventListener('click',async e=>{
     case'schedopen':showSched();break;
     case'schtab':schEnsure().tab=d.t;paint();break;
     case'schday':schEnsure().day=d.d;paint();break;
+    case'schp':{const r=(schEnsure().pp||[])[Number(d.i)];if(!r||!r.full)break;const f=String(r.full||r.name||'').trim(),sp=f.indexOf(' '),sn=sp>0?f.slice(0,sp):f,rest=sp>0?f.slice(sp+1):'';overlay('<div class="sch-pc"><span class="sch-rl" style="background:'+(SCH_RC[r.slot]||'#6b7280')+'">'+esc(schRole(r))+'</span><div class="sch-pn">'+esc(sn)+'</div>'+(rest?'<div class="sch-pf">'+esc(rest)+'</div><p class="hint">К сотруднику можно обращаться по имени и отчеству.</p>':'')+'<button class="btn sec" data-act="ovclose">Закрыть</button></div>');break}
     case'schflt':schEnsure().flt=d.f;paint();break;
     case'schretry':loadSched(schEnsure().m);break;
     case'schdemo':{const s=schEnsure();if(isHead()){s.demo=!s.demo;paint()}break}
