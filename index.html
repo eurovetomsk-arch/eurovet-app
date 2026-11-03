@@ -1849,7 +1849,7 @@ const SCH_BO=['marksa','70let','pereleta','cc'];
 const SCH_R={admin:'Администратор',doctor:'Врач',assistant:'Ассистент',callcenter:'Колл-центр'};
 const SCH_RO={admin:0,doctor:1,assistant:2,callcenter:3};
 const SCH_RC={admin:'#d97706',doctor:'#7c3aed',assistant:'#0891b2',callcenter:'#6b7280'};
-const SCH_AT={}; // вид ассистента по имени из файла: 'клинический' / 'технический' (заполняется по ответу Михаила)
+const SCH_AT={'Борисов':'клинический','Медюкова':'клинический','Шпакова':'клинический','Юнгман':'технический','Салыкова':'технический','Кривогузова':'технический'}; // по справочнику ролей ev_person_roles (assistant_clinical / assistant_tech), как в расчёте зарплаты; новый ассистент — добавить сюда
 const schRole=r=>{let t=SCH_R[r.slot]||'';if(r.slot==='assistant'&&SCH_AT[r.name])t+=' '+SCH_AT[r.name];return t};
 const schPill=r=>'<span class="sch-rl" style="background:'+(SCH_RC[r.slot]||'#6b7280')+'">'+esc(schRole(r))+'</span>';
 function schCcToday(rows){const t=omskToday(),n=rows.filter(r=>r.date===t&&schBk(r)==='cc').map(r=>r.name);
