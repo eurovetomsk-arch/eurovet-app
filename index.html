@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.78'
+  appVer:'1.79'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1860,7 +1860,7 @@ async function showCC(from,to){
   }catch(e){if(S.ccFrom!==from||S.ccTo!==to)return;S.ccErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='cc')paint();
 }
-/* ====== 1.78 «Мои записи» в цветном дне смены: только действующие врачи.
+/* ====== 1.79 «Мои записи» в цветном дне смены: только действующие врачи.
    Читает отдельный серверный снимок; не вызывает Vetmanager из браузера и не обращается к финансам. ====== */
 const APPT={rows:null,status:'idle',error:null,updatedAt:null,day:null};
 const apptAllowed=()=>!!(S.person&&S.loginList.some(p=>String(p.id)===String(S.person.id)&&p.doc===true));
@@ -1875,7 +1875,7 @@ async function loadAppointments(){
     if(r&&r.error==='session'){logout();toast('Сессия закончилась. Войдите заново.');return}
     if(!r||!r.ok||r.error==='forbidden'){APPT.status='unavailable';APPT.error='Записи для этой учётной записи недоступны.'}
     else{
-      const allowed=new Set(['id','date','time','end','branch','status','pet_id','alias','species','reason']);
+      const allowed=new Set(['id','date','time','end','branch','status','pet_id','alias','species','reason','visit_type']);
       const states=new Set(['booked','unconfirmed','cancelled','waiting','in_treatment','completed','overdue','reschedule_requested']);
       const rows=(Array.isArray(r.rows)?r.rows:[]).map(x=>{
         if(!x||Object.keys(x).some(k=>!allowed.has(k))||!x.id||!/^\d{4}-\d{2}-\d{2}$/.test(x.date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.end)||!['marksa','70let','pereleta'].includes(x.branch)||!states.has(x.status))throw Error('contract');
@@ -1897,7 +1897,7 @@ function appointmentsHtml(day){
   const rows=(APPT.rows||[]).filter(x=>x.status!=='cancelled'&&x.date===day);
   if(!rows.length)return h+'<p>На этот день записей пока нет.</p></div>';
   rows.forEach(x=>{
-    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span><span class="chip">'+esc(st[x.status]||x.status)+'</span></div>'+(x.reason?'<p style="margin:8px 0 0">'+esc(x.reason)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
+    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span><span class="chip">'+esc(st[x.status]||x.status)+'</span></div>'+(x.visit_type?'<p style="margin:8px 0 0"><b>Цель визита:</b> '+esc(x.visit_type)+'</p>':'')+(x.reason?'<p class="hint" style="margin:5px 0 0"><b>Комментарий:</b> '+esc(x.reason)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
   });
   return h+'</div>';
 }
