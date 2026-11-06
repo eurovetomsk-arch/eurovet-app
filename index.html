@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.74'
+  appVer:'1.75'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1337,7 +1337,7 @@ function workHtml(){
 /* ====== Ведомость руководителя (с 1.46): начислено, выплачено, остаток к выплате; с 1.49 расчёт, наличные, авансы, печать ======= */
 async function showPay(from,to){
   const today=omskToday();
-  if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
+  if(!from){const cs=perStart(today),pe=addDays(cs,-1);if(!S.pplMode&&perStart(pe)>=PAY_START){from=perStart(pe);to=pe}else{from=cs;to=perEnd(cs)}}
   S.payFrom=from;S.payTo=to;S.payMulti=null;closeOv();S.view='pay';S.pay=null;S.payErr=null;paint();window.scrollTo(0,0);
   if(S.pplMode&&uiNew())loadExtras(from,to);
   try{
@@ -1514,6 +1514,20 @@ function payHtml(){
 const PPL_PART={admin:'Администратор: смены и аптека',assistant:'Ассистент',callcenter:'Колл-центр',doctor:'Врач: проценты (расчёт Vetmanager)',fixed:'Оклад',surcharge:'Доплата за продажи (Vetmanager)',extra:'Доплаты и вычеты',outsource:'Аутсорс: описания снимков'};
 const PPL_ORDER=['admin','assistant','callcenter','doctor','outsource','fixed','surcharge','extra'];
 const PPL_GRP=[['doctor','Врачи'],['admin','Админы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['outsource','Аутсорс']];
+/* Люди - состав команды за период, включая сотрудников до первого начисления.
+   Дополняем только справочник; финансовые rows и итоги не меняются. */
+const PPL_ROLE_PART={doctor:'doctor',admin:'admin',assistant_clinical:'assistant',assistant_tech:'assistant',callcenter:'callcenter'};
+const PPL_ROLE_NAME={doctor:'Врач',courier:'Курьер',admin:'Администратор',assistant_clinical:'Клинический ассистент',assistant_tech:'Технический ассистент',callcenter:'Колл-центр'};
+function pplRows(r){
+  const byId=new Map((r.rows||[]).map(x=>[String(x.id),{...x}]));
+  (r.people||[]).forEach(p=>{
+    const key=String(p.id),x=byId.get(key);
+    if(x){x.roster_roles=[...new Set([...(x.roster_roles||[]),p.role])].sort();x.roster_role=x.roster_roles[0];return}
+    byId.set(key,{id:p.id,name:p.name,roster_role:p.role,roster_roles:[p.role],roster_only:true,parts:{},accrued:0,paid:0,to_pay:0});
+  });
+  return [...byId.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+}
+const pplHasGroup=(x,g)=>!!Number((x.parts||{})[g])||(x.roster_roles||[x.roster_role]).some(role=>PPL_ROLE_PART[role]===g);
 async function loadExtras(from,to){
   const key=from+'|'+to;S.pplExKey=key;S.pplEx=null;
   try{const r=await rpc('ev_payroll_extras',{p_token:S.token,p_from:from,p_to:to},10000);
@@ -1526,6 +1540,7 @@ function pplCard(x){
   const r=S.pay,N=v=>Number(v||0),parts=x.parts||{};
   const ex=(S.pplEx||[]).filter(i=>String(i.person)===String(x.id)),exSum=ex.reduce((q,i)=>q+N(i.amount),0);
   let h='<div class="card"><button class="btn sec small" data-act="pplback" style="margin:0 0 10px">← Люди</button><h2>'+esc(x.name)+(S.person&&String(x.id)===String(S.person.id)?' <span class="chip on" style="padding:1px 8px;font-size:12px">это вы</span>':'')+'</h2><p class="hint" style="margin:0">'+ruDate(r.from)+' — '+ruDate(r.to)+(r.provisional?' · предварительно':'')+'</p></div>';
+  if(x.roster_only)return h+'<div class="card"><h3>'+esc(PPL_ROLE_NAME[x.roster_role]||'Сотрудник')+'</h3><p>Начислений и выплат за выбранный период пока нет.</p><p class="hint">'+(PPL_ROLE_PART[x.roster_role]==='assistant'?'Смены и фиксации вносит администратор в отчёт филиала. После сохранения отчёта они попадут в расчёт.':'Начисления появятся после внесения рабочих данных за период.')+'</p></div>';
   const br=[];if(N(x.paid_card))if(N(x.paid_cash))br.push('наличные '+money(N(x.paid_cash)));if(N(x.paid_adv))br.push('аванс '+money(N(x.paid_adv)));
   h+='<div class="card pay"><div class="srow big"><span>Начислено</span><b>'+money(N(x.accrued))+'</b></div>'
     +'<div class="srow"><span>− Выплачено'+(br.length?'<br><small style="color:var(--mute)">'+br.join(' · ')+'</small>':'')+'</span><span>'+money(N(x.paid))+'</span></div>'
@@ -1555,23 +1570,23 @@ function pplHtml(){
   const chip=(l,a,b)=>'<button class="chip'+((f===a&&t===b)?' on':'')+'" data-act="payper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
   const chips=payPeriods(today).slice().reverse().slice(0,4).map((q,i)=>chip(i===0?'Этот период':i===1?'Прошлый период':ruDate(q[0]).slice(0,5)+' — '+ruDate(q[1]).slice(0,5),q[0],q[1])).join('');
   if(S.payErr)return '<div class="card"><h2>Люди</h2><p>'+esc(S.payErr)+'</p><button class="btn sec small" data-act="payper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
-  const x0=r&&S.pplId!=null?payRow(S.pplId):null;
+  const x0=r&&S.pplId!=null?pplRows(r).find(x=>String(x.id)===String(S.pplId)):null;
   if(x0)return pplCard(x0);
   let h='<div class="card"><h2>Люди</h2><div class="chips">'+chips+'</div><p class="hint" style="margin:6px 0 0">'+ruDate(f)+' — '+ruDate(t)+'</p></div>';
   if(!r)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
-  const rows=r.rows||[],has=g=>rows.some(x=>x.parts&&Number(x.parts[g]));
+  const rows=pplRows(r),has=g=>rows.some(x=>pplHasGroup(x,g));
   let pt=S.pplTab||'all';if(pt!=='all'&&!has(pt))pt='all';
   const q=(S.paySearch||'').trim().toLowerCase();
-  const shown=rows.filter(x=>(pt==='all'||(x.parts&&Number(x.parts[pt])))&&(!q||String(x.name).toLowerCase().includes(q)));
+  const shown=rows.filter(x=>(pt==='all'||pplHasGroup(x,pt))&&(!q||String(x.name).toLowerCase().includes(q)));
   h+='<div class="card"><label class="f" style="margin:0 0 6px"><input id="paysr" class="srch" placeholder="Фамилия" autocomplete="off" value="'+esc(S.paySearch||'')+'"></label><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="pplgrp" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'
     +PPL_GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="pplgrp" data-k="'+g[0]+'"><span>'+g[1]+'</span></button>').join('')+'</div>';
   shown.forEach(x=>{
     const pr=x.parts||{},N=v=>Number(v||0),dop=N(pr.surcharge)+N(pr.extra);
     const kinds=PPL_ORDER.filter(k=>N(pr[k])&&k!=='surcharge'&&k!=='extra').map(k=>({admin:'админ',assistant:'ассистент',callcenter:'колл-центр',doctor:'врач',outsource:'аутсорс',fixed:'оклад'}[k]));
-    h+='<button class="srow grow" data-act="pplopen" data-id="'+x.id+'"><span><b>'+esc(x.name)+'</b>'+(S.person&&String(x.id)===String(S.person.id)?' <small>· это вы</small>':'')+'<br><small style="color:var(--mute)">'+kinds.join(' + ')+(dop?(kinds.length?' · ':'')+'доплаты '+money(dop):'')+(x.closed?' · ✓ рассчитан':'')+'</small></span><b>'+money(N(x.accrued))+' ›</b></button>';
+    h+='<button class="srow grow" data-act="pplopen" data-id="'+x.id+'"><span><b>'+esc(x.name)+'</b>'+(S.person&&String(x.id)===String(S.person.id)?' <small>· это вы</small>':'')+'<br><small style="color:var(--mute)">'+(kinds.join(' + ')||esc(PPL_ROLE_NAME[x.roster_role]||''))+(dop?(kinds.length?' · ':'')+'доплаты '+money(dop):'')+(x.closed?' · ✓ рассчитан':'')+'</small></span><b>'+(x.roster_only?'Пока без начислений':money(N(x.accrued)))+' ›</b></button>';
   });
   if(!shown.length)h+='<p class="hint">Никого не найдено.</p>';
-  return h+'</div><p class="hint">Сумма у человека равна сумме в «Зарплате»: расчёт один.</p>';
+  return h+'</div><p class="hint">Состав команды показан за выбранный период, включая сотрудников без начислений. Суммы совпадают с «Зарплатой»: расчёт один.</p>';
 }
 const PAY_ERR={forbidden:'Нет доступа',session:'Сессия закончилась, войдите заново',input:'Проверьте данные',closed:'Сотрудник уже рассчитан за этот период: сначала снимите отметку',period_open:'Период ещё не закончился: рассчитать можно после его конца',already:'Уже рассчитан',not_in_statement:'Нет в ведомости',over_debt:'Сумма больше долга',not_found:'Не найдено'};
 const payRow=id=>((S.pay&&S.pay.rows)||[]).find(z=>String(z.id)===String(id));
@@ -2268,7 +2283,7 @@ document.addEventListener('click',async e=>{
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay(S.payFrom,S.payTo)}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay(S.payFrom,S.payTo)}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay(S.payFrom,S.payTo)}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay()}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;
