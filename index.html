@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.77'
+  appVer:'1.78'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1860,11 +1860,10 @@ async function showCC(from,to){
   }catch(e){if(S.ccFrom!==from||S.ccTo!==to)return;S.ccErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='cc')paint();
 }
-/* ====== 1.77 «Мои записи» в цветном дне смены: пилот только person_id=1.
+/* ====== 1.78 «Мои записи» в цветном дне смены: только действующие врачи.
    Читает отдельный серверный снимок; не вызывает Vetmanager из браузера и не обращается к финансам. ====== */
-const APPT_PILOT_PERSON=1;
 const APPT={rows:null,status:'idle',error:null,updatedAt:null,day:null};
-const apptAllowed=()=>!!(S.person&&String(S.person.id)===String(APPT_PILOT_PERSON));
+const apptAllowed=()=>!!(S.person&&S.loginList.some(p=>String(p.id)===String(S.person.id)&&p.doc===true));
 function apptReset(){APPT.rows=null;APPT.status='idle';APPT.error=null;APPT.updatedAt=null;APPT.day=null}
 const apptInWindow=dt=>dt>=omskToday()&&dt<=addDays(omskToday(),7);
 async function loadAppointments(){
