@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.75'
+  appVer:'1.76'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -526,7 +526,7 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.sch=null;S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -588,8 +588,9 @@ function render(){
   else if(S.view==='pay')app.innerHTML=payHtml();
   else if(S.view==='mu')app.innerHTML=muHtml();
   else if(S.view==='sched')app.innerHTML=schedHtml();
-  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')||S.view==='sched'))bar.innerHTML=navHtml();
-  else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'||S.view==='sched'))bar.innerHTML=navHtml(anav());
+  else if(S.view==='appointments')app.innerHTML=appointmentsHtml();
+  if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')||S.view==='sched'||S.view==='appointments'))bar.innerHTML=navHtml();
+  else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'||S.view==='sched'||S.view==='appointments'))bar.innerHTML=navHtml(anav());
 }
 function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
@@ -921,7 +922,7 @@ const NAV=[['branch','Отчёт','✎'],['ctl','Контроль','⚑'],['rev'
 /* 1.52: новый вид руководителя; старый доступен в Меню («Вернуться к прежнему виду») */
 const uiNew=()=>isHead()&&LS.get('ev_ui')!=='old';
 const NAVN=[['branch','Сегодня','☀'],['ctl','Контроль','⚑'],['rev','Выручка','₽'],['pay','Зарплата','≡'],['safe','Сейф','▣'],['sched','График','▦'],['ppl','Люди','☺']];
-const navCur=()=>S.view==='pay'?(S.pplMode?'ppl':S.paySafe?'safe':'pay'):S.view==='sal'?'pay':S.view;
+const navCur=()=>S.view==='appointments'?'sched':S.view==='pay'?(S.pplMode?'ppl':S.paySafe?'safe':'pay'):S.view==='sal'?'pay':S.view;
 function navHtml(list){const nw=!list&&uiNew(),cur=nw?navCur():S.view;return '<nav class="nv'+(list?'':' hd')+(nw?' n5':'')+'">'+(list||(nw?NAVN:NAV)).map(n=>'<button data-act="go" data-v="'+n[0]+'" class="'+(cur===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</button>').join('')+'</nav>'}
 async function showControl(){
   S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();loadVmNames();
@@ -1860,6 +1861,50 @@ async function showCC(from,to){
   }catch(e){if(S.ccFrom!==from||S.ccTo!==to)return;S.ccErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='cc')paint();
 }
+/* ====== 1.76 «Мои записи»: пилот только person_id=1.
+   Читает отдельный серверный снимок; не вызывает Vetmanager из браузера и не обращается к финансам. ====== */
+const APPT_PILOT_PERSON=1;
+const APPT={rows:null,status:'idle',error:null,updatedAt:null,day:null};
+const apptAllowed=()=>!!(S.person&&String(S.person.id)===String(APPT_PILOT_PERSON));
+function apptReset(){APPT.rows=null;APPT.status='idle';APPT.error=null;APPT.updatedAt=null;APPT.day=null}
+async function showAppointments(){
+  if(!apptAllowed())return;
+  closeOv();S.view='appointments';APPT.status='loading';APPT.error=null;APPT.day=APPT.day||omskToday();paint();window.scrollTo(0,0);
+  try{
+    const from=omskToday(),to=addDays(from,7);
+    const r=await rpc('ev_my_appointments',{p_token:S.token,p_from:from,p_to:to},8000);
+    if(r&&r.error==='session'){logout();toast('Сессия закончилась. Войдите заново.');return}
+    if(!r||!r.ok||r.error==='forbidden'){APPT.status='unavailable';APPT.error='Записи для этой учётной записи недоступны.'}
+    else{
+      const allowed=new Set(['id','date','time','end','branch','status','pet_id','alias','species','reason']);
+      const states=new Set(['booked','unconfirmed','cancelled','waiting','in_treatment','completed','overdue','reschedule_requested']);
+      const rows=(Array.isArray(r.rows)?r.rows:[]).map(x=>{
+        if(!x||Object.keys(x).some(k=>!allowed.has(k))||!x.id||!/^\d{4}-\d{2}-\d{2}$/.test(x.date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.end)||!['marksa','70let','pereleta'].includes(x.branch)||!states.has(x.status))throw Error('contract');
+        const row={};Object.keys(x).forEach(k=>{if(x[k]!=null&&typeof x[k]!=='string'&&typeof x[k]!=='number')throw Error('contract');row[k]=x[k]});return row
+      });
+      if(new Set(rows.map(x=>String(x.id))).size!==rows.length)throw Error('contract');
+      APPT.rows=rows;APPT.updatedAt=Number(r.updated_at)||null;APPT.status=r.status||'complete';APPT.error=r.error||null;
+    }
+  }catch(e){APPT.status='unavailable';APPT.error=e.net?'Нет связи.':'Не удалось загрузить снимок записей.'}
+  if(S.view==='appointments')paint();
+}
+function appointmentsHtml(){
+  const br={marksa:'Маркса, 45','70let':'70 лет Октября, 20',pereleta:'Перелёта, 19'};
+  const st={booked:'запланирован',unconfirmed:'не подтверждён',cancelled:'отменён',waiting:'ожидает',in_treatment:'у врача',completed:'завершён',overdue:'просрочен',reschedule_requested:'перенос'};
+  let h='<div class="card"><button class="btn sec small" data-act="schedopen" style="margin:0 0 10px">← График</button><h2>Мои записи</h2><p class="hint">Вспомогательный снимок на ближайшие 8 дней. Обновляется в 11:00, 15:00, 18:00 и 21:30 по Омску.</p>';
+  if(APPT.status==='loading')return h+'<p class="hint">Загружаю сохранённый снимок…</p></div>';
+  if(APPT.status==='unavailable')return h+'<p class="hint" style="color:var(--bad)">'+esc(APPT.error||'Записи недоступны')+'</p></div>';
+  if(APPT.updatedAt)h+='<p class="hint">Данные на '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(APPT.updatedAt))+' по Омску</p>';
+  const rows=(APPT.rows||[]).filter(x=>x.status!=='cancelled'),days=[...new Set(rows.map(x=>x.date))].sort();
+  if(!days.length)return h+'<p>Записей на ближайшие дни нет.</p></div>';
+  if(!days.includes(APPT.day))APPT.day=days[0];
+  h+='<div class="chips">'+days.map(d=>'<button class="chip'+(d===APPT.day?' on':'')+'" data-act="apptday" data-d="'+d+'">'+ruDate(d)+'</button>').join('')+'</div>';
+  rows.filter(x=>x.date===APPT.day).forEach(x=>{
+    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span><span class="chip">'+esc(st[x.status]||x.status)+'</span></div>'+(x.reason?'<p style="margin:8px 0 0">'+esc(x.reason)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
+  });
+  return h+'</div>';
+}
+
 /* ====== 1.71 График: «Мои смены» и «Кто где». Отдельно от финансов: читает только ev_whos_where, в ответе нет ни денег, ни часов ====== */
 const SCH_B={marksa:['Маркса, 45','Маркса','#b5185c'],'70let':['70 Лет Октября, 20','70 лет','#0e8a6a'],pereleta:['Перелёта, 19','Перелёта','#1d4ed8'],cc:['Колл-центр','КЦ','#6b7280']};
 const SCH_BO=['marksa','70let','pereleta','cc'];
@@ -1910,7 +1955,7 @@ function schCal(m,cell){
   const tail=(7-(lead+n)%7)%7;for(let j=1;j<=tail;j++)h+='<div class="sch-d o">'+j+'</div>';
   return '<div class="sch-cal">'+h+'</div>'}
 function schHead(s){
-  return '<div class="chips"><button class="tile'+(s.tab==='my'?' on':'')+'" data-act="schtab" data-t="my">Мои смены</button><button class="tile'+(s.tab==='all'?' on':'')+'" data-act="schtab" data-t="all">Кто где</button></div>'
+  return (apptAllowed()?'<button class="btn" data-act="apptopen" style="margin:0 0 10px">Мои записи</button>':'')+'<div class="chips"><button class="tile'+(s.tab==='my'?' on':'')+'" data-act="schtab" data-t="my">Мои смены</button><button class="tile'+(s.tab==='all'?' on':'')+'" data-act="schtab" data-t="all">Кто где</button></div>'
    +'<div class="sch-top"><button data-act="schmon" data-n="-1" aria-label="Предыдущий месяц">‹</button><b>'+schTitle(s.m)+'</b><button data-act="schmon" data-n="1" aria-label="Следующий месяц">›</button></div>'}
 function schMy(s,rows){
   const today=omskToday(),mine=rows.filter(r=>r.mine);
@@ -2263,6 +2308,8 @@ document.addEventListener('click',async e=>{
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
     case'menu':showMenu();break;
+    case'apptopen':showAppointments();break;
+    case'apptday':APPT.day=d.d;paint();break;
     case'schedopen':showSched();break;
     case'schtab':schEnsure().tab=d.t;paint();break;
     case'schday':schEnsure().day=d.d;paint();break;
