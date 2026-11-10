@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.79'
+  appVer:'1.80'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1449,6 +1449,16 @@ function payDatesGo(){
   S.payDates=false;
   if(list.length===1)showPay(list[0][0],list[0][1]);else showPayMulti(list);
 }
+function payrollDoctorRows(r,rows){
+  const people=r.people||[],byId=new Map(rows.map(x=>[String(x.id),x]));
+  const out=people.filter(x=>x.role==='doctor').map(p=>{
+    const x=byId.get(String(p.id));
+    if(x)return {...x,_doctorMissing:!(r.doctor_files||[]).length&&!Number((x.parts||{}).doctor)};
+    return {id:Number(p.id),name:p.name,accrued:0,parts:{},paid:0,to_pay:0,over_paid:false,paid_card:0,paid_cash:0,paid_adv:0,closed:false,diff:0,adv_debt:0,_doctorMissing:!(r.doctor_files||[]).length};
+  });
+  rows.filter(x=>x.parts&&Number(x.parts.doctor)&&!out.some(d=>String(d.id)===String(x.id))).forEach(x=>out.push(x));
+  return out;
+}
 function payHtml(){
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),f=S.payFrom||(ps>=PAY_START?ps:cs),t=S.payTo||(ps>=PAY_START?pe:perEnd(cs)),r=S.pay;
   const mu=!!(r&&r.multi)||!!S.payMulti;
@@ -1478,10 +1488,11 @@ function payHtml(){
     +'</div>';
   (r.warnings||[]).forEach(w=>{h+='<div class="chk warn"><i>!</i><div>'+esc(w)+'</div></div>'});
   const GRP=[['doctor','Врачи'],['outsource','Аутсорс'],['admin','Администраторы'],['assistant','Ассистенты'],['callcenter','Колл-центр'],['fixed','Оклад']];
-  const rows=r.rows||[],has=g=>rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
-  let pt=S.payTab||'all';const q=(S.paySearch||'').trim().toLowerCase();if(pt!=='all'&&!has(pt))pt='all';
-  const shown=(pt==='all'?rows:rows.filter(x=>x.parts&&Number(x.parts[pt]))).filter(x=>!q||String(x.name).toLowerCase().includes(q));
-  h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="paytab" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'+GRP.filter(g=>has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="paytab" data-k="'+g[0]+'"><span>'+g[1]+'</span> <b>'+has(g[0])+'</b></button>').join('')+'</div><input id="paysr" class="srch" placeholder="Найти сотрудника" value="'+esc(S.paySearch||'')+'" autocomplete="off">';
+  const rows=r.rows||[],doctorRows=payrollDoctorRows(r,rows);
+  const has=g=>g==='doctor'?doctorRows.length:rows.filter(x=>x.parts&&x.parts[g]!=null&&Number(x.parts[g])).length;
+  let pt=S.payTab||'all';const q=(S.paySearch||'').trim().toLowerCase();if(pt!=='all'&&pt!=='doctor'&&!has(pt))pt='all';
+  const shown=(pt==='all'?rows:pt==='doctor'?doctorRows:rows.filter(x=>x.parts&&Number(x.parts[pt]))).filter(x=>!q||String(x.name).toLowerCase().includes(q));
+  h+='<div class="card"><h3 style="margin-top:2px">По сотрудникам</h3><div class="wktabs"><button class="chip'+(pt==='all'?' on':'')+'" data-act="paytab" data-k="all"><span>Все</span> <b>'+rows.length+'</b></button>'+GRP.filter(g=>g[0]==='doctor'||has(g[0])).map(g=>'<button class="chip'+(pt===g[0]?' on':'')+'" data-act="paytab" data-k="'+g[0]+'"><span>'+g[1]+'</span> <b>'+has(g[0])+'</b></button>').join('')+'</div><input id="paysr" class="srch" placeholder="Найти сотрудника" value="'+esc(S.paySearch||'')+'" autocomplete="off">';
   const sel=S.paySel||(S.paySel={});const canClose=!r.provisional&&!r.multi;
   const list=shown.filter(x=>!S.payOnly||(!x.closed&&Number(x.to_pay)>0.005));
   h+='<div class="chips" style="margin:4px 0"><button class="chip'+(S.payOnly?' on':'')+'" data-act="payonly">Только с остатком</button>'
@@ -1490,13 +1501,13 @@ function payHtml(){
     const ks=Object.keys(x.parts||{}).filter(k=>Number(x.parts[k])),op=String(S.payOpen)===String(x.id);
     const br=[];if(Number(x.paid_card))if(Number(x.paid_cash))br.push('наличные '+money(Number(x.paid_cash)));if(Number(x.paid_adv))br.push('аванс '+money(Number(x.paid_adv)));
     const tp=Number(x.to_pay),tcls=x.over_paid?' over':(tp<=0.005?' zero':''),tlab=x.over_paid?'Переплата (проверить)':(tp<=0.005?'Выплачено полностью ✓':'К выплате сейчас');
-    h+='<div class="person pc'+(x.closed?' done':'')+'" style="cursor:pointer"><div class="pcrow"><div><div class="srow" data-act="payopenp" data-id="'+x.id+'"><span>'+(canClose&&!x.closed?'<input type="checkbox" data-act="paysel" data-id="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:20px;height:20px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span></div>'
+    h+='<div class="person pc'+(x.closed?' done':'')+'" style="cursor:pointer"><div class="pcrow"><div><div class="srow" data-act="payopenp" data-id="'+x.id+'"><span>'+(canClose&&!x.closed&&!x._doctorMissing?'<input type="checkbox" data-act="paysel" data-id="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:20px;height:20px;vertical-align:middle;margin-right:8px">':'')+'<b>'+esc(x.name)+'</b><br><small style="color:var(--mute)">'+(x._doctorMissing?'Начисления врача за период не загружены':ks.length>1?ks.map(k=>PAY_PART[k]||k).join(' + '):esc(PAY_PART[ks[0]]||''))+'</small></span></div>'
       +'<div class="two"><span>начислено <b>'+money(Number(x.accrued))+'</b></span><span>выплачено <b>'+money(Number(x.paid))+'</b></span></div>'+(br.length?'<small class="two" style="display:block;margin-top:2px">'+br.join(' · ')+'</small>':'')+'</div>'
       +'<div class="topay'+tcls+'"><span>'+tlab+'</span><b>'+money(tp)+'</b></div></div>'
       +(x.closed?'<div class="srow sub"><span>✓ Рассчитан, разница</span><b>'+sgn(Number(x.diff||0))+'</b></div>':'')
       +(Number(x.adv_debt)?'<div class="srow sub"><span>долг по авансу</span><b style="color:var(--red,#c0392b)">'+money(Number(x.adv_debt))+'</b></div>':'')
       +(op?ks.map(k=>'<div class="srow sub"><span>· '+esc(PAY_PART[k]||k)+'</span><b>'+money(Number(x.parts[k]))+'</b></div>').join(''):(ks.length>1?'<small style="color:var(--mute)">нажмите на имя, чтобы раскрыть состав</small>':''))
-      +'<div class="chips" style="margin-top:8px">'+(canClose&&!x.closed?'<button class="btn small" data-act="payclose1" data-id="'+x.id+'">Рассчитан</button>':'')
+      +'<div class="chips" style="margin-top:8px">'+(canClose&&!x.closed&&!x._doctorMissing?'<button class="btn small" data-act="payclose1" data-id="'+x.id+'">Рассчитан</button>':'')
       +'<button class="btn small sec" data-act="paycard" data-id="'+x.id+'">История и выплаты</button></div></div>';
   });
   const nsel=Object.keys(sel).filter(k=>sel[k]).length;
