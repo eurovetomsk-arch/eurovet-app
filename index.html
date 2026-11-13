@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.80'
+  appVer:'1.82'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -301,9 +301,11 @@ const S={
   person:LS.get('ev_person'),
   branch:null,date:omskToday(),dateManual:false,ctx:null,ctxOffline:false,
   form:null,loginList:LS.get('ev_loginlist',[]),pick:LS.get('ev_last'),
-  queue:LS.get('ev_queue',[]),online:navigator.onLine,done:null,busy:false
+  queue:LS.get('ev_queue',[]),handoverQueue:LS.get('ev_handover_queue',[]),handover:null,
+  online:navigator.onLine,done:null,busy:false
 };
 const saveQueue=()=>LS.set('ev_queue',S.queue);
+const saveHandoverQueue=()=>LS.set('ev_handover_queue',S.handoverQueue);
 (function cleanDrafts(){ // старые форматы и черновики старше 8 дней (сдать их уже нельзя)
   try{
     const lim=new Date(Date.now()-8*864e5).toISOString().slice(0,10);
@@ -470,9 +472,11 @@ async function flush(auto){
 function resetOffline(){S.queue.forEach(x=>{if(x.status==='offline')x.status='new'})}
 // «пнуть» отправку: вернулась связь, приложение снова на экране, нажата кнопка
 function kick(){
-  if(!S.queue.length)return;
-  if(flushing){wantAgain=true;try{flushRef.c&&flushRef.c.abort()}catch(e){}return}
-  resetOffline();flush();
+  if(S.queue.length){
+    if(flushing){wantAgain=true;try{flushRef.c&&flushRef.c.abort()}catch(e){}}
+    else{resetOffline();flush()}
+  }
+  kickHandover();
 }
 
 async function submit(){
@@ -526,7 +530,77 @@ async function doLogin(pin){
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.busy=false;render();
 }
-function logout(){S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.handover=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+
+/* ====== Теневая приёмка переходящей кассы (v1.82, отдельно от отчёта) ====== */
+const handoverCacheKey=(branch,date)=>'ev_handover_ctx:'+branch+':'+date;
+let handoverFlushing=false;
+function handoverPending(branch,date){return S.handoverQueue.find(x=>x.branch===branch&&x.date===date)}
+async function loadHandover(){
+  const branch=S.branch,date=S.date;
+  S.handover={loading:true,ctx:null,actual:'',error:null,offline:false};
+  if(S.view==='form')render();
+  let h=null;
+  try{
+    h=await rpc('ev_cash_handover_context',{p_token:S.token,p_branch:branch,p_date:date},8000);
+    if(h&&h.ok)LS.set(handoverCacheKey(branch,date),h);
+  }catch(e){
+    if(!e.net){h={ok:false,error:'server'};}
+    else{h=LS.get(handoverCacheKey(branch,date));if(h)h=Object.assign({},h,{cached:true});}
+  }
+  if(S.branch!==branch||S.date!==date||S.view!=='form')return;
+  if(!h){S.handover={loading:false,ctx:null,actual:'',error:'Нет связи: ожидаемая сумма не подтверждена сервером.',offline:true};}
+  else if(!h.ok){S.handover={loading:false,ctx:null,actual:'',error:h.error==='forbidden'?null:'Контроль приёмки временно недоступен.',offline:false};}
+  else S.handover={loading:false,ctx:h,actual:'',error:null,offline:!!h.cached};
+  render();
+}
+async function flushHandover(auto){
+  if(handoverFlushing||!S.handoverQueue.length||!S.token)return;
+  handoverFlushing=true;let changed=false;
+  try{
+    for(const it of S.handoverQueue.slice()){
+      if(auto&&it.status==='error')continue;
+      const actorId=S.person&&S.person.id!=null?String(S.person.id):'';
+      if(!it.actor_id||String(it.actor_id)!==actorId){it.status='wrong_actor';it.error='wrong_actor';continue}
+      let res;
+      try{
+        if(it.kind==='correction')res=await rpc('ev_cash_handover_correct',{p_token:S.token,p_event_id:it.event_id,p_actual:it.actual,p_reason:it.reason,p_client_uid:it.uid,p_client_time:it.client_time,p_device:DEV},12000);
+        else res=await rpc('ev_cash_handover_accept',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_actual:it.actual,p_source_fingerprint:it.source_fingerprint,p_client_uid:it.uid,p_client_time:it.client_time,p_device:DEV},12000);
+      }catch(e){if(e.net){it.status='offline';break}it.status='error';it.error='server';continue}
+      if(res.ok){changed=true;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==it.uid);saveHandoverQueue();if(S.handover)S.handover.receipt=res;}
+      else{
+        it.status='error';it.error=res.error;
+        if(S.handover)S.handover.error=res.error==='source_changed'?'Вчерашний отчёт изменился. Обновите экран и пересчитайте кассу.':res.error==='already_accepted'?'Касса уже принята другим подтверждённым действием. Обновите экран.':res.error==='stale_event'?'Эта запись уже исправлена. Обновите экран.':'Не удалось сохранить приёмку: '+res.error;
+      }
+    }
+  }finally{
+    handoverFlushing=false;saveHandoverQueue();
+    if(S.view==='form'){if(changed)await loadHandover();else render();}
+  }
+}
+function kickHandover(){S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});flushHandover()}
+function acceptHandover(){
+  const h=S.handover&&S.handover.ctx,el=document.getElementById('ho-actual');
+  const actual=num(el&&el.value);
+  if(!h||h.mode==='off'){toast('Контроль приёмки ещё не включён');return}
+  if(!h.can_accept){toast('Приёмку подписывает администратор под своей фамилией');return}
+  if(actual==null||isNaN(actual)||actual<0){toast('Впишите фактически принятую сумму');return}
+  if(!h.source||!h.source.fingerprint){toast('Нет подтверждённого итога предыдущего отчёта. Приёмку пока нельзя подписать.',6000);return}
+  if(handoverPending(S.branch,S.date)){toast('Эта приёмка уже ждёт отправки');return}
+  S.handoverQueue.push({kind:'accept',uid:uid(),actor_id:String(S.person.id),actor_name:S.person.name||'',branch:S.branch,date:S.date,actual:r2(actual),source_fingerprint:h.source.fingerprint,client_time:new Date().toISOString(),status:'new'});
+  saveHandoverQueue();render();flushHandover();
+}
+function handoverCorrectForm(){
+  const h=S.handover&&S.handover.ctx,c=h&&h.current;if(!c||!h.can_correct)return;
+  overlay('<h2>Исправить принятую сумму</h2><p class="hint">Старая подпись не удаляется. Будет добавлена новая запись с причиной.</p><label class="f"><span>Фактически принято, ₽</span><input id="ho-correct-actual" inputmode="decimal" autocomplete="off" value=""></label><label class="f"><span>Причина исправления</span><textarea id="ho-correct-reason" rows="2"></textarea></label><button class="btn" data-act="hocorrectgo" data-id="'+c.id+'">Сохранить исправление</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>');
+}
+function handoverCorrectGo(eventId){
+  const actual=num((document.getElementById('ho-correct-actual')||{}).value),reason=((document.getElementById('ho-correct-reason')||{}).value||'').trim();
+  if(actual==null||isNaN(actual)||actual<0){toast('Впишите фактически принятую сумму');return}
+  if(reason.length<3){toast('Напишите причину исправления');return}
+  S.handoverQueue.push({kind:'correction',uid:uid(),actor_id:String(S.person.id),actor_name:S.person.name||'',branch:S.branch,date:S.date,event_id:Number(eventId),actual:r2(actual),reason,client_time:new Date().toISOString(),status:'new'});
+  saveHandoverQueue();closeOv();render();flushHandover();
+}
 
 async function openBranch(id){
   S.branch=id;S.busy=true;render();
@@ -555,6 +629,7 @@ async function openBranch(id){
   else S.form=freshForm();
   S.busy=false;S.view='form';S.flags=null;render();
   if(ctx.current&&!S.ctxOffline)loadFlags(id,S.date);
+  if(!S.ctxOffline)loadHandover();
 }
 
 /* ====== Отрисовка ====== */
@@ -566,7 +641,7 @@ function setHeader(){
     (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'<button class="pill" data-act="menu">Меню</button></div>';
 }
 function netBadge(){
-  const q=S.queue.length;
+  const q=S.queue.length+S.handoverQueue.length;
   const nr=S.queue.some(x=>x.status==='needs_reason');
   const lab=q?('ждёт: '+q+(nr?' · причина':'')):(S.online?'онлайн':'нет связи');
   return '<button class="pill" data-act="queue" title="'+(S.online?'Связь есть':'Нет связи')+'"><span class="net'+(S.online?'':' off')+'"></span>'+lab+'</button>';
@@ -675,6 +750,30 @@ const HINTS={
 const hbtn=k=>'<button type="button" class="q" data-act="hint" data-h="'+k+'" aria-label="Подсказка">?</button>';
 const nfield=(p,label,val,extra='',hk='')=>'<label class="f"><span>'+label+(hk?hbtn(hk):'')+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" '+extra+'></label>';
 
+function handoverHtml(){
+  const s=S.handover;if(!s)return '';
+  if(s.loading)return '<div class="card"><h2>Приём кассы</h2><p class="hint">Проверяем ожидаемый переходящий остаток…</p></div>';
+  const h=s.ctx;if(!h||!h.ok||h.mode==='off')return '';
+  const p=handoverPending(S.branch,S.date);
+  let x='<div class="card"><h2>Приём кассы <small style="font-weight:400;color:var(--mute)">теневой контроль</small></h2>'+
+    '<p class="hint">Ожидаемая сумма берётся из последнего отчёта и не редактируется. Фактическую сумму администратор вводит руками под своей фамилией. Этот теневой блок пока не меняет и не блокирует основной отчёт.</p>';
+  if(h.source)x+='<div class="sum"><span>Должно быть в кассе</span><b>'+money(Number(h.expected))+'</b></div><p class="hint">Источник: итог отчёта за '+ruDate(h.source.report_date)+', версия '+h.source.report_version+'.</p>';
+  else x+='<div class="chk warn"><i>!</i><div>Нет подтверждённого предыдущего отчёта — ожидаемую сумму определить нельзя.</div></div>';
+  if(s.offline||h.cached)x+='<div class="chk warn"><i>!</i><div>Показан последний сохранённый источник. При отправке сервер заново проверит его версию; устаревшую приёмку не примет.</div></div>';
+  if(h.current){
+    const bad=h.current.status==='discrepancy';
+    x+='<div class="chk '+(bad?'bad':'ok')+'"><i>'+(bad?'!':'✓')+'</i><div><b>'+(bad?'Есть расхождение':'Касса принята')+'</b><br>Фактически: '+money(Number(h.current.actual))+(h.current.diff!=null?' · разница '+money(Number(h.current.diff)):'')+'<br><small>'+esc(h.current.accepted_by)+' · '+new Date(h.current.accepted_at).toLocaleString('ru-RU',{timeZone:'Asia/Omsk'})+'</small></div></div>';
+    if(h.can_correct)x+='<button class="btn sec small" data-act="hocorrect">Исправить отдельной записью</button>';
+  }else if(h.can_accept&&h.source){
+    x+='<label class="f"><span>Фактически принято, ₽</span><input id="ho-actual" inputmode="decimal" autocomplete="off" placeholder="Введите сумму руками"></label>'+
+      '<p class="hint">Принимает: <b>'+esc(S.person&&S.person.name)+'</b>. Нажатие — ваша персональная отметка о фактически принятой сумме.</p>'+
+      '<button class="btn" data-act="hoaccept"'+(p?' disabled':'')+'>'+(p?'Ждёт отправки':'Подтвердить приём кассы')+'</button>';
+  }
+  if(p)x+='<p class="hint">'+(p.status==='wrong_actor'?'Запись ждёт входа того сотрудника, который её создал'+(p.actor_name?': '+esc(p.actor_name):'')+'. Подпись другого сотрудника не используется.':'Запись сохранена на устройстве и будет отправлена один раз после восстановления связи.')+'</p>';
+  if(s.error)x+='<div class="chk bad"><i>!</i><div>'+esc(s.error)+'</div></div>';
+  return x+'</div>';
+}
+
 function viewForm(){
   const f=S.form,c=S.ctx;let h='';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -683,6 +782,8 @@ function viewForm(){
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
   if(c.current)h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">Выбрать другую дату</button>';
   if(c.current)h+='<div id="flagbox">'+flagsHtml()+'</div>';
+
+  h+=handoverHtml();
 
   h+='<div class="card k-staff"><h2>Смена'+hbtn('admins')+'</h2><h3>Администраторы</h3><div class="tiles">'+
     c.admins.map(a=>'<button class="tile'+(f.admins[a.id]?' on':'')+'" data-act="tog" data-g="admins" data-id="'+a.id+'">'+esc(a.name)+'</button>').join('')+'</div>';
@@ -895,7 +996,7 @@ function flagLine(f,where){
     +(nums?'<br><small>'+esc(nums)+'</small>':'')
     +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
-    +(isHead()&&!f.accepted?'<br><span class="fbtns"><button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button><button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
+    +(isHead()&&!f.accepted&&!['vm_not_checked','vm_partial'].includes(f.code)?'<br><span class="fbtns"><button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button><button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
     +'</div></div>';
 }
 function flagsHtml(){
@@ -928,7 +1029,8 @@ async function showControl(){
   try{
     const to=omskToday(),from=addDays(to,-6);
     const r=await rpc('ev_flags_overview',{p_token:S.token,p_from:from,p_to:to},10000);
-    if(!r||!r.ok)S.ctlErr=(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.');else S.ctl=r.flags||[];
+    if(!r||!r.ok)S.ctlErr=(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.');
+    else{S.ctl=r.flags||[];S.ctlCoverage=r.coverage||[]}
   }catch(e){S.ctlErr=e.net?'Нет связи.':'Ошибка сервера.'}
   S.ctlLoad=false;if(S.view==='ctl')paint();
 }
@@ -937,9 +1039,11 @@ function ctlHtml(){
   if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
   else{
-    const fl=S.ctl||[],open=fl.filter(f=>!f.accepted);
-    h+='<p class="hint">Открытых расхождений: '+open.length+'. Проверки кассы и сумм считаются сразу, сверка с Vetmanager — ночью.</p>';
-    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):'<p>Расхождений нет.</p>';
+    const fl=S.ctl||[],open=fl.filter(f=>!f.accepted),cv=S.ctlCoverage||[];
+    const complete=cv.filter(x=>x.status==='complete').length,incomplete=cv.length-complete;
+    h+='<p class="hint">Открытых расхождений: '+open.length+'. Vetmanager подтверждён для '+complete+' из '+cv.length+' текущих версий отчётов.</p>';
+    if(incomplete)h+='<div class="chk bad"><i>!</i><div><b>Неполное покрытие Vetmanager: '+incomplete+'</b><br><small>«0 расхождений» не показывается, пока не проверены счета, платежи, касса и ответственные строк.</small></div></div>';
+    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cv.length&&complete===cv.length?'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>':'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
   }
   return h+'</div>';
 }
@@ -2161,13 +2265,18 @@ function showMenu(){
   overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="schedopen">График смен</button><button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
 }
 function showQueue(){
-  let h='<h2>Отправка отчётов</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — отчёты ждут на устройстве.')+'</p>';
-  if(!S.queue.length)h+='<p>Всё отправлено, очередь пуста.</p>';
+  let h='<h2>Отправка данных</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — записи ждут на устройстве.')+'</p>';
+  if(!S.queue.length&&!S.handoverQueue.length)h+='<p>Всё отправлено, очередь пуста.</p>';
   S.queue.forEach(it=>{
     h+='<div class="person"><b>'+esc(it.branchTitle)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc({new:'ожидает',offline:'нет связи, повторим',error:'ошибка: '+(it.err||''),needs_reason:'нужна причина исправления',need_login:'нужно войти заново'}[it.status]||it.status)+'</small>';
     if(it.status==='needs_reason')h+='<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'"></label><button class="btn small" data-act="setReason" data-id="'+it.uid+'">Отправить с причиной</button>';
     h+=' <button class="btn sec small" data-act="copyq" data-id="'+it.uid+'">Копировать итоги</button>';
     if(it.status==='error'||it.status==='need_login'||it.status==='needs_reason')h+=' <button class="btn sec small" data-act="dropq" data-id="'+it.uid+'">Убрать из очереди</button>';
+    h+='</div>';
+  });
+  S.handoverQueue.forEach(it=>{
+    h+='<div class="person"><b>Приём кассы · '+esc((BRANCHES.find(b=>b.id===it.branch)||{}).title||it.branch)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc(it.status==='error'?'ошибка: '+(it.error||''):it.status==='offline'?'нет связи, повторим':'ожидает отправки')+'</small>';
+    if(it.status==='error')h+=' <button class="btn sec small" data-act="drophq" data-id="'+it.uid+'">Убрать из очереди</button>';
     h+='</div>';
   });
   h+='<button class="btn" style="margin:6px 0" data-act="flush">Отправить сейчас</button><button class="btn sec" data-act="ovclose">Закрыть</button>';
@@ -2280,6 +2389,9 @@ document.addEventListener('click',async e=>{
     case'payper':showPay(d.from,d.to);break;
     case'paycopy':copyPayroll();break;
     case'mrok':mrDecide(d.id,'confirm');break;
+    case'hoaccept':acceptHandover();break;
+    case'hocorrect':handoverCorrectForm();break;
+    case'hocorrectgo':handoverCorrectGo(d.id);break;
     case'lvok':lvDecide(Number(d.i),'confirmed');break;
     case'lvno':lvDecide(Number(d.i),'rejected');break;
     case'mrno':{const inp=document.getElementById('mra-'+d.id),v=inp?Number(String(inp.value).replace(/\s/g,'').replace(',','.')):NaN;if(!inp||inp.value.trim()===''||!isFinite(v)||v<0){toast('Впишите, сколько на самом деле забрали (0 тоже можно)',5000);break}mrDecide(d.id,'dispute',v);break}
@@ -2316,7 +2428,8 @@ document.addEventListener('click',async e=>{
     case'copy':if(S.done)clip(S.done.summary);break;
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
-    case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
+    case'drophq':{const it=S.handoverQueue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать неотправленную приёмку кассы из очереди?'))break;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==d.id);saveHandoverQueue();showQueue();render();break}
+    case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length&&!S.handoverQueue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
     case'menu':showMenu();break;
     case'schappt':{const s=schEnsure();s.apptDay=d.d;if(APPT.status==='idle')loadAppointments();else paint();break}
     case'schedopen':showSched();break;
@@ -2334,8 +2447,8 @@ document.addEventListener('click',async e=>{
     case'tochecks':{const e=$('#chkcard');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});break}
     case'hint':{const h=HINTS[d.h];if(!h)break;if(isField(document.activeElement))document.activeElement.blur();
       overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
-    case'logout':closeOv();if(S.queue.length&&!confirm('Есть неотправленные отчёты. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
-    case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});closeOv();if(flushing){kick()}else await flush();break;
+    case'logout':closeOv();if((S.queue.length||S.handoverQueue.length)&&!confirm('Есть неотправленные данные. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
+    case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')&&!S.handoverQueue.length){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});closeOv();kick();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
       const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
@@ -2381,6 +2494,7 @@ window.addEventListener('pageshow',()=>{syncDate();kick()});
 window.addEventListener('focus',()=>{syncDate();kick()});
 // пока в очереди есть отчёт — пробуем каждые 8 секунд (не полагаясь на navigator.onLine: на iPhone он врёт)
 setInterval(()=>{if(S.queue.length&&!flushing){resetOffline();flush(true)}},8000);
+setInterval(()=>{if(S.handoverQueue.length&&!handoverFlushing)flushHandover(true)},8000);
 
 /* ====== Обновление страницы без переустановки ====== */
 let updLast=0;

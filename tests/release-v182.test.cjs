@@ -1,0 +1,65 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+const html = fs.readFileSync('index.html', 'utf8');
+const sw = fs.readFileSync('sw.js', 'utf8');
+const sql = fs.readFileSync('migrations/20261113_cash_handover_shadow.sql', 'utf8');
+const vmSql = fs.readFileSync('migrations/20261113_vetmanager_coverage_gate.sql', 'utf8');
+const acceptedFixSql = fs.readFileSync('migrations/20261113_vetmanager_coverage_accepted_fix.sql', 'utf8');
+const aclFixSql = fs.readFileSync('migrations/20261113_vetmanager_coverage_gate_acl_fix.sql', 'utf8');
+const fkSql = fs.readFileSync('migrations/20261113_cash_handover_fk_indexes.sql', 'utf8');
+const rollback = fs.readFileSync('migrations/20261113_cash_handover_shadow_rollback.sql', 'utf8');
+
+assert.match(html, /appVer:'1\.82'/, 'unique app version');
+assert.match(sw, /const V='ev-shell-v82'/, 'unique PWA cache');
+assert.match(html, /ev_cash_handover_context/, 'context RPC is wired');
+assert.match(html, /ev_cash_handover_accept/, 'accept RPC is wired');
+assert.match(html, /ev_cash_handover_correct/, 'correction RPC is wired');
+assert.match(html, /id="ho-actual"[^>]*placeholder="Введите сумму руками"/, 'actual starts blank and is manual');
+assert.match(html, /Должно быть в кассе/, 'expected amount is display-only');
+assert.match(html, /не меняет и не блокирует основной отчёт/, 'shadow mode is explicit');
+assert.match(html, /source_changed/, 'stale source is handled');
+assert.match(html, /ev_handover_queue/, 'offline queue is isolated');
+assert.match(html, /actor_id:String\(S\.person\.id\)/, 'queued handover is bound to its creator');
+assert.match(html, /String\(it\.actor_id\)!==actorId/, 'another logged-in actor cannot send the queued signature');
+assert.match(html, /status='wrong_actor'/, 'wrong actor stays queued instead of being re-signed');
+
+assert.match(sql, /values \(1, 'off'\)/, 'feature flag defaults off');
+assert.match(sql, /enable row level security/g, 'RLS enabled');
+assert.match(sql, /revoke all on table public\.ev_cash_handover_events from public, anon, authenticated/, 'no table access');
+assert.match(sql, /before update or delete/, 'events cannot be edited or deleted');
+assert.match(sql, /before truncate/, 'events cannot be truncated');
+assert.match(sql, /pg_advisory_xact_lock/, 'concurrent acceptance is serialized');
+assert.match(sql, /p_source_fingerprint is distinct from v_source_fingerprint/, 'stale baseline is rejected');
+assert.match(sql, /session_id bigint not null references public\.ev_sessions/, 'server session is recorded');
+assert.match(sql, /r\.role = 'admin'/, 'real acceptance requires active admin role');
+assert.match(sql, /p_branch = 'test' and public\.ev__is_head/, 'head test access is isolated to test branch');
+assert.match(sql, /case when abs\(v_diff\) <= 0\.01 then 'matched' else 'discrepancy' end/g, 'money threshold is exact');
+assert.match(sql, /unique.*client_uid|client_uid text not null unique/s, 'idempotency key is unique');
+assert.match(rollback, /set mode = 'off'/, 'rollback is non-destructive');
+assert.match(vmSql, /create table if not exists public\.ev_vm_runs/, 'coverage ledger exists');
+assert.match(vmSql, /enable row level security/, 'coverage ledger uses RLS');
+assert.match(vmSql, /revoke all on table public\.ev_vm_runs from public, anon, authenticated/, 'coverage rows are private');
+assert.match(vmSql, /before update or delete or truncate/, 'coverage ledger is append-only');
+assert.match(vmSql, /doctor_lines_complete/, 'complete coverage requires line responsibility');
+assert.match(vmSql, /p_status = 'complete' and not v_complete/, 'partial data cannot be promoted');
+assert.match(vmSql, /vm_not_checked/, 'missing source becomes an explicit finding');
+assert.match(vmSql, /vm_partial/, 'partial source becomes an explicit finding');
+assert.match(vmSql, /'accepted', case/, 'overview preserves accepted findings compatibility');
+assert.match(acceptedFixSql, /ev_flags_overview_v182_base/, 'production overview is wrapped compatibly');
+assert.match(acceptedFixSql, /vm_not_checked', 'vm_partial'\) then false/, 'coverage failures cannot be accepted away');
+assert.match(aclFixSql, /ev_flags_overview_v182_base[\s\S]*to service_role/, 'base overview is service-role only');
+assert.match(aclFixSql, /ev_flags_overview\(text, date, date\)[\s\S]*to anon, service_role/, 'public overview has exact runtime grants');
+assert.match(fkSql, /ev_cash_handover_accepted_by_idx/, 'accepted-by foreign key is covered');
+assert.match(fkSql, /ev_cash_handover_session_id_idx/, 'session foreign key is covered');
+assert.match(fkSql, /ev_cash_handover_source_report_id_idx/, 'source report foreign key is covered');
+assert.doesNotMatch(html, /«0 расхождений» не показывается[^<]*принять/i, 'coverage cannot be waived in UI');
+
+const state = (expected, actual) => expected == null ? 'no_baseline' : Math.abs(Math.round((actual - expected) * 100) / 100) <= 0.01 ? 'matched' : 'discrepancy';
+assert.equal(state(100, 100), 'matched');
+assert.equal(state(100, 100.01), 'matched');
+assert.equal(state(100, 100.02), 'discrepancy');
+assert.equal(state(100, 99.98), 'discrepancy');
+assert.equal(state(null, 0), 'no_baseline');
+
+console.log('release-v182 static and policy tests: ok');
