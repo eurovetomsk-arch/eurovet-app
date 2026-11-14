@@ -248,7 +248,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.86'
+  appVer:'1.87'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -409,7 +409,7 @@ function validate(){
   const need=(k,l)=>{const v=num(f[k]);if(v==null||isNaN(v))errs.push(l)};
   if(!Object.keys(f.admins).length)errs.push('Отметьте, кто работал администратором');
   need('total','«Клиника общая»');need('cash','«Нал клиники»');need('cashless','«Безнал клиники»');need('open','«Начало смены»');need('close','«Итог инкассации»');
-  if(openingState().mode==='waiting')errs.push('Сначала подтвердите фактически принятую кассу в верхнем блоке');
+  // 2872: an unavailable handover must not prevent the daily report.
   const LBL={ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',debt:'Долг клиентов',repaid:'Погашен прошлый долг',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан',comp:'Компенсация клиенту',cert:'Оплата сертификатом'};
   Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
   Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
@@ -559,7 +559,7 @@ function handoverPending(branch,date){return S.handoverQueue.find(x=>x.branch===
 function handoverHere(){return S.handover&&S.handover.branch===S.branch&&S.handover.date===S.date?S.handover:null}
 function handoverOpening(){
   const p=handoverPending(S.branch,S.date);
-  if(p&&(p.kind==='accept'||p.kind==='correction')&&(p.status==='new'||p.status==='offline')&&isFinite(Number(p.actual)))return{actual:r2(Number(p.actual)),pending:true};
+  if(p&&String(p.actor_id)===String(S.person?.id)&&(p.kind==='accept'||p.kind==='correction')&&(p.status==='new'||p.status==='offline')&&isFinite(Number(p.actual)))return{actual:r2(Number(p.actual)),pending:true};
   const s=handoverHere(),h=s&&s.ctx;
   if(h&&h.current&&isFinite(Number(h.current.actual)))return{actual:r2(Number(h.current.actual)),pending:false,current:h.current};
   return null;
@@ -574,7 +574,7 @@ function openingState(){
 }
 function syncOpeningFromHandover(){
   if(!S.form||!S.ctx||S.ctx.current)return false;
-  const st=openingState();if(st.mode==='manual')return false;
+  const st=openingState();if(st.mode!=='linked')return false;
   const next=String(st.actual);if(S.form.open===next)return false;
   S.form.open=next;saveDraft();return true;
 }
@@ -880,7 +880,7 @@ function viewForm(){
   const op=openingState();
   h+='<div class="card k-cash"><h2>Касса (инкассация)</h2>';
   if(op.mode==='linked')h+='<div class="cash-opening"><i>✓</i><div><b>Начало смены</b><small>'+(op.pending?'Утренний приём сохранён и будет отправлен при появлении связи.':'Взято из подтверждённого утреннего приёма кассы.')+' Повторно вводить не нужно.</small></div><strong>'+money(Number(op.actual))+'</strong></div>';
-  else if(op.mode==='waiting')h+='<div class="cash-opening wait"><i>!</i><div><b>Начало смены ещё не подтверждено</b><small>Ожидается '+money(Number(op.actual))+'. Пересчитайте наличные и подтвердите фактическую сумму в верхнем блоке.</small></div><strong>'+money(Number(op.actual))+'</strong></div>';
+  else if(op.mode==='waiting')h+=nfield('open','Фактически принято на начало смены, ₽',f.open)+'<div class="cash-opening wait"><i>!</i><div><b>Начало смены ещё не подтверждено</b><small>Ожидается '+money(Number(op.actual))+'. Пересчитайте наличные и подтвердите фактическую сумму в верхнем блоке.</small></div><strong>'+money(Number(op.actual))+'</strong></div>';
   else h+=nfield('open','Начало смены, ₽',f.open,'','open');
   if(op.mode==='manual'&&c.prev&&c.prev.closing!=null){
     const yd=addDays(S.date,-1),gap=c.prev.date!==yd;
@@ -2949,3 +2949,4 @@ function muHtml(){
 </script>
 </body>
 </html>
+
