@@ -145,7 +145,10 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .money-status.ok{background:var(--okbg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}.money-status.bad{background:var(--badbg);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}.money-status.wait{background:var(--tile);color:var(--mute)}
 .ms-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;font-size:25px;font-weight:900;background:var(--card);border:2px solid currentColor}.ms-title{display:block;font-size:18px;margin:6px 0 8px}
 .money-formula{color:var(--ink);border-top:1px solid color-mix(in srgb,currentColor 25%,var(--line));padding-top:7px}.money-formula .srow{font-size:13px}.money-formula .srow.total{font-size:15px;font-weight:800;border-top:1px solid var(--line);margin-top:4px;padding-top:6px}.money-formula .srow.diff{color:var(--bad);font-weight:800}
+.advance-note{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;align-items:start;margin:10px 0 12px;padding:11px 12px;border:1px solid color-mix(in srgb,var(--acc) 38%,var(--line));border-radius:13px;background:color-mix(in srgb,var(--acc) 8%,var(--card));color:var(--ink);font-size:14px;line-height:1.38}.advance-note>span{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-weight:900}.advance-note b{color:var(--acc)}
+.cash-opening{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0 12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--okbg);color:var(--ok)}.cash-opening.wait{background:var(--warnbg);color:var(--warn)}.cash-opening>i{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:2px solid currentColor;border-radius:50%;font-style:normal;font-size:23px;font-weight:900;background:var(--card)}.cash-opening>div{min-width:0}.cash-opening b{display:block;font-size:16px}.cash-opening small{display:block;color:var(--ink);font-size:13px;line-height:1.35;margin-top:2px}.cash-opening strong{font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}.cash-opening.wait strong{color:var(--warn)}
 @media(max-width:430px){.money-field{grid-template-columns:minmax(0,1fr) minmax(125px,40%);gap:8px;padding:9px 10px}.money-field input{text-align:right;font-size:17px;padding:9px}.money-tag{font-size:11px;padding:4px 8px}.money-head{align-items:flex-start}.money-status{grid-template-columns:36px minmax(0,1fr);padding:11px}.ms-icon{width:34px;height:34px;font-size:21px}.ms-title{font-size:17px;margin-top:4px}}
+@media(max-width:430px){.cash-opening{grid-template-columns:36px minmax(0,1fr)}.cash-opening>i{width:34px;height:34px;font-size:20px}.cash-opening>strong{grid-column:2;text-align:left;font-size:19px}}
 @media(max-width:340px){.money-field{grid-template-columns:1fr}.money-field input{text-align:left}}
 
 /* v1.28: инструкция внутри приложения */
@@ -245,7 +248,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.84'
+  appVer:'1.86'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -394,10 +397,10 @@ function compute(){
   add('pharm','Аптека: нал + безнал = вал аптеки',phc+phn-phv,phAny,'нал '+money(phc)+' + безнал '+money(phn)+' vs вал '+money(phv),
     'вал, нал и безнал аптеки (если аптека не работала, оставьте пустыми — пункт можно не учитывать)');
   add('box','Итог инкассации = начало − расходы + нал (клиника+аптека) + аванс наличными − компенсации и сертификаты',N(f.close)-expected,f.close!==''&&f.open!=='','по расчёту '+money(expected)+(advc||nc?' (аванс наличными '+money(advc)+(nc?', без денег −'+money(nc):'')+')':'')+', введено '+money(N(f.close)),
-    ms([f.open===''&&'«Начальная инкассация»',f.close===''&&'«Итог инкассации» (сколько наличных в кассе)']));
+    ms([f.open===''&&'«Начало смены»',f.close===''&&'«Итог инкассации» (сколько наличных в кассе)']));
   if(nc>0)add('nc','Компенсации и сертификаты не больше нал + аванс наличными',Math.max(0,nc-(cash+phc+advc)),true,'без денег '+money(nc)+' vs нал клиники+аптеки+аванс '+money(cash+phc+advc));
   const prev=c&&c.prev&&c.prev.closing!=null?Number(c.prev.closing):null;
-  if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', введено начало '+money(open),'«Начальная инкассация»');
+  if(prev!=null)add('prev','Начало = итог за '+ruDate(c.prev.date),open-prev,f.open!=='','вчера итог '+money(prev)+', принято на начало '+money(open),'«Начало смены»');
   return{checks,sumDocs,exp,expNc,expected,total,cash,cashless};
 }
 
@@ -405,7 +408,8 @@ function validate(){
   const f=S.form,errs=[];
   const need=(k,l)=>{const v=num(f[k]);if(v==null||isNaN(v))errs.push(l)};
   if(!Object.keys(f.admins).length)errs.push('Отметьте, кто работал администратором');
-  need('total','«Клиника общая»');need('cash','«Нал клиники»');need('cashless','«Безнал клиники»');need('open','«Начальная инкассация»');need('close','«Итог инкассации»');
+  need('total','«Клиника общая»');need('cash','«Нал клиники»');need('cashless','«Безнал клиники»');need('open','«Начало смены»');need('close','«Итог инкассации»');
+  if(openingState().mode==='waiting')errs.push('Сначала подтвердите фактически принятую кассу в верхнем блоке');
   const LBL={ph_val:'Вал аптеки',ph_cash:'Нал аптеки',ph_cashless:'Безнал аптеки',adv_cash:'Аванс принят наличными',debt:'Долг клиентов',repaid:'Погашен прошлый долг',adv_cashless:'Аванс принят безналично',adv_out:'Аванс списан',comp:'Компенсация клиенту',cert:'Оплата сертификатом'};
   Object.keys(LBL).forEach(k=>{if(isNaN(num(f[k])))errs.push('Некорректное число в поле «'+LBL[k]+'»')});
   Object.entries(f.doctors).forEach(([id,d])=>{const v=num(d.val);if(v==null||isNaN(v))errs.push('Не заполнен вал врача: '+(docName(id)||id))});
@@ -518,7 +522,7 @@ function summaryText(d){
   d.others.forEach(x=>L.push(x.title+': '+x.val));
   L.push('Клиника общая: '+d.total);L.push('Нал: '+d.cash+'  Безнал: '+d.cashless);
   L.push('Аптека: вал '+d.pharmacy.val+', нал '+d.pharmacy.cash+', безнал '+d.pharmacy.cashless);
-  L.push('Инкасс. начало: '+d.cashbox.opening);
+  L.push('Касса на начало смены: '+d.cashbox.opening);
   d.cashbox.expenses.forEach(e=>L.push('Расход '+e.article+': '+e.amount+(isRet(e.article)?(e.method==='noncash'?' безналично (из кассы не вычитается)':' наличными'):'')+(e.comment?' ('+e.comment+')':'')));
   if(d.debt>0||d.debt_repaid>0)L.push('Долги клиентов: не оплачено '+(d.debt||0)+(d.debt_comment?' ('+d.debt_comment+')':'')+', погашено прошлых '+(d.debt_repaid||0));
   if(d.noncash)L.push('Без денег в кассе: компенсации '+d.noncash.bonus+', сертификаты '+d.noncash.certificate+' ('+d.noncash.comment+')');
@@ -548,13 +552,35 @@ async function doLogin(pin){
 }
 function logout(){S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.handover=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
-/* ====== Теневая приёмка переходящей кассы (v1.82, отдельно от отчёта) ====== */
+/* ====== Приёмка переходящей кассы (v1.86: одно начало смены без повторного ввода) ====== */
 const handoverCacheKey=(branch,date)=>'ev_handover_ctx:'+branch+':'+date;
 let handoverFlushing=false;
 function handoverPending(branch,date){return S.handoverQueue.find(x=>x.branch===branch&&x.date===date)}
+function handoverHere(){return S.handover&&S.handover.branch===S.branch&&S.handover.date===S.date?S.handover:null}
+function handoverOpening(){
+  const p=handoverPending(S.branch,S.date);
+  if(p&&(p.kind==='accept'||p.kind==='correction')&&(p.status==='new'||p.status==='offline')&&isFinite(Number(p.actual)))return{actual:r2(Number(p.actual)),pending:true};
+  const s=handoverHere(),h=s&&s.ctx;
+  if(h&&h.current&&isFinite(Number(h.current.actual)))return{actual:r2(Number(h.current.actual)),pending:false,current:h.current};
+  return null;
+}
+function openingState(){
+  if(!S.ctx||S.ctx.current)return{mode:'manual'};
+  const o=handoverOpening();if(o)return Object.assign({mode:'linked'},o);
+  const s=handoverHere(),h=s&&s.ctx;
+  if(s&&s.loading&&S.ctx.prev&&S.ctx.prev.closing!=null&&isFinite(Number(S.ctx.prev.closing)))return{mode:'waiting',actual:r2(Number(S.ctx.prev.closing))};
+  if(h&&h.ok&&h.mode!=='off'&&h.source&&h.expected!=null&&isFinite(Number(h.expected)))return{mode:'waiting',actual:r2(Number(h.expected))};
+  return{mode:'manual'};
+}
+function syncOpeningFromHandover(){
+  if(!S.form||!S.ctx||S.ctx.current)return false;
+  const st=openingState();if(st.mode==='manual')return false;
+  const next=String(st.actual);if(S.form.open===next)return false;
+  S.form.open=next;saveDraft();return true;
+}
 async function loadHandover(){
   const branch=S.branch,date=S.date;
-  S.handover={loading:true,ctx:null,actual:'',error:null,offline:false};
+  S.handover={branch,date,loading:true,ctx:null,actual:'',error:null,offline:false};
   if(S.view==='form')render();
   let h=null;
   try{
@@ -565,9 +591,10 @@ async function loadHandover(){
     else{h=LS.get(handoverCacheKey(branch,date));if(h)h=Object.assign({},h,{cached:true});}
   }
   if(S.branch!==branch||S.date!==date||S.view!=='form')return;
-  if(!h){S.handover={loading:false,ctx:null,actual:'',error:'Нет связи: ожидаемая сумма не подтверждена сервером.',offline:true};}
-  else if(!h.ok){S.handover={loading:false,ctx:null,actual:'',error:h.error==='forbidden'?null:'Контроль приёмки временно недоступен.',offline:false};}
-  else S.handover={loading:false,ctx:h,actual:'',error:null,offline:!!h.cached};
+  if(!h){S.handover={branch,date,loading:false,ctx:null,actual:'',error:'Нет связи: ожидаемая сумма не подтверждена сервером.',offline:true};}
+  else if(!h.ok){S.handover={branch,date,loading:false,ctx:null,actual:'',error:h.error==='forbidden'?null:'Контроль приёмки временно недоступен.',offline:false};}
+  else S.handover={branch,date,loading:false,ctx:h,actual:'',error:null,offline:!!h.cached};
+  syncOpeningFromHandover();
   render();
 }
 async function flushHandover(auto){
@@ -591,7 +618,7 @@ async function flushHandover(auto){
     }
   }finally{
     handoverFlushing=false;saveHandoverQueue();
-    if(S.view==='form'){if(changed)await loadHandover();else render();}
+    if(S.view==='form'){if(changed)await loadHandover();else{syncOpeningFromHandover();render();}}
   }
 }
 function kickHandover(){S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});flushHandover()}
@@ -604,7 +631,7 @@ function acceptHandover(){
   if(!h.source||!h.source.fingerprint){toast('Нет подтверждённого итога предыдущего отчёта. Приёмку пока нельзя подписать.',6000);return}
   if(handoverPending(S.branch,S.date)){toast('Эта приёмка уже ждёт отправки');return}
   S.handoverQueue.push({kind:'accept',uid:uid(),actor_id:String(S.person.id),actor_name:S.person.name||'',branch:S.branch,date:S.date,actual:r2(actual),source_fingerprint:h.source.fingerprint,client_time:new Date().toISOString(),status:'new'});
-  saveHandoverQueue();render();flushHandover();
+  saveHandoverQueue();syncOpeningFromHandover();render();flushHandover();
 }
 function handoverCorrectForm(){
   const h=S.handover&&S.handover.ctx,c=h&&h.current;if(!c||!h.can_correct)return;
@@ -615,7 +642,7 @@ function handoverCorrectGo(eventId){
   if(actual==null||isNaN(actual)||actual<0){toast('Впишите фактически принятую сумму');return}
   if(reason.length<3){toast('Напишите причину исправления');return}
   S.handoverQueue.push({kind:'correction',uid:uid(),actor_id:String(S.person.id),actor_name:S.person.name||'',branch:S.branch,date:S.date,event_id:Number(eventId),actual:r2(actual),reason,client_time:new Date().toISOString(),status:'new'});
-  saveHandoverQueue();closeOv();render();flushHandover();
+  saveHandoverQueue();syncOpeningFromHandover();closeOv();render();flushHandover();
 }
 
 async function openBranch(id){
@@ -638,6 +665,7 @@ async function openBranch(id){
     ctx.current=null;ctx.prev=null; // сданные версии и вчерашний остаток без связи неизвестны — не подставляем чужое/старое
   }
   S.ctx=ctx;
+  S.handover=S.ctxOffline?null:{branch:id,date:S.date,loading:true,ctx:null,actual:'',error:null,offline:false};
   const draft=LS.get(draftKey());
   S.draftTs=null;
   if(draft&&draft.form){S.form=Object.assign(emptyForm(),draft.form);S.draftTs=draft.ts||Date.now()}
@@ -682,7 +710,11 @@ function render(){
   if(isHead()&&(S.view==='branch'||S.view==='ctl'||S.view==='rev'||S.view==='sal'||(uiNew()&&S.view==='pay')||S.view==='sched'))bar.innerHTML=navHtml();
   else if(!isHead()&&S.person&&(S.view==='branch'||S.view==='work'||S.view==='cc'||S.view==='sched'))bar.innerHTML=navHtml(anav());
 }
-function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+HELP_HTML+'<button class="btn" data-act="helpback">Назад</button></div>'}
+function currentHelpHtml(){return HELP_HTML
+  .replace('Начальная инкассация: сколько наличных лежало в кассе утром. Приложение подставляет итог вчерашнего отчёта само. Если на деле иначе, исправьте.','Начало смены: сколько наличных фактически приняли утром. После подтверждения в блоке «Утренний приём кассы» приложение подставит сумму само — повторно вводить её не нужно.')
+  .replace('Проверьте «Начальную инкассацию». Обычно она уже верная.','Утром подтвердите фактически принятую кассу. Вечером проверьте, что сумма автоматически показана как «Начало смены».')
+  .replace('Исправьте «Начальную инкассацию» вручную. Приложение подсветит разницу, и Михаил её разберёт.','Исправьте утренний приём кассы отдельной записью. Новая сумма автоматически попадёт в начало смены.')}
+function viewHelp(){return '<div class="card"><button class="btn sec small" data-act="helpback" style="margin:0 0 10px">← Назад</button><h2>Как заполнять отчёт</h2>'+currentHelpHtml()+'<button class="btn" data-act="helpback">Назад</button></div>'}
 function openHelp(){closeOv();S.helpFrom=S.view==='help'?(S.helpFrom||'login'):S.view;S.view='help';render();window.scrollTo(0,0)}
 function closeHelp(){S.view=S.helpFrom||(S.person?homeView():'login');S.helpFrom=null;render();window.scrollTo(0,0)}
 
@@ -755,7 +787,7 @@ const HINTS={
   advcash:['Принят наличными','Сумма наличных авансов как в Vetmanager. Если часть аванса была компенсацией без денег, её нужно ещё раз указать ниже, в блоке «Компенсации и сертификаты».'],
   advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов (с 29.10: деньги внесены раньше, чека терминала или денег в кассе за это нет). Не прибавляйте это в «Безнал» и «Нал».'],
   comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager: страница сама вычтет её из кассы. Причину пишите без фамилии клиента.'],
-  open:['Начальная инкассация','Сколько наличных лежало в кассе утром. Подставляется из итога за предыдущий день. Если на деле иначе, исправьте: система подсветит расхождение.'],
+  open:['Начало смены','Сколько наличных администратор фактически принял утром. Для нового отчёта сумма подставляется автоматически из блока «Утренний приём кассы» — повторно вводить её не нужно. В уже сданном отчёте поле можно исправить отдельной версией.'],
   exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму. Если подходящей статьи нет, выберите «Другое» и напишите в комментарии, на что потрачено.'],
   retm:['Возврат: наличными или безналично','Если вернули деньги клиенту наличными из кассы, выберите «Наличными из кассы»: сумма вычтется из кассы. Если вернули на карту или переводом, выберите «Безналично»: деньги из кассы не уходили, поэтому в расчёте кассы эта сумма не вычитается. Выбрать нужно обязательно.'],
   close:['Итог инкассации','Сколько наличных реально лежит в кассе на конец дня. Введите это число по факту. Страница сверяет его с расчётом: начало − расходы + нал клиники + нал аптеки + аванс наличными − компенсации − сертификаты.'],
@@ -768,18 +800,18 @@ const nfield=(p,label,val,extra='',hk='')=>'<label class="f"><span>'+label+(hk?h
 const moneyField=(p,title,sub,val,hk='')=>'<label class="money-field"><span class="mf-copy"><b>'+title+(hk?hbtn(hk):'')+'</b><small>'+sub+'</small></span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" aria-label="'+esc(title)+'"></label>';
 
 function handoverHtml(){
-  const s=S.handover;if(!s)return '';
-  if(s.loading)return '<div class="card"><h2>Приём кассы</h2><p class="hint">Проверяем ожидаемый переходящий остаток…</p></div>';
+  const s=handoverHere();if(!s)return '';
+  if(s.loading)return '<div class="card"><h2>Утренний приём кассы</h2><p class="hint">Проверяем ожидаемый переходящий остаток…</p></div>';
   const h=s.ctx;if(!h||!h.ok||h.mode==='off')return '';
   const p=handoverPending(S.branch,S.date);
-  let x='<div class="card"><h2>Приём кассы <small style="font-weight:400;color:var(--mute)">теневой контроль</small></h2>'+
-    '<p class="hint">Ожидаемая сумма берётся из последнего отчёта и не редактируется. Фактическую сумму администратор вводит руками под своей фамилией. Этот теневой блок пока не меняет и не блокирует основной отчёт.</p>';
+  let x='<div class="card"><h2>Утренний приём кассы</h2>'+
+    '<p class="hint">Утром пересчитайте наличные и подтвердите фактическую сумму под своей фамилией. Она автоматически станет «Началом смены» в отчёте — второй раз вводить деньги не нужно.</p>';
   if(h.source)x+='<div class="sum"><span>Должно быть в кассе</span><b>'+money(Number(h.expected))+'</b></div><p class="hint">Источник: итог отчёта за '+ruDate(h.source.report_date)+', версия '+h.source.report_version+'.</p>';
   else x+='<div class="chk warn"><i>!</i><div>Нет подтверждённого предыдущего отчёта — ожидаемую сумму определить нельзя.</div></div>';
   if(s.offline||h.cached)x+='<div class="chk warn"><i>!</i><div>Показан последний сохранённый источник. При отправке сервер заново проверит его версию; устаревшую приёмку не примет.</div></div>';
   if(h.current){
     const bad=h.current.status==='discrepancy';
-    x+='<div class="chk '+(bad?'bad':'ok')+'"><i>'+(bad?'!':'✓')+'</i><div><b>'+(bad?'Есть расхождение':'Касса принята')+'</b><br>Фактически: '+money(Number(h.current.actual))+(h.current.diff!=null?' · разница '+money(Number(h.current.diff)):'')+'<br><small>'+esc(h.current.accepted_by)+' · '+new Date(h.current.accepted_at).toLocaleString('ru-RU',{timeZone:'Asia/Omsk'})+'</small></div></div>';
+    x+='<div class="chk '+(bad?'bad':'ok')+'"><i>'+(bad?'!':'✓')+'</i><div><b>'+(bad?'Есть расхождение':'Касса принята')+'</b><br>Фактически: '+money(Number(h.current.actual))+(h.current.diff!=null?' · разница '+money(Number(h.current.diff)):'')+'<br><small>'+esc(h.current.accepted_by)+' · '+new Date(h.current.accepted_at).toLocaleString('ru-RU',{timeZone:'Asia/Omsk'})+' · сумма уже перенесена в отчёт</small></div></div>';
     if(h.can_correct)x+='<button class="btn sec small" data-act="hocorrect">Исправить отдельной записью</button>';
   }else if(h.can_accept&&h.source){
     x+='<label class="f"><span>Фактически принято, ₽</span><input id="ho-actual" inputmode="decimal" autocomplete="off" placeholder="Введите сумму руками"></label>'+
@@ -795,7 +827,7 @@ function viewForm(){
   const f=S.form,c=S.ctx;let h='';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
-  if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div><b>Нет связи с сервером.</b> «Начальная инкассация» не подставлена — вчерашний итог неизвестен. Подождите связь и нажмите «Обновить», либо впишите начало вручную по факту. Отчёт сохранится на устройстве и уйдёт при появлении интернета.<br><button class="btn sec small" style="margin-top:8px" data-act="reloadctx">Обновить с сервера</button></div></div>';
+  if(S.ctxOffline)h+='<div class="chk warn"><i>!</i><div><b>Нет связи с сервером.</b> Утренний приём кассы и вчерашний итог сейчас недоступны. Впишите начало смены по факту. Отчёт сохранится на устройстве и уйдёт при появлении интернета.<br><button class="btn sec small" style="margin-top:8px" data-act="reloadctx">Обновить с сервера</button></div></div>';
   if(c.current)h+='<div class="chk warn"><i>!</i><div>За эту дату отчёт уже сдан (версия '+c.current.version+'). Изменения сохраняются как исправление — нужна причина.</div></div>';
   if(c.current)h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">Выбрать другую дату</button>';
   if(c.current)h+='<div id="flagbox">'+flagsHtml()+'</div>';
@@ -839,18 +871,22 @@ function viewForm(){
     '<label class="f"><span>Пояснение (необязательно, без ФИО клиента)</span><input data-p="debt_comment" value="'+esc(f.debt_comment)+'"></label>'+
     nfield('repaid','Клиенты погасили прошлый долг за день, ₽',f.repaid)+'</div>';
 
-  h+='<div class="card k-adv"><h2>Новые авансы сегодня'+hbtn('adv')+'</h2><p class="hint">Заполняйте только деньги, которые клиент внёс сегодня на будущее. Старый аванс, которым сегодня оплатили счёт, уже находится выше в блоке «Деньги клиники».</p><div class="row">'+nfield('adv_cash','Принят сегодня наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят сегодня безналично, ₽',f.adv_cashless)+'</div></div>';
+  h+='<div class="card k-adv"><h2>Новые авансы сегодня'+hbtn('adv')+'</h2><p class="hint">Заполняйте только деньги, которые клиент внёс сегодня на будущее. Старый аванс, которым сегодня оплатили счёт, уже находится выше в блоке «Деньги клиники».</p><div class="advance-note"><span>!</span><div><b>Важно: новый аванс укажите дважды.</b><br>Сначала включите его в «Наличные клиники» или «Безнал клиники» выше, затем повторите сумму здесь. Это не двойной учёт — приложение само вычтет аванс из выручки.</div></div><div class="row">'+nfield('adv_cash','Принят сегодня наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят сегодня безналично, ₽',f.adv_cashless)+'</div></div>';
 
   h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
     nfield('comp','Компенсация / бонус клиенту от клиники (аванс без денег), ₽',f.comp)+nfield('cert','Оплата сертификатом (в Vetmanager как нал), ₽',f.cert)+
     '<label class="f"><span>Причина (обязательно, если есть суммы; без ФИО клиента)</span><input data-p="nc_comment" value="'+esc(f.nc_comment)+'"></label></div>';
 
-  h+='<div class="card k-cash"><h2>Касса (инкассация)</h2>'+nfield('open','Начальная инкассация, ₽',f.open,'','open');
-  if(c.prev&&c.prev.closing!=null){
+  const op=openingState();
+  h+='<div class="card k-cash"><h2>Касса (инкассация)</h2>';
+  if(op.mode==='linked')h+='<div class="cash-opening"><i>✓</i><div><b>Начало смены</b><small>'+(op.pending?'Утренний приём сохранён и будет отправлен при появлении связи.':'Взято из подтверждённого утреннего приёма кассы.')+' Повторно вводить не нужно.</small></div><strong>'+money(Number(op.actual))+'</strong></div>';
+  else if(op.mode==='waiting')h+='<div class="cash-opening wait"><i>!</i><div><b>Начало смены ещё не подтверждено</b><small>Ожидается '+money(Number(op.actual))+'. Пересчитайте наличные и подтвердите фактическую сумму в верхнем блоке.</small></div><strong>'+money(Number(op.actual))+'</strong></div>';
+  else h+=nfield('open','Начало смены, ₽',f.open,'','open');
+  if(op.mode==='manual'&&c.prev&&c.prev.closing!=null){
     const yd=addDays(S.date,-1),gap=c.prev.date!==yd;
     h+='<p class="hint">Подставлено из итога смены за '+ruDate(c.prev.date)+(c.prev.by?' ('+esc(c.prev.by)+')':'')+': '+money(Number(c.prev.closing))+'. Касса переходящая: берём итог предыдущей смены этого филиала, кто бы её ни сдавал. Если на деле иначе — исправьте, система подсветит расхождение.</p>';
     if(gap)h+='<div class="chk warn"><i>!</i><div>В системе нет отчёта за '+ruDate(yd)+(c.prev.date<addDays(S.date,-2)?' и предыдущие дни до '+ruDate(c.prev.date):'')+'. Остаток взят из последнего сданного — за '+ruDate(c.prev.date)+'. Сверьте с реальной кассой; если отчёт за пропущенный день ещё не сдан — сдайте его.</div></div>';
-  }else if(!S.ctxOffline)h+='<p class="hint">По этому филиалу ранее сданных отчётов нет — впишите начальную инкассацию по факту.</p>';
+  }else if(op.mode==='manual'&&!S.ctxOffline)h+='<p class="hint">Утренний приём кассы недоступен или предыдущего отчёта нет — впишите начало смены по факту.</p>';
   h+='<h3>Расходы'+hbtn('exp')+'</h3>';
   f.expenses.forEach((e,i)=>{
     h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
@@ -2460,7 +2496,7 @@ document.addEventListener('click',async e=>{
     case'inc':{
       const cur=Number(getPath(S.form,d.p))||0;const nv=Math.max(0,Math.min(99,cur+Number(d.d)));
       setPath(S.form,d.p,nv);const k=d.p.split('.');const o=document.getElementById('o-'+k[1]+'-'+k[2]);if(o)o.textContent=nv;saveDraft();break}
-    case'clearDraft':if(confirm('Очистить все введённые цифры в этой форме?')){LS.del(draftKey());S.draftTs=null;S.form=S.ctx.current?formFromReport(S.ctx.current.data):freshForm();render()}break;
+    case'clearDraft':if(confirm('Очистить все введённые цифры в этой форме?')){LS.del(draftKey());S.draftTs=null;S.form=S.ctx.current?formFromReport(S.ctx.current.data):freshForm();syncOpeningFromHandover();render()}break;
     case'addExp':S.form.expenses.push({article:'',amount:'',comment:'',method:''});saveDraft();render();break;
     case'expm':{const e=S.form.expenses[Number(d.i)];if(e){e.method=d.m;saveDraft();const y=window.scrollY;render();window.scrollTo(0,y)}break}
     case'delExp':S.form.expenses.splice(Number(d.i),1);saveDraft();render();break;
