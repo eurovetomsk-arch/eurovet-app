@@ -132,6 +132,22 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 @media (max-width:340px){.bar .in{gap:6px}.bar .btn{min-width:0;padding:13px 12px}.bar .st{font-size:12px;min-width:0}}
 .step button{background:var(--card);border:2px solid var(--acc);color:var(--acc);font-weight:700}
 
+/* v1.84: деньги клиники и аптеки — крупные понятные поля с проверкой рядом */
+.money-card{padding:14px 14px 16px}
+.money-head{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:4px}
+.money-head h2{margin:0}
+.money-tag{flex:none;background:var(--acc);color:var(--acc-ink);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.money-lead{margin:2px 0 10px;color:var(--mute);font-size:14px;line-height:1.35}
+.money-field{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,42%);gap:12px;align-items:center;border:1px solid var(--line);border-radius:13px;padding:10px 12px;margin:8px 0;background:var(--card)}
+.mf-copy{min-width:0}.mf-copy>b{display:block;font-size:16px;line-height:1.2}.mf-copy>small{display:inline-block;margin-top:3px;padding:2px 7px;border-radius:6px;background:var(--tile);color:var(--mute);font-size:12px;line-height:1.25}
+.money-field input{margin:0;min-height:50px;text-align:right;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--card)}
+.money-status{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:start;margin-top:12px;padding:13px;border-radius:14px;border:1px solid var(--line)}
+.money-status.ok{background:var(--okbg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}.money-status.bad{background:var(--badbg);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}.money-status.wait{background:var(--tile);color:var(--mute)}
+.ms-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;font-size:25px;font-weight:900;background:var(--card);border:2px solid currentColor}.ms-title{display:block;font-size:18px;margin:6px 0 8px}
+.money-formula{color:var(--ink);border-top:1px solid color-mix(in srgb,currentColor 25%,var(--line));padding-top:7px}.money-formula .srow{font-size:13px}.money-formula .srow.total{font-size:15px;font-weight:800;border-top:1px solid var(--line);margin-top:4px;padding-top:6px}.money-formula .srow.diff{color:var(--bad);font-weight:800}
+@media(max-width:430px){.money-field{grid-template-columns:minmax(0,1fr) minmax(125px,40%);gap:8px;padding:9px 10px}.money-field input{text-align:right;font-size:17px;padding:9px}.money-tag{font-size:11px;padding:4px 8px}.money-head{align-items:flex-start}.money-status{grid-template-columns:36px minmax(0,1fr);padding:11px}.ms-icon{width:34px;height:34px;font-size:21px}.ms-title{font-size:17px;margin-top:4px}}
+@media(max-width:340px){.money-field{grid-template-columns:1fr}.money-field input{text-align:left}}
+
 /* v1.28: инструкция внутри приложения */
 .hs{margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--line)}
 .hs:last-of-type{border-bottom:0}
@@ -229,7 +245,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.83'
+  appVer:'1.84'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -749,6 +765,7 @@ const HINTS={
 };
 const hbtn=k=>'<button type="button" class="q" data-act="hint" data-h="'+k+'" aria-label="Подсказка">?</button>';
 const nfield=(p,label,val,extra='',hk='')=>'<label class="f"><span>'+label+(hk?hbtn(hk):'')+'</span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" '+extra+'></label>';
+const moneyField=(p,title,sub,val,hk='')=>'<label class="money-field"><span class="mf-copy"><b>'+title+(hk?hbtn(hk):'')+'</b><small>'+sub+'</small></span><input data-p="'+p+'" inputmode="decimal" autocomplete="off" value="'+esc(fmtNum(val))+'" aria-label="'+esc(title)+'"></label>';
 
 function handoverHtml(){
   const s=S.handover;if(!s)return '';
@@ -802,17 +819,27 @@ function viewForm(){
   h+='<button class="btn sec small" style="margin-top:8px" data-act="addOther">+ Врач-замена или другая сумма не из списка</button>';
   h+='<div class="sum" style="margin-top:10px"><span>Сумма врачей</span><b id="s-docs"></b></div></div>';
 
-  h+='<div class="card k-clinic"><h2>Клиника'+hbtn('total')+'</h2>'+nfield('total','Клиника общая, ₽',f.total)+
-    '<div class="row">'+nfield('cash','Нал, ₽',f.cash)+nfield('cashless','Безнал, ₽',f.cashless,'','pay')+'</div></div>';
+  h+='<div class="card k-clinic money-card"><div class="money-head"><h2>Деньги клиники'+hbtn('pay')+'</h2><span class="money-tag">только за сегодня</span></div>'+
+    '<p class="money-lead">Аптеку сюда не добавляйте — она заполняется отдельно ниже.</p>'+
+    moneyField('total','Вал клиники','итог клиники из Vetmanager, без аптеки',f.total,'total')+
+    moneyField('cash','Наличные клиники','без наличных аптеки',f.cash)+
+    moneyField('cashless','Безнал клиники','без аптеки и старых авансов',f.cashless)+
+    moneyField('adv_out','Списано старого аванса','деньги были внесены раньше',f.adv_out,'advout')+
+    '<div id="money-status" class="money-status wait"><span class="ms-icon">…</span><div><b class="ms-title">Заполните четыре суммы</b><div class="money-formula"></div></div></div></div>';
 
-  h+='<div class="card k-pharm"><h2>Аптека'+hbtn('pharm')+'</h2>'+nfield('ph_val','Вал аптеки, ₽',f.ph_val)+'<div class="row">'+nfield('ph_cash','Нал аптеки, ₽',f.ph_cash)+nfield('ph_cashless','Безнал аптеки, ₽',f.ph_cashless)+'</div></div>';
+  h+='<div class="card k-pharm money-card"><div class="money-head"><h2>Аптека — отдельно'+hbtn('pharm')+'</h2></div>'+
+    '<p class="money-lead">Только продажи аптеки. Не переносите эти суммы в «Деньги клиники».</p>'+
+    moneyField('ph_cash','Наличные аптеки','только наличные продажи аптеки',f.ph_cash)+
+    moneyField('ph_cashless','Безналичные аптеки','карта и переводы за товары аптеки',f.ph_cashless)+
+    moneyField('ph_val','Вал аптеки','общая сумма продаж аптеки',f.ph_val)+
+    '<div id="pharm-status" class="money-status wait"><span class="ms-icon">…</span><div><b class="ms-title">Заполните суммы аптеки</b><div class="money-formula"></div></div></div></div>';
 
   h+='<div class="card k-debt"><h2>Долги клиентов'+hbtn('debt')+'</h2><p class="hint">Заполняйте, только если клиент оплатил счёт не полностью или погасил старый долг. Если долгов нет, оставьте пустым.</p>'+
     nfield('debt','Не оплачено клиентами за день, ₽',f.debt)+
     '<label class="f"><span>Пояснение (необязательно, без ФИО клиента)</span><input data-p="debt_comment" value="'+esc(f.debt_comment)+'"></label>'+
     nfield('repaid','Клиенты погасили прошлый долг за день, ₽',f.repaid)+'</div>';
 
-  h+='<div class="card k-adv"><h2>Авансы клиентов'+hbtn('adv')+'</h2><p class="hint">'+(S.date>='2026-10-29'?'Аванс не входит в «Клиника общая». «Нал» и «Безнал» вписывайте по факту: нал по кассе, безнал по чекам терминала, включая аванс, принятый сегодня. Списание аванса (деньги внесены раньше) вписывайте только в «Списан в оплату счетов»: чека терминала за него нет.':'Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе и учитывается в итоге инкассации.')+'</p><div class="row">'+nfield('adv_cash','Принят наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят безналично, ₽',f.adv_cashless)+'</div>'+nfield('adv_out','Списан в оплату счетов, ₽',f.adv_out,'','advout')+'</div>';
+  h+='<div class="card k-adv"><h2>Новые авансы сегодня'+hbtn('adv')+'</h2><p class="hint">Заполняйте только деньги, которые клиент внёс сегодня на будущее. Старый аванс, которым сегодня оплатили счёт, уже находится выше в блоке «Деньги клиники».</p><div class="row">'+nfield('adv_cash','Принят сегодня наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят сегодня безналично, ₽',f.adv_cashless)+'</div></div>';
 
   h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
     nfield('comp','Компенсация / бонус клиенту от клиники (аванс без денег), ₽',f.comp)+nfield('cert','Оплата сертификатом (в Vetmanager как нал), ₽',f.cert)+
@@ -872,6 +899,18 @@ function updateChecks(){
   }).join('');
   const set=(id,t)=>{const e=$(id);if(e)e.textContent=t};
   set('#s-docs',money(calc.sumDocs));set('#s-exp',money(calc.exp));set('#s-expn',money(calc.expNc));{const r=$('#s-expn-row');if(r)r.hidden=!(calc.expNc>0)}set('#s-exp2',money(calc.expected));
+  const moneyStatus=(id,c,rows)=>{const e=$(id);if(!e)return;const ready=!!(c&&c.ready),ok=ready&&c.ok;e.className='money-status '+(!ready?'wait':ok?'ok':'bad');
+    e.innerHTML='<span class="ms-icon">'+(!ready?'…':ok?'✓':'!')+'</span><div><b class="ms-title">'+(!ready?'Заполните все суммы':ok?'Сходится':'Проверьте суммы')+'</b><div class="money-formula">'+rows+(ready&&!ok?'<div class="srow diff"><span>Разница</span><b>'+money(c.diff)+'</b></div>':'')+'</div></div>'};
+  const pay=calc.checks.find(x=>x.id==='pay'),ph=calc.checks.find(x=>x.id==='pharm'),f=S.form;
+  const got=r2(N(f.cash)+N(f.cashless)),advIn=r2(N(f.adv_cash)+N(f.adv_cashless)),advOut=N(f.adv_out),repaid=N(f.repaid);
+  let payRows='<div class="srow"><span>Получено сегодня</span><b>'+money(got)+'</b></div>';
+  if(advIn)payRows+='<div class="srow"><span>− новый аванс</span><b>−'+money(advIn)+'</b></div>';
+  if(repaid)payRows+='<div class="srow"><span>− погашен старый долг</span><b>−'+money(repaid)+'</b></div>';
+  if(advOut)payRows+='<div class="srow"><span>+ старый аванс</span><b>+'+money(advOut)+'</b></div>';
+  payRows+='<div class="srow total"><span>= Вал клиники</span><b>'+money(N(f.total))+'</b></div>';
+  moneyStatus('#money-status',pay,payRows);
+  const phRows='<div class="srow"><span>Наличные + безналичные</span><b>'+money(r2(N(f.ph_cash)+N(f.ph_cashless)))+'</b></div><div class="srow total"><span>= Вал аптеки</span><b>'+money(N(f.ph_val))+'</b></div>';
+  moneyStatus('#pharm-status',ph,phRows);
   const bad=calc.checks.filter(c=>c.ready&&!c.ok).length;
   const st=$('#barst');
   if(st)st.innerHTML=bad?'<b style="color:var(--bad)">Расхождений: '+bad+'</b>':(calc.checks.some(c=>c.ready)?'<b style="color:var(--ok)">Расхождений нет</b>':'<span style="color:var(--mute)">Заполните отчёт</span>');
