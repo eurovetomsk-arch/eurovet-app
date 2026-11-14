@@ -229,7 +229,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.82'
+  appVer:'1.83'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -1040,10 +1040,13 @@ function ctlHtml(){
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
   else{
     const fl=S.ctl||[],open=fl.filter(f=>!f.accepted),cv=S.ctlCoverage||[];
-    const complete=cv.filter(x=>x.status==='complete').length,incomplete=cv.length-complete;
-    h+='<p class="hint">Открытых расхождений: '+open.length+'. Vetmanager подтверждён для '+complete+' из '+cv.length+' текущих версий отчётов.</p>';
-    if(incomplete)h+='<div class="chk bad"><i>!</i><div><b>Неполное покрытие Vetmanager: '+incomplete+'</b><br><small>«0 расхождений» не показывается, пока не проверены счета, платежи, касса и ответственные строк.</small></div></div>';
-    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cv.length&&complete===cv.length?'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>':'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
+    const complete=cv.filter(x=>x.status==='complete').length;
+    const pending=cv.filter(x=>x.status==='pending').length;
+    const incomplete=cv.filter(x=>!['complete','pending'].includes(x.status)).length;
+    h+='<p class="hint">Открытых расхождений: '+open.length+'. Vetmanager подтвердил '+complete+' из '+cv.length+' текущих версий отчётов.</p>';
+    if(pending)h+='<div class="chk wait"><i>…</i><div><b>Ожидают плановой сверки: '+pending+'</b><br><small>Сегодняшние отчёты проверятся автоматически после закрытия смен. Ничего принимать вручную не нужно.</small></div></div>';
+    if(incomplete)h+='<div class="chk bad"><i>!</i><div><b>Сверка Vetmanager не завершена: '+incomplete+'</b><br><small>Автоматическая проверка запускалась, но не подтвердила все обязательные блоки. Это требует разбора.</small></div></div>';
+    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cv.length&&complete+pending===cv.length?(pending?'<p>Подтверждённых расхождений сейчас нет. Идёт плановая сверка сегодняшних отчётов.</p>':'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>'):'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
   }
   return h+'</div>';
 }
