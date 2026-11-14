@@ -248,7 +248,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:1,                 // допуск расхождения, ₽
-  appVer:'1.87'
+  appVer:'1.88'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -557,6 +557,10 @@ const handoverCacheKey=(branch,date)=>'ev_handover_ctx:'+branch+':'+date;
 let handoverFlushing=false;
 function handoverPending(branch,date){return S.handoverQueue.find(x=>x.branch===branch&&x.date===date)}
 function handoverHere(){return S.handover&&S.handover.branch===S.branch&&S.handover.date===S.date?S.handover:null}
+function handoverGate(){
+  const s=handoverHere(),h=s&&s.ctx;
+  return !!(!isHead()&&s&&(s.loading||(h&&h.ok&&h.mode!=='off'&&!h.current)));
+}
 function handoverOpening(){
   const p=handoverPending(S.branch,S.date);
   if(p&&String(p.actor_id)===String(S.person?.id)&&(p.kind==='accept'||p.kind==='correction')&&(p.status==='new'||p.status==='offline')&&isFinite(Number(p.actual)))return{actual:r2(Number(p.actual)),pending:true};
@@ -824,6 +828,7 @@ function handoverHtml(){
 }
 
 function viewForm(){
+  if(handoverGate())return handoverHtml()||'<div class="card"><h2>Утренний приём кассы</h2><p class="hint">Проверяем принятую сумму…</p></div>';
   const f=S.form,c=S.ctx;let h='';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
@@ -921,6 +926,7 @@ function viewForm(){
   return h;
 }
 function viewBar(){
+  if(handoverGate())return '';
   return '<div class="bar"><div class="in"><div class="st" id="barst" data-act="tochecks"></div><button class="btn" data-act="submit">Отправить отчёт</button></div></div>';
 }
 function updateChecks(){
