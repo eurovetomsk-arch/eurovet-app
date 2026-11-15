@@ -249,7 +249,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:10,                // допустимая погрешность включительно, ₽
-  appVer:'1.90'
+  :'1.90'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -437,7 +437,7 @@ function buildData(calc){
   const assistants=Object.keys(f.assistants).map(k=>{const[role,id]=k.split(':');const a=c.assistants.find(x=>x.role===role&&String(x.id)===id)||{};const v=f.assistants[k];
     return{id:Number(id),name:aNm(a.name),role,fix_normal:v.fn|0,fix_xray:v.fx|0,left:v.left||null,came:v.came||null}});
   return{
-    schema:1,app:CFG.appVer,branch:S.branch,date:S.date,
+    schema:1,app:CFG.,branch:S.branch,date:S.date,
     admins,doctors,
     others:f.others.map(o=>({title:o.title.trim(),val:N(o.val)})),
     total:N(f.total),cash:N(f.cash),cashless:N(f.cashless),
@@ -1090,16 +1090,15 @@ async function loadVmNames(){
 }
 const FLAG_HINT={late_edit:'Отчёт изменён после 12:00 следующего дня: проверьте автора и причину.',locked_edit:'Изменён отчёт закрытого периода, по которому зарплата уже рассчитана: цифры могли разойтись с выплатой.'};
 function flagLine(f,where){
-  const bad=f.level==='red';
+  const waiting=f.code==='vm_not_checked',bad=f.level==='red'&&!waiting;
   let nums='';
   if(f.expected!=null&&f.actual!=null)nums='в отчёте '+money(Number(f.actual))+', ожидалось '+money(Number(f.expected))+(f.diff!=null?', разница '+sgn(Number(f.diff)):'');
   else if(f.actual!=null)nums=String(Number(f.actual));
   const bid=f.branch||S.branch,dt=f.date||S.date;
   const bt=(BRANCHES.find(b=>b.id===bid)||{}).title||bid;
-  const who=where==='ctl'?'<small>'+esc(bt)+' · '+ruDate(dt)+'</small><br>':'';
-  return '<div class="chk '+(f.accepted?'wait':bad?'bad':'warn')+'"><i>'+(f.accepted?'✓':'!')+'</i><div>'+who+'<b>'+esc(f.title)+'</b>'
-    +(nums?'<br><small>'+esc(nums)+'</small>':'')
-    +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
+  const who=where==='ctl'?'<small>'+esc(bt)+' · '+ruDate(dt)+'</small><br>':'';  const title=waiting?'Ожидает автоматической сверки с Vetmanager':f.title;
+  return '<div class="chk '+(waiting||f.accepted?'wait':bad?'bad':'warn')+'"><i>'+(waiting?'…':f.accepted?'✓':'!')+'</i><div>'+who+'<b>'+esc(title)+'</b>'
+    +(nums?'<br><small>'+esc(nums)+'</small>':'')    +(isHead()&&FLAG_HINT[f.code]?'<br><small>'+FLAG_HINT[f.code]+'</small>':'')+(waiting?'<br><small>Проверка ещё не сохранила результат. Ничего принимать вручную не нужно.</small>':isHead()&&f.detail?'<br><small>'+nameDetail(f.detail)+'</small>':'')
     +(f.accepted?'<br><small>принято руководителем</small>':'')
     +(isHead()&&!f.accepted&&!['vm_not_checked','vm_partial'].includes(f.code)?'<br><span class="fbtns"><button class="btn sec small" data-act="accept" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Принять</button><button class="btn sec small" data-act="fdet" data-bid="'+esc(bid)+'" data-dt="'+esc(dt)+'" data-code="'+esc(f.code)+'" data-ver="'+(Number(f.version)||0)+'">Подробнее</button></span>':'')
     +'</div></div>';
@@ -1143,13 +1142,9 @@ function ctlHtml(){
   let h='<div class="mrbox">'+mrHtml()+'</div><div class="card"><h2>Контроль · 7 дней</h2>';
   if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
-  else{
-    const fl=S.ctl||[],open=fl.filter(f=>!f.accepted),cv=S.ctlCoverage||[];
-    const complete=cv.filter(x=>x.status==='complete').length;
-    const pending=cv.filter(x=>x.status==='pending').length;
-    const incomplete=cv.filter(x=>!['complete','pending'].includes(x.status)).length;
-    h+='<p class="hint">Открытых расхождений: '+open.length+'. Vetmanager подтвердил '+complete+' из '+cv.length+' текущих версий отчётов.</p>';
-    if(pending)h+='<div class="chk wait"><i>…</i><div><b>Ожидают плановой сверки: '+pending+'</b><br><small>Сегодняшние отчёты проверятся автоматически после закрытия смен. Ничего принимать вручную не нужно.</small></div></div>';
+  else{    const fl=S.ctl||[],open=fl.filter(f=>!f.accepted&&f.code!=='vm_not_checked'),cv=S.ctlCoverage||[];
+    const complete=cv.filter(x=>x.status==='complete').length;    const pending=cv.filter(x=>['missing','pending'].includes(x.status)).length;    const incomplete=cv.filter(x=>!['complete','missing','pending'].includes(x.status)).length;
+    h+='<p class="hint">Открытых расхождений: '+open.length+'. Vetmanager подтвердил '+complete+' из '+cv.length+' текущих версий отчётов.</p>';    if(pending)h+='<div class="chk wait"><i>…</i><div><b>Ожидают автоматической сверки: '+pending+'</b><br><small>Результат проверки ещё не сохранён. Ничего принимать вручную не нужно.</small></div></div>';
     if(incomplete)h+='<div class="chk bad"><i>!</i><div><b>Сверка Vetmanager не завершена: '+incomplete+'</b><br><small>Автоматическая проверка запускалась, но не подтвердила все обязательные блоки. Это требует разбора.</small></div></div>';
     h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cv.length&&complete+pending===cv.length?(pending?'<p>Подтверждённых расхождений сейчас нет. Идёт плановая сверка сегодняшних отчётов.</p>':'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>'):'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
   }
@@ -2370,7 +2365,7 @@ async function doSalCancel(id){
 function overlay(html){S.ctlOpen=false;$('#ovwrap').innerHTML='<div class="ov" data-act="ovclose"><div class="card" data-stop="1">'+html+'</div></div>'}
 function closeOv(){S.ctlOpen=false;$('#ovwrap').innerHTML=''}
 function showMenu(){
-  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="schedopen">График смен</button><button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.appVer+'</p>');
+  overlay('<h2>Меню</h2>'+(isHead()?(uiNew()?'':'<button class="btn sec" style="margin:6px 0" data-act="payopen">Ведомость за период</button>')+'<button class="btn sec" style="margin:6px 0" data-act="workopen">Мои начисления</button>'+'<button class="btn sec" style="margin:6px 0" data-act="schedopen">График смен</button><button class="btn sec" style="margin:6px 0" data-act="cchead">Колл-центр: смены и оплата</button><button class="btn sec" style="margin:6px 0" data-act="muopen">Ручная загрузка (начисления, банк, PIN)</button><button class="btn sec" style="margin:6px 0" data-act="testbr">Тестовый филиал (для проверок)</button><button class="btn sec" style="margin:6px 0" data-act="uitoggle">'+(uiNew()?'↺ Вернуться к прежнему виду':'Включить новый вид')+'</button>':'')+(isCC()&&!isHead()&&S.view!=='cc'?'<button class="btn sec" style="margin:6px 0" data-act="ccopen">Колл-центр: мои смены</button>':'')+(canReport()&&S.view==='cc'&&!isHead()?'<button class="btn sec" style="margin:6px 0" data-act="back">Отчёт филиала</button>':'')+(canReport()?'<button class="btn sec" style="margin:6px 0" data-act="help">Как заполнять отчёт</button>':'')+(isCC()&&!isHead()?'<a class="btn sec" style="margin:6px 0" href="help/instruktsiya_callcenter.pdf" target="_blank" rel="noopener">Инструкция оператора (PDF)</a>':'')+'<button class="btn sec" style="margin:6px 0" data-act="chpin">Сменить PIN</button><button class="btn sec" style="margin:6px 0" data-act="logout">Выйти</button><button class="btn sec" style="margin:6px 0" data-act="ovclose">Закрыть</button><p class="hint">Версия '+CFG.+'</p>');
 }
 function showQueue(){
   let h='<h2>Отправка данных</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — записи ждут на устройстве.')+'</p>';
@@ -2619,8 +2614,8 @@ async function checkUpdate(force){
   try{
     const r=await fetch('index.html?u='+now,{cache:'no-store'});
     if(!r.ok)return;
-    const m=(await r.text()).match(/appVer:'([^']+)'/);
-    if(!m||m[1]===CFG.appVer)return;
+    const m=(await r.text()).match(/:'([^']+)'/);
+    if(!m||m[1]===CFG.)return;
     S.newVer=m[1];
     const calm=(S.view==='branch'||S.view==='login'||S.view==='cc'||S.view==='work')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
     let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
