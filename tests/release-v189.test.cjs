@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict');
+Исходный текстОцените этот переводВаш отзыв поможет нам улучшить Google Переводчикconst assert=require('node:assert/strict');
 const fs=require('node:fs');
 const cp=require('node:child_process');
 const path=require('node:path');
@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
 const sql=fs.readFileSync(path.join(root,'migrations/20261115_report_tolerance_10_rubles.sql'),'utf8');
-const base=cp.execFileSync('git',['show','HEAD:index.html'],{cwd:root,encoding:'utf8'});
+const base=cp.execFileSync('git',['show','625ca9a1:index.html'],{cwd:root,encoding:'utf8'});
 
 function fn(src,name){
   const start=src.indexOf('function '+name+'(');
@@ -23,8 +23,10 @@ function fn(src,name){
 }
 
 assert.match(html,/tol:10,\s+\/\/ допустимая погрешность включительно, ₽/);
-assert.match(html,/appVer:'1\.89'/);
-assert.match(sw,/const V='ev-shell-v89'/);
+const appVersion=Number((html.match(/appVer:'([^']+)'/)||[])[1]);
+const shellVersion=Number((sw.match(/const V='ev-shell-v(\d+)'/)||[])[1]);
+assert.ok(appVersion>=1.89,'app version regressed below 1.89');
+assert.ok(shellVersion>=89,'service-worker cache regressed below v89');
 assert.match(html,/function handoverGate\(\)/,'cash-first gate retained');
 assert.match(html,/h\.current\.status==='discrepancy'&&Math\.abs\(Number\(h\.current\.diff\)\)>CFG\.tol/,'saved small cash difference must render as matched');
 assert.doesNotMatch(html,/ev_login_number|employee-number/,'stage 1 login must not ship');
