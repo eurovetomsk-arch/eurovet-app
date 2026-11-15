@@ -1,4 +1,4 @@
-Исходный текстОцените этот переводВаш отзыв поможет нам улучшить Google Переводчикconst assert=require('node:assert/strict');
+const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const cp=require('node:child_process');
 const path=require('node:path');
