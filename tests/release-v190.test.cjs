@@ -129,5 +129,6 @@ for(const phrase of ['старый аванс','новый аванс','укаж
 assert.match(help,/разница до 10 рублей включительно/);
 
 assert.match(html,/@media\(max-width:340px\)\{\.money-field\{grid-template-columns:1fr\}/,'320px fields must stack');
+fs.mkdirSync(path.join(root,'artifacts'),{recursive:true});
 fs.writeFileSync(path.join(root,'artifacts','scenarios-v190.json'),JSON.stringify({schema:'evrovet.release_candidate_tests/v1',base:'625ca9a1',candidate:'1.90',scenarios:scenarioResults},null,2)+'\n');
 console.log('release 1.90 advances: OK (6/6 scenarios)');
