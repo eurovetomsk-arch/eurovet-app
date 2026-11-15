@@ -144,6 +144,7 @@ pre{white-space:pre-wrap;background:var(--tile);padding:10px;border-radius:10px;
 .money-status{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:start;margin-top:12px;padding:13px;border-radius:14px;border:1px solid var(--line)}
 .money-status.ok{background:var(--okbg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}.money-status.bad{background:var(--badbg);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}.money-status.wait{background:var(--tile);color:var(--mute)}
 .ms-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;font-size:25px;font-weight:900;background:var(--card);border:2px solid currentColor}.ms-title{display:block;font-size:18px;margin:6px 0 8px}
+.money-summary{color:var(--ink);font-size:16px;line-height:1.48;padding-top:6px}
 .money-formula{color:var(--ink);border-top:1px solid color-mix(in srgb,currentColor 25%,var(--line));padding-top:7px}.money-formula .srow{font-size:13px}.money-formula .srow.total{font-size:15px;font-weight:800;border-top:1px solid var(--line);margin-top:4px;padding-top:6px}.money-formula .srow.diff{color:var(--bad);font-weight:800}
 .advance-note{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;align-items:start;margin:10px 0 12px;padding:11px 12px;border:1px solid color-mix(in srgb,var(--acc) 38%,var(--line));border-radius:13px;background:color-mix(in srgb,var(--acc) 8%,var(--card));color:var(--ink);font-size:14px;line-height:1.38}.advance-note>span{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-weight:900}.advance-note b{color:var(--acc)}
 .cash-opening{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0 12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--okbg);color:var(--ok)}.cash-opening.wait{background:var(--warnbg);color:var(--warn)}.cash-opening>i{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:2px solid currentColor;border-radius:50%;font-style:normal;font-size:23px;font-weight:900;background:var(--card)}.cash-opening>div{min-width:0}.cash-opening b{display:block;font-size:16px}.cash-opening small{display:block;color:var(--ink);font-size:13px;line-height:1.35;margin-top:2px}.cash-opening strong{font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}.cash-opening.wait strong{color:var(--warn)}
@@ -248,7 +249,7 @@ const CFG={
   url:'https://ikxmzapfmgqnnrsttuxc.supabase.co',
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreG16YXBmbWdxbm5yc3R0dXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MjM5MDksImV4cCI6MjEwODE5OTkwOX0.VSE1PTiG6cIBqzrg-W0jexxzuFLE0cbIcc3pXoie7u8',
   tol:10,                // допустимая погрешность включительно, ₽
-  appVer:'1.89'
+  appVer:'1.90'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -716,6 +717,15 @@ function render(){
 }
 function currentHelpHtml(){return HELP_HTML
   .replace('допуск 1 рубль','разница до 10 рублей включительно')
+  .replace('Эти числа приложение потом сверит с суммой по врачам и с оплатами. Нал и безнал вместе должны давать общий вал.','Вал клиники приложение сверит с суммой по врачам. Наличные и безналичные показывают все деньги клиники за сегодня, включая суммы, положенные на аванс; приложение учтёт действия с авансами отдельно.')
+  .replace('Сколько из него оплатили наличными.','Все наличные клиники за сегодня, вместе с суммами, положенными на аванс, без аптеки.')
+  .replace('Сколько оплатили безналично (карты, переводы).','Весь безнал клиники за сегодня, вместе с суммами, положенными на аванс, без аптеки.')
+  .replace('Авансы клиентов сюда не входят: для них есть отдельный блок ниже.','Вал клиники указывайте без авансов. Сразу под деньгами клиники заполните отдельный блок «Авансы клиентов».')
+  .replace('Аванс, принятый наличными.','Сколько сегодня положили на аванс наличными.')
+  .replace('Аванс, принятый безналично.','Сколько сегодня положили на аванс безналом.')
+  .replace('Сколько из авансов ушло на оплату счетов.','Сколько сегодня сняли с аванса в оплату счетов.')
+  .replace('Авансы вносите так, как они показаны в Vetmanager.','Клиент дал деньги на аванс — пишем два раза: в наличные или безнал и в «Положили на аванс». Клиент заплатил авансом — пишем один раз: в «Сняли с аванса». В наличные и безнал ничего. Когда аванс был внесён — не важно.')
+  .replace('Сумму оставьте и в «Нал», и в авансе, как в Vetmanager: приложение само вычтет её из кассы.','Сумму оставьте в «Наличные клиники» и в поле «Положили на аванс сегодня наличными», как в Vetmanager: приложение само учтёт её в проверке.')
   .replace('Начальная инкассация: сколько наличных лежало в кассе утром. Приложение подставляет итог вчерашнего отчёта само. Если на деле иначе, исправьте.','Начало смены: сколько наличных фактически приняли утром. После подтверждения в блоке «Утренний приём кассы» приложение подставит сумму само — повторно вводить её не нужно.')
   .replace('Проверьте «Начальную инкассацию». Обычно она уже верная.','Утром подтвердите фактически принятую кассу. Вечером проверьте, что сумма автоматически показана как «Начало смены».')
   .replace('Исправьте «Начальную инкассацию» вручную. Приложение подсветит разницу, и Михаил её разберёт.','Исправьте утренний приём кассы отдельной записью. Новая сумма автоматически попадёт в начало смены.')}
@@ -785,17 +795,17 @@ const HINTS={
   docs:['Вал врачей','Вал врача — сумма, которую клиенты реально оплатили по проведённым счетам этого врача за день в Vetmanager. Если счёт оплачен частично, берите только оплаченную часть, остаток вписывается в блок «Долги клиентов». Отметьте работавших врачей и введите вал каждого. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
   others:['Строка не из списка','Нужна, если был врач-замена или есть сумма, которой нет среди врачей выше. Напишите, кто или за что, и сумму. Она войдёт в «Сумма врачей».'],
   total:['Клиника общая','Общий вал клиники за день по Vetmanager: сколько клиенты оплатили по проведённым счетам. Должна совпадать с суммой вала врачей и с «Нал + Безнал». Аванс и неоплаченные долги сюда не входят.'],
-  pay:['Нал и безнал','Сколько из «Клиника общая» оплатили наличными и сколько безналично. Вместе должно получиться «Клиника общая».'],
+  pay:['Деньги клиники','«Наличные клиники» и «Безнал клиники» — все деньги клиники за сегодня, вместе с суммами, положенными на аванс, но без аптеки. Приложение отдельно учтёт, сколько положили на аванс, сколько сняли с аванса и сколько погасили прошлого долга.'],
   pharm:['Аптека','Вал аптеки за день. Нал аптеки + безнал аптеки должны давать вал аптеки. Если аптека сегодня не работала, оставьте поля пустыми.'],
   debt:['Долги клиентов','«Клиника общая» — это то, что клиенты реально оплатили за день. Если по счёту оплачена только часть, в «Клиника общая» и в вал врача идёт оплаченная часть, а неоплаченный остаток впишите в «Не оплачено клиентами за день» (общей суммой по всем клиентам за день). Если клиент в этот день внёс деньги в погашение старого долга, впишите эту сумму в «Клиенты погасили прошлый долг»: она входит в «Нал» или «Безнал», но не в «Клиника общая».'],
-  adv:['Авансы клиентов','Деньги, которые клиенты внесли вперёд. Аванс не входит в «Клиника общая». Наличный аванс лежит в кассе, поэтому он учитывается в итоге инкассации.'],
-  advcash:['Принят наличными','Сумма наличных авансов как в Vetmanager. Если часть аванса была компенсацией без денег, её нужно ещё раз указать ниже, в блоке «Компенсации и сертификаты».'],
-  advout:['Списан в оплату счетов','Сколько из авансов клиентов за день ушло на оплату счетов (с 29.10: деньги внесены раньше, чека терминала или денег в кассе за это нет). Не прибавляйте это в «Безнал» и «Нал».'],
-  comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager: страница сама вычтет её из кассы. Причину пишите без фамилии клиента.'],
+  adv:['Авансы клиентов','Клиент дал деньги на аванс — пишем два раза: в наличные или безнал и в «Положили на аванс». Клиент заплатил авансом — пишем один раз: в «Сняли с аванса». В наличные и безнал ничего. Когда аванс был внесён — не важно.'],
+  advcash:['Положили на аванс сегодня','Клиент дал деньги на аванс — пишем два раза: в наличные или безнал и в «Положили на аванс». Клиент заплатил авансом — пишем один раз: в «Сняли с аванса». В наличные и безнал ничего. Когда аванс был внесён — не важно.'],
+  advout:['Сняли с аванса сегодня','Клиент дал деньги на аванс — пишем два раза: в наличные или безнал и в «Положили на аванс». Клиент заплатил авансом — пишем один раз: в «Сняли с аванса». В наличные и безнал ничего. Когда аванс был внесён — не важно.'],
+  comp:['Компенсации и сертификаты','Заполняйте, когда в Vetmanager есть наличные (аванс или оплата), а денег в кассе нет: например, бонус клиенту от клиники или оплата подарочным сертификатом. Сумму оставьте в «Наличные клиники» и, если это аванс, в поле «Положили на аванс сегодня наличными»: страница сама учтёт её. Причину пишите без фамилии клиента.'],
   open:['Начало смены','Сколько наличных администратор фактически принял утром. Для нового отчёта сумма подставляется автоматически из блока «Утренний приём кассы» — повторно вводить её не нужно. В уже сданном отчёте поле можно исправить отдельной версией.'],
   exp:['Расходы','Деньги, которые взяли из кассы за день: инкассация, возвраты, хозяйственные расходы и т. п. Для каждого расхода выберите статью и введите сумму. Если подходящей статьи нет, выберите «Другое» и напишите в комментарии, на что потрачено.'],
   retm:['Возврат: наличными или безналично','Если вернули деньги клиенту наличными из кассы, выберите «Наличными из кассы»: сумма вычтется из кассы. Если вернули на карту или переводом, выберите «Безналично»: деньги из кассы не уходили, поэтому в расчёте кассы эта сумма не вычитается. Выбрать нужно обязательно.'],
-  close:['Итог инкассации','Сколько наличных реально лежит в кассе на конец дня. Введите это число по факту. Страница сверяет его с расчётом: начало − расходы + нал клиники + нал аптеки + аванс наличными − компенсации − сертификаты.'],
+  close:['Итог инкассации','Сколько наличных реально лежит в кассе на конец дня. Введите это число по факту. Страница сравнит его с уже рассчитанным движением денег за смену.'],
   assist:['Ассистенты','Отметьте, кто работал. Для каждого введите число фиксаций: обычных и на рентгене. Время ухода нужно, только если ушёл позже 21:00.'],
   checks:['Проверка','Страница только подсвечивает расхождения, ваши цифры она не меняет. Зелёный: сходится (разница до 10 ₽ включительно). Красный: расхождение больше 10 ₽, нужна причина. Серый: пока не хватает данных, под ним написано, чего именно.'],
   diff:['Причина расхождения','Если есть красные пункты, напишите, почему не сходится (например, ошибка ввода или сумма не из списка). Без причины отчёт с расхождением не отправится.']
@@ -860,10 +870,15 @@ function viewForm(){
   h+='<div class="card k-clinic money-card"><div class="money-head"><h2>Деньги клиники'+hbtn('pay')+'</h2><span class="money-tag">только за сегодня</span></div>'+
     '<p class="money-lead">Аптеку сюда не добавляйте — она заполняется отдельно ниже.</p>'+
     moneyField('total','Вал клиники','итог клиники из Vetmanager, без аптеки',f.total,'total')+
-    moneyField('cash','Наличные клиники','без наличных аптеки',f.cash)+
-    moneyField('cashless','Безнал клиники','без аптеки и старых авансов',f.cashless)+
-    moneyField('adv_out','Списано старого аванса','деньги были внесены раньше',f.adv_out,'advout')+
-    '<div id="money-status" class="money-status wait"><span class="ms-icon">…</span><div><b class="ms-title">Заполните четыре суммы</b><div class="money-formula"></div></div></div></div>';
+    moneyField('cash','Наличные клиники','все наличные клиники за сегодня, вместе с авансами, без аптеки',f.cash)+
+    moneyField('cashless','Безнал клиники','весь безнал клиники за сегодня, вместе с авансами, без аптеки',f.cashless)+'</div>';
+
+  h+='<div class="card k-adv money-card"><div class="money-head"><h2>Авансы клиентов'+hbtn('adv')+'</h2><span class="money-tag">только за сегодня</span></div>'+
+    moneyField('adv_cash','Положили на аванс сегодня наличными','входит в наличные клиники',f.adv_cash,'advcash')+
+    moneyField('adv_cashless','Положили на аванс сегодня безналом','входит в безнал клиники',f.adv_cashless,'advcash')+
+    moneyField('adv_out','Сняли с аванса сегодня','в оплату счетов',f.adv_out,'advout')+
+    '<div class="advance-note"><span>i</span><div>Клиент дал деньги на аванс — пишем два раза: в наличные или безнал и в «Положили на аванс».<br>Клиент заплатил авансом — пишем один раз: в «Сняли с аванса». В наличные и безнал ничего.<br>Когда аванс был внесён — не важно.</div></div>'+
+    '<div id="money-status" class="money-status wait"><span class="ms-icon">…</span><div><div class="money-summary">Заполните суммы выше.</div></div></div></div>';
 
   h+='<div class="card k-pharm money-card"><div class="money-head"><h2>Аптека — отдельно'+hbtn('pharm')+'</h2></div>'+
     '<p class="money-lead">Только продажи аптеки. Не переносите эти суммы в «Деньги клиники».</p>'+
@@ -877,9 +892,7 @@ function viewForm(){
     '<label class="f"><span>Пояснение (необязательно, без ФИО клиента)</span><input data-p="debt_comment" value="'+esc(f.debt_comment)+'"></label>'+
     nfield('repaid','Клиенты погасили прошлый долг за день, ₽',f.repaid)+'</div>';
 
-  h+='<div class="card k-adv"><h2>Новые авансы сегодня'+hbtn('adv')+'</h2><p class="hint">Заполняйте только деньги, которые клиент внёс сегодня на будущее. Старый аванс, которым сегодня оплатили счёт, уже находится выше в блоке «Деньги клиники».</p><div class="advance-note"><span>!</span><div><b>Важно: новый аванс укажите дважды.</b><br>Сначала включите его в «Наличные клиники» или «Безнал клиники» выше, затем повторите сумму здесь. Это не двойной учёт — приложение само вычтет аванс из выручки.</div></div><div class="row">'+nfield('adv_cash','Принят сегодня наличными, ₽',f.adv_cash,'','advcash')+nfield('adv_cashless','Принят сегодня безналично, ₽',f.adv_cashless)+'</div></div>';
-
-  h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте и в «Нал» / «Принят наличными», как в Vetmanager — страница сама вычтет её из кассы.</p>'+
+  h+='<div class="card k-comp"><h2>Компенсации и сертификаты'+hbtn('comp')+'</h2><p class="hint">Заполняйте, когда Vetmanager показал наличные (аванс или оплату), а денег в кассе нет. Сумму оставьте в «Наличные клиники» и, если это аванс, в поле «Положили на аванс сегодня наличными» — страница сама учтёт её.</p>'+
     nfield('comp','Компенсация / бонус клиенту от клиники (аванс без денег), ₽',f.comp)+nfield('cert','Оплата сертификатом (в Vetmanager как нал), ₽',f.cert)+
     '<label class="f"><span>Причина (обязательно, если есть суммы; без ФИО клиента)</span><input data-p="nc_comment" value="'+esc(f.nc_comment)+'"></label></div>';
 
@@ -946,12 +959,22 @@ function updateChecks(){
     e.innerHTML='<span class="ms-icon">'+(!ready?'…':ok?'✓':'!')+'</span><div><b class="ms-title">'+(!ready?'Заполните все суммы':ok?'Сходится':'Проверьте суммы')+'</b><div class="money-formula">'+rows+(ready&&!ok?'<div class="srow diff"><span>Разница</span><b>'+money(c.diff)+'</b></div>':'')+'</div></div>'};
   const pay=calc.checks.find(x=>x.id==='pay'),ph=calc.checks.find(x=>x.id==='pharm'),f=S.form;
   const got=r2(N(f.cash)+N(f.cashless)),advIn=r2(N(f.adv_cash)+N(f.adv_cashless)),advOut=N(f.adv_out),repaid=N(f.repaid);
-  let payRows='<div class="srow"><span>Получено сегодня</span><b>'+money(got)+'</b></div>';
-  if(advIn)payRows+='<div class="srow"><span>− новый аванс</span><b>−'+money(advIn)+'</b></div>';
-  if(repaid)payRows+='<div class="srow"><span>− погашен старый долг</span><b>−'+money(repaid)+'</b></div>';
-  if(advOut)payRows+='<div class="srow"><span>+ старый аванс</span><b>+'+money(advOut)+'</b></div>';
-  payRows+='<div class="srow total"><span>= Вал клиники</span><b>'+money(N(f.total))+'</b></div>';
-  moneyStatus('#money-status',pay,payRows);
+  const payStatus=$('#money-status');
+  if(payStatus){
+    const ready=!!(pay&&pay.ready),ok=ready&&pay.ok;
+    payStatus.className='money-status '+(!ready?'wait':ok?'ok':'bad');
+    let summary='Заполните суммы выше.';
+    if(ready){
+      summary='Работы сегодня на '+money(N(f.total))+'. ';
+      if(ok)summary+='Денег пришло '+money(got)+'. ';
+      else summary+='Денег и аванса набралось '+money(r2(N(f.total)+pay.diff))+'. ';
+      if(advIn>0)summary+='Из них '+money(advIn)+' положили на аванс. ';
+      if(advOut>0)summary+='Из аванса оплачено '+money(advOut)+'. ';
+      if(repaid>0)summary+='Из них '+money(repaid)+' погасили прошлый долг. ';
+      summary+=ok?'Сходится.':(pay.diff<0?'Не хватает ':'Лишних ')+money(Math.abs(pay.diff))+'. Проверьте суммы.';
+    }
+    payStatus.innerHTML='<span class="ms-icon">'+(!ready?'…':ok?'✓':'!')+'</span><div><div class="money-summary">'+summary+'</div></div>';
+  }
   const phRows='<div class="srow"><span>Наличные + безналичные</span><b>'+money(r2(N(f.ph_cash)+N(f.ph_cashless)))+'</b></div><div class="srow total"><span>= Вал аптеки</span><b>'+money(N(f.ph_val))+'</b></div>';
   moneyStatus('#pharm-status',ph,phRows);
   const bad=calc.checks.filter(c=>c.ready&&!c.ok).length;
