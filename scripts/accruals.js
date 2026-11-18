@@ -1034,23 +1034,24 @@ function revHtml(){
   const today=omskToday(),cs=perStart(today),pe=addDays(cs,-1),ps=perStart(pe),yest=addDays(today,-1),f=S.revFrom,t=S.revTo;
   const on=(a,b)=>(f===a&&t===b)?' on':'';
   const chip=(l,a,b)=>'<button class="chip'+on(a,b)+'" data-act="revper" data-from="'+a+'" data-to="'+b+'">'+l+'</button>';
-  let h=revStatusHtml()+'<div class="card"><h2>Выручка</h2><div class="chips">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',ps,pe)+'<button class="chip'+(S.revDates?' on':'')+'" data-act="revdates">Даты ▾</button></div>';
+  let h=revStatusHtml()+'<div class="card"><h2>Выручка</h2><div class="chips rvper">'+chip('Сегодня',today,today)+chip('Вчера',yest,yest)+chip('Этот период',cs,today)+chip('Прошлый период',ps,pe)+'<button class="chip'+(S.revDates?' on':'')+'" data-act="revdates">Даты ▾</button></div>';
   if(S.revDates)h+='<div style="display:flex;gap:8px;align-items:flex-end;margin:6px 0"><label class="f" style="flex:1;min-width:0;margin:0"><span>С</span><input id="revf" type="date" value="'+esc(f)+'"></label><label class="f" style="flex:1;min-width:0;margin:0"><span>По</span><input id="revt" type="date" value="'+esc(t)+'"></label><button class="btn small" data-act="revgo">Показать</button></div>';
-  h+='<p class="hint" style="margin:6px 0">'+(f===t?ruDate(f):ruDate(f)+' — '+ruDate(t))+'</p>';
+  const perTxt=f===t?ruDate(f):ruDate(f)+' — '+ruDate(t),allMode=!S.revErr&&!!S.rev&&!(S.revBranch!=='all'&&BRANCHES.some(b=>!b.testOnly&&b.id===S.revBranch));
+  if(!allMode)h+='<p class="hint" style="margin:6px 0">'+perTxt+'</p>';
   h+='<div class="chips">'+[['all','Все']].concat(BRANCHES.filter(b=>!b.testOnly).map(b=>[b.id,brTitle(b.id)])).map(x=>'<button class="chip'+(S.revBranch===x[0]?' on':'')+'" data-act="revbr" data-b="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div></div>';
   if(S.revErr)return h+'<div class="card"><p>'+esc(S.revErr)+'</p><button class="btn sec small" data-act="revper" data-from="'+f+'" data-to="'+t+'">Повторить</button></div>';
   if(!S.rev)return h+'<div class="card"><p class="hint">Загружаю…</p></div>';
   const bids=BRANCHES.filter(b=>!b.testOnly).map(b=>b.id);
   if(S.revBranch!=='all'&&bids.includes(S.revBranch))return h+revBranchCard(S.revBranch);
   /* все филиалы: одна строка на филиал, нажатие открывает филиал */
-  let tot={c:0,p:0,s:0,n:0,d:0};
-  h+='<div class="card"><h2>Все филиалы</h2>';
+  let tot={c:0,p:0,s:0,n:0,d:0},rows='';
   bids.forEach(bid=>{
     const reps=(S.rev.reports||[]).filter(r=>r.branch===bid),a=revAgg(reps),st=staffOf(S.revSal,bid),sp=st?st.reduce((s,o)=>s+o.pay,0):0;
     const ob=Number(((S.rev.debt_open||{})[bid])||0);tot.c+=a.total;tot.p+=a.pv;tot.s+=sp;tot.n+=a.n;tot.d+=ob;
-    h+='<button class="person revrow" data-act="revbr" data-b="'+esc(bid)+'"><b>'+esc(brTitle(bid))+' ›</b>'+(a.n?'<div class="srow"><span>Клиника</span><b>'+money(a.total)+'</b></div><div class="srow"><span>Аптека</span><b>'+money(a.pv)+'</b></div><div class="srow"><span>Зарплата</span><b>'+(st?money(sp):'—')+'</b></div>':'<small style="color:var(--mute)">отчёта нет</small>')+(ob?'<div class="srow"><span>Долги клиентов, остаток</span><b>'+money(ob)+'</b></div>':'')+'</button>';
+    rows+='<button class="person revrow" data-act="revbr" data-b="'+esc(bid)+'"><b>'+esc(brTitle(bid))+' ›</b>'+(a.n?'<div class="srow"><span>Клиника</span><b>'+money(a.total)+'</b></div><div class="srow"><span>Аптека</span><b>'+money(a.pv)+'</b></div><div class="srow"><span>Зарплата</span><b>'+(st?money(sp):'—')+'</b></div>':'<small style="color:var(--mute)">отчёта нет</small>')+(ob?'<div class="srow"><span>Долги клиентов, остаток</span><b>'+money(ob)+'</b></div>':'')+'</button>';
   });
-  h+='<div class="srow big paytot"><span>Всего</span><b>'+money(tot.c+tot.p)+'</b></div><div class="srow sub"><span>клиника</span><b>'+money(tot.c)+'</b></div><div class="srow sub"><span>аптека</span><b>'+money(tot.p)+'</b></div><div class="srow sub"><span>зарплата по сменам</span><b>'+money(tot.s)+'</b></div>'+(tot.d?'<div class="srow big" style="margin-top:6px"><span>Долги клиентов, остаток</span><b>'+money(tot.d)+'</b></div><p class="hint">По отчётам администраторов с 24.10.2026: не оплачено минус погашено.</p>':'')+'</div>';
+  h+='<div class="card revtop"><div class="revtop-per">'+perTxt+'</div><div class="srow big revtop-all"><span>Всего</span><b>'+money(tot.c+tot.p)+'</b></div><div class="srow sub"><span>клиника</span><b>'+money(tot.c)+'</b></div><div class="srow sub"><span>аптека</span><b>'+money(tot.p)+'</b></div><div class="srow sub"><span>зарплата по сменам</span><b>'+money(tot.s)+'</b></div>'+(tot.d?'<div class="srow big" style="margin-top:6px"><span>Долги клиентов, остаток</span><b>'+money(tot.d)+'</b></div><p class="hint">По отчётам администраторов с 24.10.2026: не оплачено минус погашено.</p>':'')+'</div>';
+  h+='<div class="card"><h2>Все филиалы</h2>'+rows+'</div>';
   return h;
 }
 

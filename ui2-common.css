@@ -608,3 +608,13 @@ body.ui2 .vac-dq{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
 
 /* c21: заметка о связи на экране входа */
 body.ui2 .ui2-login-net{margin:14px 22px 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.14);color:#EAF6F8;font-size:13px;line-height:1.4;text-align:center;white-space:normal}
+
+/* c22: «Выручка» руководителя — период одной строкой с прокруткой, итог дня крупной карточкой сверху */
+body.ui2 .chips.rvper{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+body.ui2 .chips.rvper::-webkit-scrollbar{display:none}
+body.ui2 .chips.rvper .chip{flex:0 0 auto;white-space:nowrap}
+body.ui2 .card.revtop{border:1px solid #BFDDE4;background:linear-gradient(180deg,#F4FBFC,#E8F4F7)}
+body.ui2 .revtop-per{font-size:13px;font-weight:700;color:var(--ev-soft);margin-bottom:2px}
+body.ui2 .srow.big.revtop-all{align-items:baseline;border-bottom:1px solid #CFE3E8;margin-bottom:4px;padding-bottom:6px}
+body.ui2 .srow.big.revtop-all>span{font-size:18px}
+body.ui2 .srow.big.revtop-all>b{font-size:32px;color:var(--ev-ink);letter-spacing:-.01em}
