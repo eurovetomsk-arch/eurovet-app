@@ -1,0 +1,24 @@
+23/23 PASS; original 18 hashes match manifest.
+01-evening-report.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=130667
+02-cash-register.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=134625
+03-cash-acceptance.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=136664
+04-audit.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=134342
+05-vaccines.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=170025
+06-drug-request.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=143137
+07-who-is-where.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=142664
+08-my-schedule.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=127015
+09-my-accruals.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=149169
+10-my-appointments.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=131321
+11-vacation.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=159020
+12-employees.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=153156
+13-branches.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=147018
+14-revenue-director-only.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=132441
+15-access-permissions.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=153943
+16-settings.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=150157
+17-help.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=146549
+18-logout.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=145873
+19-safe.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=147268
+20-dose-calc.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=152250
+21-order.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=138109
+22-modules.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=146761
+23-greetings.png PASS 512x512 RGBA8 alpha=0..255 transparent_pixels=158706
