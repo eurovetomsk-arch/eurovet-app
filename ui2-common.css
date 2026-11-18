@@ -362,8 +362,8 @@ body.ui2 .cal .d{position:relative;width:100%;height:46px;min-width:0;padding:0;
 body.ui2 .cal .d.o{background:transparent;border-color:transparent;color:#B5C9CE}
 body.ui2 .cal .d.f{color:#fff;border-color:transparent;box-shadow:0 3px 8px rgba(11,59,71,.18)}
 body.ui2 .cal .d.f small{font-size:10px;font-weight:700;letter-spacing:0;opacity:.95;margin-top:1px;max-width:100%;overflow:visible;white-space:nowrap;text-overflow:clip}
-body.ui2 .cal .d.today{outline:2px solid var(--ev-accent);outline-offset:1px}
-body.ui2 .cal .d.sel{background:#DDF0F4;border-color:var(--ev-accent)}
+body.ui2 .cal .d.today{outline:1px solid var(--ev-accent);outline-offset:1px}
+body.ui2 .cal .d.sel{background:var(--ev-accent);color:#fff;border-color:transparent;outline:3px solid var(--ev-ink);outline-offset:1px;box-shadow:0 4px 10px rgba(11,59,71,.32);z-index:1}
 body.ui2 .cal .dots{display:flex;gap:2px;height:auto;align-items:center;justify-content:center;margin-top:4px}
 body.ui2 .cal .dots i{width:7px;height:7px;border-radius:50%;display:block}
 body.ui2 .cal .star{position:absolute;top:2px;right:4px;font-size:9px;color:#2A7D90}
