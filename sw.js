@@ -81,9 +81,20 @@ self.addEventListener('install',e=>{
 self.addEventListener('activate',e=>{
   e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
+/* c24: картинки (иконки плиток, подсказки, шрифты) — «сначала копия, обновление в фоне»: возврат на экран не перезагружает их по сети и не мигает.
+   Страница, config.js, скрипты и стили остаются «сеть первой» (иначе после выкладки страница и скрипты могли бы оказаться из разных версий). */
+const STATIC_RE=/\.(png|jpe?g|webp|svg|woff2?)$/i;
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
   if(e.request.method!=='GET'||u.origin!==location.origin)return;
+  if(e.request.mode!=='navigate'&&STATIC_RE.test(u.pathname)){
+    e.respondWith(caches.open(V).then(c=>c.match(e.request,{ignoreSearch:true}).then(hit=>{
+      const upd=fetch(e.request,{cache:'no-cache'}).then(r=>{if(r&&r.ok)c.put(e.request,r.clone()).catch(()=>{});return r}).catch(()=>undefined);
+      if(hit){e.waitUntil(upd);return hit}
+      return upd.then(r=>r||Response.error());
+    })));
+    return;
+  }
   const net=fetch(e.request,{cache:'no-cache'}).then(r=>{if(r&&r.ok){const cp=r.clone();caches.open(V).then(c=>c.put(e.request,cp)).catch(()=>{})}return r});
   const saved=()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||(e.request.mode==='navigate'?caches.match('./',{ignoreSearch:true}):undefined));
   /* ждём сеть 4 с; если недавно сеть уже подвела (молчала или оборвалась) — только 0,8 с, иначе 12 файлов оболочки грузились бы по 4 с подряд */
