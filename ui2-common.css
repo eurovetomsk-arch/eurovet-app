@@ -45,7 +45,7 @@
 
 html{color-scheme:light!important;background:var(--ev-frame-top);width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
 body.ui2{
-  width:100%;min-height:100vh;min-height:100dvh;overflow-x:hidden;
+  width:100%;min-height:100vh;min-height:100dvh;overflow-x:hidden;overflow-x:clip;
   margin:0;
   color:#EAF6F8;
   background:
@@ -497,7 +497,8 @@ body.ui2 .ui2-prepare p{margin:10px 0 22px;color:rgba(234,246,248,.78)}
    высота 100dvh, меняющаяся при сворачивании адресной строки. Исправление: фон — отдельный фиксированный слой;
    панель центрируется полями, без сдвига transform; высота страницы по большому окну (100lvh), без dvh; нет «резинки» у края. */
 html{overscroll-behavior-y:none;background:var(--ev-frame-bottom)}
-body.ui2{background:transparent!important;background-attachment:scroll!important;min-height:100vh;min-height:100lvh;overscroll-behavior-y:none}
+body.ui2{background:transparent!important;background-attachment:scroll!important;min-height:100vh;min-height:100lvh}
+/* c23: у body нет overscroll-behavior и нет overflow-x:hidden (клип вместо него): иначе на Android Chrome body становится контейнером прокрутки, и жест пальцем не доходит до страницы — экран «замёрз». Резинку у края гасит html. */
 body.ui2::before{content:"";position:fixed;left:0;right:0;top:0;bottom:0;z-index:-1;pointer-events:none;
   background:
     radial-gradient(420px 280px at 92% -4%,rgba(74,160,180,.24),transparent 72%),
