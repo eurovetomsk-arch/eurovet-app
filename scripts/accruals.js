@@ -1072,7 +1072,8 @@ async function showCC(from,to){
 /* ====== 1.79 «Мои записи» в цветном дне смены: только действующие врачи.
    Читает отдельный серверный снимок; не вызывает Vetmanager из браузера и не обращается к финансам. ====== */
 const APPT={rows:null,status:'idle',error:null,updatedAt:null,day:null};
-const apptAllowed=()=>!!(S.person&&S.loginList.some(p=>String(p.id)===String(S.person.id)&&p.doc===true));
+/* c29: роль врача берём из входа по номеру (person.roles), а не из списка людей: S.loginList в 2.0 всегда пуст, из-за чего «Мои записи» не показывались никому. Права всё равно проверяет сервер (ev_my_appointments). */
+const apptAllowed=()=>!!S.person&&hasRole('doctor');
 function apptReset(){APPT.rows=null;APPT.status='idle';APPT.error=null;APPT.updatedAt=null;APPT.day=null}
 const apptInWindow=dt=>dt>=omskToday()&&dt<=addDays(omskToday(),7);
 async function loadAppointments(){
