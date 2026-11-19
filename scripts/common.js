@@ -118,6 +118,7 @@ const saveHandoverQueue=()=>LS.set('ev_handover_queue',S.handoverQueue);
 })();
 
 function toast(msg,ms=4000){
-  const w=$('#toastwrap');w.innerHTML='<div class="toast">'+esc(msg)+'</div>';
+  /* c27: при открытой шторке (#ovwrap) сообщение показываем сверху и выше шторки: внизу его закрывала карточка («Смена PIN: ничего не происходит») */
+  const w=$('#toastwrap'),ovOpen=!!($('#ovwrap')&&$('#ovwrap').innerHTML);w.innerHTML='<div class="toast'+(ovOpen?' on-ov':'')+'" role="status">'+esc(msg)+'</div>';
   clearTimeout(toast.t);toast.t=setTimeout(()=>{w.innerHTML=''},ms);
 }
