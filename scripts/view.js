@@ -38,6 +38,7 @@ function render(){
   evSyncHistory();
   setHeader();
   const app=$('#app'),bar=$('#barwrap');bar.innerHTML='';
+  app.classList.toggle('ro',S.view==='form'&&!!S.roHead); /* c32: «только чтение» держится только на экране просмотра, на других экранах не прячет кнопки */
   if(S.view==='login')app.innerHTML=viewLogin();
   else if(S.view==='branch')app.innerHTML=viewBranch();
   else if(S.view==='form'){app.innerHTML=viewForm();bar.innerHTML=viewBar();if(!S.nosub)updateChecks();roLock()}
