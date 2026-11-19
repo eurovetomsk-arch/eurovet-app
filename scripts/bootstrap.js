@@ -2,6 +2,7 @@
 /* ====== Запуск ====== */
 (async()=>{
   idleCheck();
+  if(!S.token)applySavedNumber(); /* c28: запомненный номер — сразу экран PIN */
   if(S.token&&S.person)setTimeout(birthdayCheck,600);
   if(S.token&&S.person)S.view=homeView();
   if(S.view==='cc')showCC();else if(S.view==='work')showWork();else render();

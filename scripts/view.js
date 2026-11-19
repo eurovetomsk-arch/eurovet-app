@@ -7,7 +7,7 @@ function setHeader(){
   h.className=S.view==='form'?'form-head':'';
   if(S.view==='help'&&!S.person){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>Мой ЕВРОВЕТ</b><small>Всё о вашей работе — в одном месте</small></div></div>'+netBadge();return}
   h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?(S.person.short_name||S.person.name):'')+'</b><small>'+esc(stageRole(S.person))+'</small></div></div><div class="hb">'+netBadge()+
-    (S.view==='form'?'<button class="pill" data-act="back">Филиал</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'</div>'; /* 2.0: «Меню» только внизу */
+    (S.view==='form'?'<button class="pill" data-act="back" aria-label="Назад на главную">‹ Назад</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'</div>'; /* 2.0: «Меню» только внизу */
 }
 function netBadge(){
   const q=S.queue.length+S.handoverQueue.length;
@@ -574,7 +574,8 @@ document.addEventListener('click',async e=>{
     case'ltab':if(d.t===''){S.loginTab=null;S.notMe=true}else{S.loginTab=d.t;LS.set('ev_tab',d.t)}S.pick=null;render();break;
     case'notme':S.loginTab=null;S.notMe=true;S.pick=null;render();break;
     case'pick':S.pick=Number(d.id);render();setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0);break;
-    case'loginstart':S.loginScreen='keypad';S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
+    case'loginstart':if(!applySavedNumber()){S.loginScreen='keypad';S.loginStep='number';S.loginNumber='';S.loginPin=''}render();break;
+    case'loginnotme':try{localStorage.removeItem(LOGIN_NUM_KEY)}catch(e){}S.loginRemembered=false;S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
     case'loginchange':S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
     case'logindel':if(S.busy)break;if(S.loginStep==='pin'){S.loginPin=S.loginPin.slice(0,-1);if(!S.loginPin.length&&S.loginNumber.length<3)S.loginStep='number'}else S.loginNumber=S.loginNumber.slice(0,-1);render();break;
     case'logindigit':{
@@ -591,7 +592,7 @@ document.addEventListener('click',async e=>{
       break}
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
     case'reloadctx':openBranch(S.branch);break;
-    case'back':closeOv();saveDraft();S.view='branch';S.form=null;S.roHead=false;S.nosub=false;S.subAdmin=false;render();break;
+    case'back':closeOv();saveDraftNow();S.view='branch';S.form=null;S.roHead=false;S.nosub=false;S.subAdmin=false;render();break;
     case'ccopen':closeOv();showCC();break;
     case'ccper':showCC(d.from,d.to);break;
     case'ccmark':ccMarkAsk(d.dt,d.on==='1');break;

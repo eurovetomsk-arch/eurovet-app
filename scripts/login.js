@@ -1,6 +1,11 @@
 'use strict';
 /* ====== Вход / контекст ====== */
 async function loadLoginList(){}
+/* c28 (слово Михаила 19.11): запоминаем на устройстве ТОЛЬКО личный номер (3 цифры). PIN, токен сессии и имя не хранятся; окно сессии 30 минут не меняется.
+   Номер подставляется при открытии приложения и после выхода; «Это не я» стирает его. */
+const LOGIN_NUM_KEY='ev_login_number';
+function savedLoginNumber(){try{const v=localStorage.getItem(LOGIN_NUM_KEY);return /^\d{3}$/.test(v||'')?v:''}catch(e){return ''}}
+function applySavedNumber(){const n=savedLoginNumber();if(n){S.loginScreen='keypad';S.loginStep='pin';S.loginNumber=n;S.loginPin='';S.loginRemembered=true;return true}S.loginRemembered=false;return false}
 async function doLogin(pin){
   const number=S.loginNumber||'';const shared=false; /* 2.0: галочки «общее устройство» нет — автовыход у всех, кроме руководителя */
   if(!/^\d{3}$/.test(number)){toast('Личный номер — 3 цифры');return}
@@ -12,13 +17,13 @@ async function doLogin(pin){
     // The former showCC/showWork redirects hid the new main screen from those roles.
     /* c20: роль без экрана (например, аутсорс; screen_access/список ролей экрана пуст) — приложение для неё не строится */
     if(r.ok&&personRoles(r.person).length===0){rpc('ev_logout',{p_token:r.token}).catch(()=>{});S.loginPin='';S.busy=false;toast('Для вашей роли экран в приложении не предусмотрен.',7000);render();return}
-    if(r.ok){S.token=r.token;S.person=r.person;S.shared=shared;touchAct();S.busy=false;S.view='branch';render();flush();birthdayCheck();return}
+    if(r.ok){try{localStorage.setItem(LOGIN_NUM_KEY,number)}catch(e){}S.loginRemembered=true;S.token=r.token;S.person=r.person;S.shared=shared;touchAct();S.busy=false;S.view='branch';render();flush();birthdayCheck();return}
     const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
   S.loginPin='';S.busy=false;render();
 }
-function logout(){if(S.token)rpc('ev_logout',{p_token:S.token}).catch(()=>{});S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.handover=null;S.transit=null;S.transitUid=null;S.myCash=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.ccVal=null;S.ccValRange=null;S.ccValLoad=false;S.ccValErr=null;S.ccValUid=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;S.loginScreen='start';S.loginStep='number';S.loginNumber='';S.loginPin='';S.loginShared=false;HOME_WHO.key='';HOME_WHO.loading=false;HOME_WHO.rows=null;HOME_WHO.error=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
+function logout(){if(S.token)rpc('ev_logout',{p_token:S.token}).catch(()=>{});S.sch=null;apptReset();S.token=null;S.person=null;S.form=null;S.ctx=null;S.handover=null;S.transit=null;S.transitUid=null;S.myCash=null;S.sal=null;S.rev=null;S.revSal=null;S.ctl=null;S.salTab=null;S.salPay=null;S.salPayKey=null;S.salPayErr=null;S.salPayLoad=false;S.ccVal=null;S.ccValRange=null;S.ccValLoad=false;S.ccValErr=null;S.ccValUid=null;S.revBranch=null;S.cc=null;S.mySal=null;S.work=null;S.wkAdm=null;S.wkHist=false;S.wkHistData=null;S.pay=null;S.day=null;S.loginScreen='start';S.loginStep='number';S.loginNumber='';S.loginPin='';S.loginShared=false;applySavedNumber();HOME_WHO.key='';HOME_WHO.loading=false;HOME_WHO.rows=null;HOME_WHO.error=null;LS.del('ev_token');LS.del('ev_person');S.view='login';render();loadLoginList().then(()=>{if(S.view==='login')render()})}
 
 /* ====== Приёмка переходящей кассы (v1.86: одно начало смены без повторного ввода) ====== */
 const handoverCacheKey=(branch,date)=>'ev_handover_ctx:'+branch+':'+date;
@@ -216,7 +221,7 @@ function loginSlogan(d=new Date()){
 }
 function loginBoxes(){
   if(S.loginStep==='number')return '<div class="ui2-field-label">Личный номер — 3 цифры</div><div class="ui2-digits" aria-label="Введено цифр: '+S.loginNumber.length+'">'+[0,1,2].map(i=>'<span class="'+(i===S.loginNumber.length?'cur':'')+'">'+esc(S.loginNumber[i]||'')+'</span>').join('')+'</div>';
-  return '<div class="ui2-field-label">PIN — 6 цифр</div><div class="ui2-dots" aria-label="Введено цифр PIN: '+S.loginPin.length+'">'+[0,1,2,3,4,5].map(i=>'<i class="'+(i<S.loginPin.length?'on':'')+'"></i>').join('')+'</div><div class="ui2-numrow">номер <b>'+esc(S.loginNumber)+'</b> <button data-act="loginchange">изменить</button></div>'
+  return '<div class="ui2-field-label">PIN — 6 цифр</div><div class="ui2-dots" aria-label="Введено цифр PIN: '+S.loginPin.length+'">'+[0,1,2,3,4,5].map(i=>'<i class="'+(i<S.loginPin.length?'on':'')+'"></i>').join('')+'</div><div class="ui2-numrow">номер <b>'+esc(S.loginNumber)+'</b> '+(S.loginRemembered?'<button data-act="loginnotme">Это не я</button>':'<button data-act="loginchange">изменить</button>')+'</div>'
     +'<div class="ui2-field-label" style="margin-top:10px;opacity:.7;font-weight:600">Автоматический выход через 30 минут без действий (кроме руководителя).</div>';
 }
 function loginPad(){return '<div class="ui2-pad">'+['1','2','3','4','5','6','7','8','9'].map(n=>'<button data-act="logindigit" data-n="'+n+'">'+n+'</button>').join('')+'<button class="blank" tabindex="-1" aria-hidden="true"></button><button data-act="logindigit" data-n="0">0</button><button class="del" data-act="logindel" aria-label="Стереть">⌫</button></div>'}

@@ -268,6 +268,7 @@ function viewForm(){
   if(S.nosub)return nosubHtml();
   if(handoverGate())return handoverHtml()||'<div class="card"><h2>Приёмка кассы</h2><p class="hint">Проверяем принятую сумму…</p></div>';
   const f=S.form,c=S.ctx;let h='';
+  if(!(c&&c.current))h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">‹ На главную</button>'; /* c26: видимый выход из формы без нижней панели; черновик сохраняется */
   if(S.subAdmin&&isHead())h+='<div class="chk warn" id="subadm"><i>!</i><div><b>Вы заполняете отчёт за администратора.</b> Сдача пойдёт от вашего имени.</div></div>';
   if(S.roHead)h+='<div class="chk ok" id="rohead"><i>👁</i><div><b>Просмотр отчёта</b> — только для чтения. Сдан'+(c.current&&c.current.submitted_at?' в '+hmOmsk(c.current.submitted_at):'')+(c.current?', версия '+c.current.version:'')+'. Исправить может администратор филиала.</div></div>';
   if(S.formErrors&&S.formErrors.length)h+='<div class="chk bad" id="form-errors"><i>!</i><div><b>Исправьте перед отправкой: '+S.formErrors.map(esc).join('; ')+'</b></div></div>';
