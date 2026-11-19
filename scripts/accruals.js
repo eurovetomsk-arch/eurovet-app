@@ -980,11 +980,16 @@ function revDoctorsHtml(){
   return h+'<p class="hint" style="margin-top:8px">По данным сверки Vetmanager. Начисления врачей считает Vetmanager — здесь только выручка.</p></div>';
 }
 /* 2.0 §15: над выручкой одна строка статуса (бывший «Контроль»): 🟢 всё сходится / 🔴 требует внимания: N */
+/* c30 (слово Михаила 19.11): сверка Vetmanager за дни старше 14 дней (граница ev_today()-14, как в ev_record_vm_run) уже невозможна — такие находки не красные и уходят в свёрнутый раздел «Старые, сверка невозможна» в Контроле */
+const CTL_VM_CODES=['vm_not_checked','vm_partial'];
+const ctlOldDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(String(d||''))&&String(d)<addDays(omskToday(),-14);
+const ctlOldFlag=f=>CTL_VM_CODES.includes(f&&f.code)&&ctlOldDate(f.date);
+const ctlOldCov=x=>!!x&&x.status!=='complete'&&ctlOldDate(x.date);
 async function loadRevStatus(){
   if(!isHead())return;
   try{const r=await rpc('ev_flags_pending',{p_token:S.token},20000);
     if(r&&r.ok){S.ctl=r.pending||[];S.ctlAccepted=r.accepted||[];S.ctlCoverage=r.coverage||[];const cv=S.ctlCoverage;
-      S.revStatus={open:(S.ctl||[]).filter(f=>!f.blocked&&!['vm_not_checked','vm_partial'].includes(f.code)).length,incomplete:cv.filter(x=>!['complete','pending','missing'].includes(x.status)).length}}
+      S.revStatus={open:(S.ctl||[]).filter(f=>!f.blocked&&!['vm_not_checked','vm_partial'].includes(f.code)).length,incomplete:cv.filter(x=>!['complete','pending','missing'].includes(x.status)&&!ctlOldCov(x)).length}}
     else S.revStatus={err:true}}catch(e){S.revStatus={err:true}}
   S.revStatusAt=Date.now();if(S.view==='rev'||S.view==='branch')paint();
 }

@@ -623,3 +623,8 @@ body.ui2 .srow.big.revtop-all>b{font-size:32px;color:var(--ev-ink);letter-spacin
 /* c27: сообщение (toast) всегда выше шторки (.ov z-index 30) и экрана поздравления (.bd 100); над шторкой — вверху экрана */
 body.ui2 .toast{z-index:200}
 body.ui2 .toast.on-ov{bottom:auto;top:calc(14px + env(safe-area-inset-top,0px))}
+/* c30: Контроль — раздел «Старые, сверка невозможна» (свёрнут, не красный) */
+body.ui2 .ctl-old{margin-top:16px}
+body.ui2 .ctl-old summary{cursor:pointer;font-weight:700;padding:8px 0;color:var(--ev-soft)}
+body.ui2 .ctl-old-row{padding:8px 0;border-top:1px solid var(--ev-line,#D0E2E6);color:var(--ev-soft)}
+body.ui2 .ctl-old-row small{color:var(--ev-soft)}

@@ -276,16 +276,27 @@ async function ctlAccept(items){
   }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',5000)}
   S.ctlBusy=false;S.revStatusAt=0;if(S.view==='ctl')await showControl();
 }
+/* c30: список старых дней для раздела «Старые, сверка невозможна»: по одной строке на филиал и дату (находка и строка сверки за один день не дублируются) */
+function ctlOldRows(flAll,cv){
+  const m=new Map(),bt=b=>(BRANCHES.find(x=>x.id===b)||{}).title||b;
+  (cv||[]).filter(ctlOldCov).forEach(x=>{
+    const why={pending:'Сверка не проводилась.',missing:'Данных сверки нет.'}[x.status]||'Сверка не завершена.';
+    m.set(x.branch+'|'+x.date,{branch:x.branch,title:bt(x.branch),date:x.date,reason:(why+' '+vmCoverageText(x)).trim()});
+  });
+  (flAll||[]).filter(ctlOldFlag).forEach(f=>{const k=(f.branch||'')+'|'+f.date;if(!m.has(k))m.set(k,{branch:f.branch,title:bt(f.branch),date:f.date,reason:String(f.title||'Сверка Vetmanager не проведена.')})});
+  return [...m.values()].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.branch).localeCompare(String(b.branch)));
+}
 function ctlHtml(){
   let h='<div class="mrbox">'+mrHtml()+'</div><div class="card"><h2>Контроль · с 27.10</h2>';
   if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
   else{
-    const fl=S.ctl||[],open=fl,cv=S.ctlCoverage||[],ready=ctlReady(fl),done=S.ctlAccepted||[];
+    const flAll=S.ctl||[],fl=flAll.filter(f=>!ctlOldFlag(f)),open=fl,cv=S.ctlCoverage||[],cvLive=cv.filter(x=>!ctlOldCov(x)),ready=ctlReady(fl),done=S.ctlAccepted||[];
+    const oldRows=ctlOldRows(flAll,cv);
     const complete=cv.filter(x=>x.status==='complete').length;
-    const waiting=cv.filter(x=>['pending','missing'].includes(x.status));
+    const waiting=cvLive.filter(x=>['pending','missing'].includes(x.status));
     const pending=waiting.length;
-    const incompleteRows=cv.filter(x=>!['complete','pending','missing'].includes(x.status)),incomplete=incompleteRows.length;
+    const incompleteRows=cvLive.filter(x=>!['complete','pending','missing'].includes(x.status)),incomplete=incompleteRows.length;
     const staleDays=waiting.reduce((n,x)=>Math.max(n,Math.max(0,Math.floor((Date.parse(omskToday()+'T00:00:00Z')-Date.parse(String(x.date||'')+'T00:00:00Z'))/86400000))),0);
     h+='<p class="hint">Ждут решения: '+open.length+'. Vetmanager подтвердил '+complete+' из '+cv.length+' текущих версий отчётов.</p>';
     if(pending)h+=staleDays>2
@@ -293,7 +304,8 @@ function ctlHtml(){
       :'<div class="chk wait"><i>…</i><div><b>Ожидают плановой сверки: '+pending+'</b><br><small>Сегодняшние отчёты проверятся автоматически после закрытия смен. Ничего принимать вручную не нужно.</small></div></div>';
     if(incomplete){const details=incompleteRows.map(x=>{const bt=(BRANCHES.find(b=>b.id===x.branch)||{}).title||x.branch;return bt+' · '+ruDate(x.date)+': '+vmCoverageText(x)}).join(' ');h+='<div class="chk bad"><i>!</i><div><b>Сверка Vetmanager не завершена: '+incomplete+'</b><br><small>'+esc(details)+'</small></div></div>'}
     if(ready.length)h+='<button class="btn ctl-all" data-act="ctlall"'+(S.ctlBusy?' disabled':'')+'>Принять всё ('+ready.length+')</button><p class="hint">Красные сверху. Деньги и отчёты не меняются.</p>';
-    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cv.length&&complete+pending===cv.length?(pending?'<p>Подтверждённых расхождений сейчас нет. Идёт плановая сверка сегодняшних отчётов.</p>':'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>'):'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
+    h+=fl.length?fl.map(f=>flagLine(f,'ctl')).join(''):(cvLive.length&&complete+pending===cvLive.length?(pending?'<p>Подтверждённых расхождений сейчас нет. Идёт плановая сверка сегодняшних отчётов.</p>':'<p>Расхождений нет. Все текущие версии отчётов подтверждены Vetmanager.</p>'):'<p>Нет подтверждённых данных для вывода «расхождений нет».</p>');
+    if(oldRows.length)h+='<details class="ctl-old"><summary>Старые, сверка невозможна ('+oldRows.length+')</summary><p class="hint">Эти дни старше 14 дней: сверку Vetmanager за них записать уже нельзя. Решения от вас не требуются.</p>'+oldRows.map(o=>'<div class="ctl-old-row"><b>'+esc(o.title)+' · '+ruDate(o.date)+'</b><br><small>'+esc(o.reason)+'</small></div>').join('')+'</details>';
     h+='<details class="ctl-done"><summary>Принято ('+done.length+')</summary>'+(done.length?done.map(f=>flagLine(f,'ctl')).join(''):'<p class="hint">Пока ничего не принято.</p>')+'</details>';
   }
   return h+'</div>';
