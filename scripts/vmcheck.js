@@ -3,7 +3,7 @@
    После сдачи отчёта: ev_vm_check_request (сервер сам вызывает проверку; без сети — позже, отчёт не блокируется), затем несколько раз читаем ev_vm_check_status.
    При mismatch/no_data администратор видит «В Vetmanager X, у вас Y. Исправьте или напишите причину». «Контроль» руководителя: красные флаги ev_vm_check_flags + «Решить» с причиной (ev_vm_check_resolve).
    Вердикт считает сервер (жёсткое правило, порог 10 ₽). Здесь только показ. Токен Vetmanager в клиент не попадает. */
-const VMC={flags:null,err:null,loading:false,acc:null};
+const VMC={flags:null,err:null,loading:false,acc:null,info:null};
 const VMC_FIELD={total:'итог клиники',cash:'наличные',cashless:'безнал',fix_normal:'фиксации животных',fix_xray:'фиксации на R-снимке'};
 /* суммы в рублях, фиксации в штуках */
 const vmcVal=(f,n)=>n==null?'—':(String(f||'').startsWith('fix_')?String(Number(n))+' шт.':vmcRub(n));
@@ -47,7 +47,7 @@ async function vmcFlushQueue(){
 }
 window.addEventListener('online',()=>{vmcFlushQueue()});
 async function loadAccFlags(){
-  try{const r=await rpc('ev_access_flags',{p_token:S.token},10000);if(r&&r.ok)VMC.acc=r.flags||[]}catch(e){}
+  try{const r=await rpc('ev_access_flags',{p_token:S.token},10000);if(r&&r.ok){VMC.acc=r.flags||[];VMC.info=r.info||[]}}catch(e){}
   if(S.view==='ctl')paint();
 }
 async function loadVmFlags(){
@@ -59,16 +59,22 @@ async function loadVmFlags(){
 }
 const vmcHm=t=>{try{return new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(t))}catch(e){return ''}};
 function vmcAccLine(f){
-  const who=esc(f.who||'#'+f.person_id),d=f.detail||{};
-  if(f.kind==='night'){const a=(d.after||[]).map(x=>esc(x.action)).join(', ');return '<b>Ночной вход · '+who+' · '+vmcHm(f.at)+'</b>'+(d.money?' <b>(деньги)</b>':'')+(a?'<br>После входа: '+a:'')}
-  if(f.kind==='pin')return '<b>Неверный PIN ×'+Number(d.count)+' · '+who+' · '+esc(vmcDate(d.date))+'</b>';
-  if(f.kind==='device')return '<b>Новое устройство · '+who+' · '+vmcHm(f.at)+'</b>';
-  if(f.kind==='money')return '<b>Ночное денежное действие · '+who+' · '+vmcHm(f.at)+'</b><br>'+esc(d.action||'');
+  const who=esc(f.who||(f.person_id?'#'+f.person_id:'разные люди')),d=f.detail||{},red=f.level==='red';
+  if(f.kind==='night')return '<b>Ночной вход · '+who+' · '+vmcHm(f.at)+'</b>'+((d.after||[]).length?'<br>После входа: '+(d.after||[]).map(x=>esc(x.action)).join(', '):'');
+  if(f.kind==='pin'){
+    if(d.device)return '<b>Подбор PIN с одного устройства по разным людям · '+esc(vmcDate(d.date))+' '+vmcHm(f.at)+'</b>';
+    return '<b>'+(red?'Подбор PIN: ':'Неверный PIN ')+'×'+Number(d.count)+(red?' (5 и больше за час)':'')+' · '+who+' · '+esc(vmcDate(d.date))+'</b>';
+  }
+  if(f.kind==='device')return '<b>'+(red?'Новое устройство и неудачные входы · ':'Новое устройство · ')+who+' · '+vmcHm(f.at)+'</b>';
+  if(f.kind==='money')return '<b>Ночное денежное действие (не руководитель) · '+who+' · '+vmcHm(f.at)+'</b><br>'+esc(d.action||'');
   return esc(f.kind);
 }
+/* красное: требует кнопки; серое «К сведению» (7 дней): без кнопки */
 function vmcAccHtml(){
-  const a=VMC.acc;if(!a||!a.length)return '';
-  return '<div class="card vmc-flags"><h2>Входы и деньги</h2>'+a.map(f=>'<div class="chk bad"><i>!</i><div>'+vmcAccLine(f)+'<br><button class="btn sec small" data-vmact="accres" data-key="'+esc(f.key)+'">Это я / знаю</button></div></div>').join('')+'</div>';
+  let h='';const a=VMC.acc,i=VMC.info;
+  if(a&&a.length)h+='<div class="card vmc-flags"><h2>Входы и деньги</h2>'+a.map(f=>'<div class="chk bad"><i>!</i><div>'+vmcAccLine(f)+'<br><button class="btn sec small" data-vmact="accres" data-key="'+esc(f.key)+'">Это я / знаю</button></div></div>').join('')+'</div>';
+  if(i&&i.length)h+='<div class="card vmc-info"><h2>К сведению</h2><p class="hint">Не требует решения, только за 7 дней.</p>'+i.map(f=>'<div class="vmc-infoline">'+vmcAccLine(f)+'</div>').join('')+'</div>';
+  return h;
 }
 function vmFlagsHtml(){
   return vmcAccHtml()+vmVmHtml();

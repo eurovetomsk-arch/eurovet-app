@@ -22,7 +22,7 @@ const fxm=vmcMessage([{field:'fix_normal',verdict:'mismatch',report:1,vm:2}]);ok
 VMC.flags=[{id:5,branch:'marksa',date:'2026-11-19',field:'fix_xray',verdict:'mismatch',report:0,vm:1,diff:-1}];ok(vmFlagsHtml().includes('фиксации на R-снимке')&&vmFlagsHtml().includes('1 шт.')&&!vmFlagsHtml().includes('₽'),'Контроль: фиксации в штуках');
 VMC.flags=[];VMC.acc=null;ok(vmFlagsHtml()==='','флагов нет — блока нет');
 VMC.acc=[{kind:'night',key:'night:9',person_id:1,who:'Таслицкий <b>',at:'2026-11-16T18:34:00Z',detail:{after:[{action:'safe_out_add'}],money:true}},{kind:'pin',key:'pin:3:2026-11-19',person_id:3,who:'Х',at:'2026-11-19T10:00:00Z',detail:{count:3,date:'2026-11-19'}},{kind:'device',key:'device:37:ab',person_id:37,who:'Y',at:'2026-11-22T11:03:00Z',detail:{}}];
-const ah=vmFlagsHtml();ok(ah.includes('Ночной вход')&&ah.includes('(деньги)')&&ah.includes('safe_out_add')&&ah.includes('Неверный PIN ×3')&&ah.includes('Новое устройство')&&ah.includes('Это я / знаю'),'Контроль входов: ночной вход с деньгами, PIN×3, новое устройство, кнопка «Это я / знаю»');
+const ah=vmFlagsHtml();
 ok(!ah.includes('<b>Таслицкий <b>')&&ah.includes('&lt;b&gt;'),'имена через esc');
 VMC.acc=null;
 // без сети: проверка откладывается, отчёт не блокируется
@@ -31,6 +31,11 @@ ok(vmcQ().length===1&&vmcQ()[0].branch==='70let','без сети: провер�
 const calls=[];_rpc=async(n,b)=>{calls.push(n);return{ok:true,queued:false}};await vmcFlushQueue();
 ok(calls.includes('ev_vm_check_request')&&vmcQ().length===0,'связь вернулась: запрос проверки повторён, очередь пуста');
 ok(!JSON.stringify(vmcQ()).match(/token|pin/i),'в очереди нет токена и PIN');
+VMC.acc=[{kind:'money',level:'red',key:'money:1',person_id:5,who:'Админ',at:'2026-11-19T20:00:00Z',detail:{action:'payroll_close'}},{kind:'pin',level:'red',key:'pin:5:2026-11-19',person_id:5,who:'Админ',at:'2026-11-19T10:00:00Z',detail:{count:6,date:'2026-11-19',brute:true}},{kind:'pin',level:'red',key:'pin:dev:ab:2026-11-19',person_id:null,who:null,at:'2026-11-19T10:00:00Z',detail:{device:true,date:'2026-11-19'}}];
+VMC.info=[{kind:'night',level:'info',key:'night:9',person_id:7,who:'Врач',at:'2026-11-20T21:00:00Z',detail:{after:[{action:'cc_view'}]}},{kind:'device',level:'info',key:'device:7:cd',person_id:7,who:'Врач',at:'2026-11-21T05:00:00Z',detail:{}}];
+const rh=vmFlagsHtml();ok(rh.includes('Ночное денежное действие (не руководитель)')&&rh.includes('Подбор PIN: ×6 (5 и больше за час)')&&rh.includes('по разным людям')&&(rh.match(/data-vmact="accres"/g)||[]).length===3,'красные флаги входов: деньги ночью не руководителя, подбор PIN по человеку и по устройству, у каждого кнопка');
+const ih=rh.slice(rh.indexOf('К сведению'));ok(ih.includes('Ночной вход')&&ih.includes('Новое устройство')&&!ih.includes('data-vmact'),'серый список «К сведению»: ночные входы и новые устройства, без кнопки');
+VMC.acc=null;VMC.info=[{kind:'pin',level:'info',key:'pin:3:2026-11-19',person_id:3,who:'Х',at:'2026-11-19T10:00:00Z',detail:{count:3,date:'2026-11-19',brute:false}}];ok(vmFlagsHtml().includes('Неверный PIN ×3')&&!vmFlagsHtml().includes('Входы и деньги'),'только серое: красного блока нет');VMC.info=null;
 const o=document.getElementById('o');const bad=res.filter(x=>!x[0]);o.textContent='RESULT '+(bad.length?'FAIL '+bad.map(x=>x[1]).join(' | '):'PASS')+' '+(res.length-bad.length)+'/'+res.length;
 })();
 </script>
