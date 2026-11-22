@@ -1,0 +1,51 @@
+<!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
+<!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
+     Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
+     Ожидается: RESULT PASS 17/17. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+<script>
+const S={token:'t',person:{id:1},view:'med'};let _rpc=async()=>({ok:true});
+async function rpc(n,b){return _rpc(n,b)}
+const esc=s=>String(s==null?'':s),toast=()=>{},paint=()=>{},render=()=>{},closeOv=()=>{},isHead=()=>true,vacHm=()=>'',HOME_WHO={rows:[]};
+</script>
+<script src="../scripts/medorder.js"></script>
+<script>
+(async()=>{
+const res=[];const ok=(c,m)=>res.push([!!c,m]);
+const NET=()=>{throw {net:true}};const tick=()=>new Promise(r=>setTimeout(r,30));
+localStorage.removeItem('ev_medq');
+MD.branch='marksa';MD.lines={};MD.cat={items:[{id:70,section:'vet',name:'Тест',active:true}]};MD.tab='vet';MD.step='list';
+// 1 очередь без связи
+_rpc=NET;await mdSet(70,3);await tick();
+let q=mdQ();ok(q.length===1&&q[0].item===70&&q[0].qty===3&&q[0].branch==='marksa'&&q[0].exp===0,'без связи число встало в очередь');
+ok(MD.lines[70]===3,'на экране видно локальное число');
+ok(Object.keys(q[0]).sort().join()==='at,branch,exp,item,qty','в очереди только item, qty, branch, exp, время');
+ok(!JSON.stringify(q).match(/token|pin|name|person/i),'нет токена, PIN и имён в очереди');
+ok(mdListHtml().includes('не отправлено'),'строка помечена «не отправлено»');
+ok(/data-mact="review" disabled/.test(mdListHtml()),'«Проверить» недоступна, пока очередь не пуста');
+// 2 повтор: изменение того же числа обновляет запись, expect остаётся прежним
+await mdSet(70,4);await tick();q=mdQ();ok(q.length===1&&q[0].qty===4&&q[0].exp===0,'повторное изменение обновляет одну запись, exp прежний');
+// 3 связь вернулась
+let calls=[];const LC=()=>calls.filter(c=>c[0]==='ev_med_line_set');_rpc=async(n,b)=>{calls.push([n,b]);return n==='ev_med_order_get'?{ok:true,lines:[{item:70,qty:4,by:'x',at:'2026-01-01'}],prev:{}}:{ok:true,qty:b.p_qty}};
+await mdFlush();ok(LC().length===1&&LC()[0][1].p_expect===0&&LC()[0][1].p_qty===4&&LC()[0][1].p_item===70,'очередь ушла через ev_med_line_set с p_expect');
+ok(mdQ().length===0,'очередь пуста после отправки');
+ok(!/data-mact="review" disabled/.test(mdListHtml()),'«Проверить» снова доступна');
+// 4 conflict: молча не перезаписываем
+MD.lines={};localStorage.removeItem('ev_medq');mdQPut('marksa',70,7,2);
+calls=[];_rpc=async(n,b)=>{calls.push([n,b]);return n==='ev_med_order_get'?{ok:true,lines:[],prev:{}}:{ok:false,error:'conflict',current:5}};
+await mdFlush();q=mdQ();ok(q.length===1&&q[0].conflict&&q[0].conflict.cur===5&&LC().length===1,'conflict: запись осталась, не перезаписана');
+ok(/было 2, стало 5/.test(mdListHtml())&&/Оставить моё/.test(mdListHtml())&&/Взять новое/.test(mdListHtml()),'показано «было X, стало Y» и две кнопки');
+calls=[];_rpc=async(n,b)=>{calls.push([n,b]);return n==='ev_med_order_get'?{ok:true,lines:[],prev:{}}:{ok:true}};await mdResolve(70,true);
+ok(LC().length===1&&LC()[0][1].p_expect===5&&LC()[0][1].p_qty===7&&mdQ().length===0,'«Оставить моё»: отправлено с expect=5');
+mdQPut('marksa',70,7,2);_rpc=async(n,b)=>({ok:false,error:'conflict',current:5});await mdFlush();
+_rpc=async(n)=>n==='ev_med_order_get'?{ok:true,lines:[{item:70,qty:5,by:'x',at:'2026-01-01'}],prev:{}}:{ok:true};
+await mdResolve(70,false);ok(mdQ().length===0&&MD.lines[70]===5,'«Взять новое»: очередь пуста, число с сервера');
+// 4б число изменено, пока шёл запрос: новое значение не теряется
+localStorage.removeItem('ev_medq');mdQPut('marksa',70,3,0);_rpc=async(n,b)=>{mdQPut('marksa',70,6,0);return{ok:true}};await mdFlush();q=mdQ();ok(q.length===1&&q[0].qty===6&&q[0].exp===3,'правка во время отправки не теряется (exp=ушедшее)');
+// 5 границы
+localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1},{item:70,qty:0,branch:'marksa',exp:1,at:1},{item:'x',qty:1,branch:'marksa',exp:0,at:1}]));
+ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');
+localStorage.removeItem('ev_medq');MD.lines={};_rpc=NET;await mdSet(70,1000);await tick();ok(mdQ()[0].qty===999,'1000 ограничено 999');
+const o=document.getElementById('o');const f=res.filter(r=>!r[0]);
+o.textContent='RESULT '+(f.length?'FAIL '+f.map(r=>r[1]).join(' | '):'PASS')+' '+(res.length-f.length)+'/'+res.length;document.title='DONE';
+})();
+</script>

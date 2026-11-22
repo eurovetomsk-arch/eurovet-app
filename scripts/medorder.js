@@ -13,6 +13,43 @@ const mdItems=()=>(MD.cat&&MD.cat.items)||[];
 const mdName=id=>{const i=mdItems().find(x=>Number(x.id)===Number(id));return i?i.name:'#'+id};
 const mdShiftBranch=()=>{const m=(typeof HOME_WHO!=='undefined'&&HOME_WHO.rows||[]).find(r=>r&&r.mine===true&&(r.branch||r.branch_id));return m?(m.branch||m.branch_id):null};
 const mdHead=()=>{try{return !!isHead()}catch(e){return false}};
+/* ---- офлайн-очередь (только item, qty, branch, время и число, которое человек видел; без PIN, токена и имён) ---- */
+const MDQ_KEY='ev_medq';
+function mdQ(){try{const a=JSON.parse(localStorage.getItem(MDQ_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&Number.isInteger(x.item)&&Number.isInteger(x.qty)&&x.qty>=0&&x.qty<=999&&Number.isInteger(x.exp)&&x.exp>=0&&x.exp<=999&&typeof x.branch==='string'):[]}catch(e){return[]}}
+function mdQSave(a){try{localStorage.setItem(MDQ_KEY,JSON.stringify(a))}catch(e){}}
+function mdQPut(branch,item,qty,exp){
+  item=Number(item);const a=mdQ(),i=a.findIndex(x=>x.branch===branch&&x.item===item);
+  if(qty===exp){if(i>=0)a.splice(i,1)}
+  else if(i>=0){a[i].qty=qty;a[i].at=Date.now();delete a[i].conflict}
+  else a.push({item,qty,branch,exp,at:Date.now()});
+  mdQSave(a);
+}
+const mdQHere=()=>mdQ().filter(x=>x.branch===MD.branch);
+function mdApply(id,q){if(q)MD.lines[id]=q;else delete MD.lines[id]}
+let mdFlushing=false;
+async function mdFlush(){
+  if(mdFlushing||!S.token||!S.person)return;mdFlushing=true;let changed=false;
+  try{
+    for(const e of mdQ()){
+      if(e.conflict)continue;
+      let r;try{r=await rpc('ev_med_line_set',{p_token:S.token,p_branch:e.branch,p_item:e.item,p_qty:e.qty,p_expect:e.exp},8000)}catch(x){break}
+      const a=mdQ(),i=a.findIndex(y=>y.branch===e.branch&&y.item===e.item);
+      if(r&&r.ok){if(i>=0){if(a[i].qty===e.qty)a.splice(i,1);else a[i].exp=e.qty}changed=true} /* пока шёл запрос, число могли изменить: тогда новое значение ждёт с exp=ушедшее */
+      else if(r&&r.error==='conflict'){if(i>=0){a[i].conflict={cur:Number(r.current)||0};changed=true}}
+      else if(r&&r.error==='session'){break}
+      else{if(i>=0)a.splice(i,1);changed=true}
+      mdQSave(a);
+    }
+  }finally{mdFlushing=false}
+  if(changed&&S.view==='med'){if(MD.branch&&MD.step!=='branch'&&MD.step!=='sum'&&MD.step!=='edit')await mdLoadOrder();paint()}
+}
+async function mdResolve(id,keep){
+  const a=mdQ(),i=a.findIndex(x=>x.branch===MD.branch&&x.item===Number(id));if(i<0)return;
+  if(keep){a[i].exp=a[i].conflict?a[i].conflict.cur:a[i].exp;delete a[i].conflict;mdQSave(a);await mdFlush()}
+  else{a.splice(i,1);mdQSave(a);await mdLoadOrder();paint()}
+}
+window.addEventListener('online',()=>{mdFlush()});
+setInterval(()=>{if(mdQ().length)mdFlush()},30000);
 async function mdLoadCat(all){
   try{const r=await rpc('ev_med_catalog',{p_token:S.token,p_all:!!all},8000);
     if(r&&r.ok){MD.cat=r;MD.err=null}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
@@ -20,7 +57,7 @@ async function mdLoadCat(all){
 }
 async function showMed(){
   closeOv();S.view='med';MD.step='branch';MD.q='';MD.edit=null;paint();window.scrollTo(0,0);
-  if(!MD.cat||mdHead()===false)await mdLoadCat(false);paint();
+  if(!MD.cat||mdHead()===false)await mdLoadCat(false);paint();mdFlush();
 }
 async function mdPickBranch(id){
   const shift=mdShiftBranch();
@@ -29,12 +66,14 @@ async function mdPickBranch(id){
 }
 async function mdLoadOrder(){
   try{const r=await rpc('ev_med_order_get',{p_token:S.token,p_branch:MD.branch},8000);
-    if(r&&r.ok){MD.lines={};MD.meta={};(r.lines||[]).forEach(l=>{MD.lines[l.item]=l.qty;MD.meta[l.item]={by:l.by,at:l.at}});MD.prev=r.prev||{};MD.err=null}
+    if(r&&r.ok){MD.lines={};MD.meta={};(r.lines||[]).forEach(l=>{MD.lines[l.item]=l.qty;MD.meta[l.item]={by:l.by,at:l.at}});MD.prev=r.prev||{};mdQHere().forEach(e=>mdApply(e.item,e.qty));MD.err=null}
     else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Заявка не загрузилась.'}
   catch(e){MD.err=e.net?'Нет связи: заявка не загрузилась.':'Заявка не загрузилась.'}
 }
 async function mdSet(id,q){
   q=Math.max(0,Math.min(999,Number(q)||0));const was=MD.lines[id]||0;if(q===was||MD.busy)return;
+  const pend=mdQHere().find(x=>x.item===Number(id));
+  if(pend){mdQPut(MD.branch,id,q,pend.exp);mdApply(id,q);paint();mdFlush();return}
   MD.busy=true;
   try{const r=await rpc('ev_med_line_set',{p_token:S.token,p_branch:MD.branch,p_item:Number(id),p_qty:q,p_expect:was},8000);
     if(r&&r.ok){if(q)MD.lines[id]=q;else delete MD.lines[id];delete MD.ok[id];
@@ -42,7 +81,7 @@ async function mdSet(id,q){
     else if(r&&r.error==='conflict'){if(r.current)MD.lines[id]=r.current;else delete MD.lines[id];toast('Число уже изменил другой сотрудник: сейчас '+(r.current||0),6000)}
     else if(r&&r.error==='session')toast('Сессия закончилась, войдите заново.');
     else toast('Не удалось сохранить.')}
-  catch(e){toast(e.net?'Нет связи. Число не сохранено.':'Ошибка сервера. Число не сохранено.')}
+  catch(e){if(e.net){mdQPut(MD.branch,id,q,was);mdApply(id,q);toast('Нет связи. Число сохранено на телефоне и уйдёт само.',6000)}else toast('Ошибка сервера. Число не сохранено.')}
   MD.busy=false;paint();
 }
 let mdUndo=null;
@@ -54,22 +93,25 @@ function mdBranchHtml(){
     +(mdHead()?'<div class="md-adm"><button class="chip" data-mact="sum">Сводная заявок</button><button class="chip" data-mact="edit">Справочник</button></div>':'');
 }
 function mdRow(i,withSec){
-  const q=MD.lines[i.id]||0;
-  return '<div class="md-it'+(q?' on':'')+'"><div class="nm">'+esc(i.name)+(withSec?'<span class="md-chip">'+MD_SEC[i.section]+'</span>':'')+'</div>'
+  const q=MD.lines[i.id]||0,pd=mdQHere().find(x=>x.item===Number(i.id));
+  return '<div class="md-it'+(q?' on':'')+(pd?' pend':'')+'"><div class="nm">'+esc(i.name)+(withSec?'<span class="md-chip">'+MD_SEC[i.section]+'</span>':'')+(pd?'<small class="md-pendtxt">не отправлено</small>':'')+'</div>'
     +'<div class="st"><button class="md-b" data-mact="step" data-id="'+i.id+'" data-s="-1" aria-label="Меньше">−</button>'
     +'<input class="md-q" inputmode="numeric" data-id="'+i.id+'" value="'+q+'" aria-label="Количество">'
     +'<button class="md-b p" data-mact="step" data-id="'+i.id+'" data-s="1" aria-label="Больше">+</button></div></div>';
 }
+function mdConflictHtml(){
+  return mdQHere().filter(e=>e.conflict).map(e=>'<div class="md-ask">«'+esc(mdName(e.item))+'»: число изменил другой: было '+e.exp+', стало '+e.conflict.cur+'. Ваше: '+e.qty+'.<div><button class="go sm" data-mact="keepmine" data-id="'+e.item+'">Оставить моё</button><button class="chip" data-mact="takenew" data-id="'+e.item+'">Взять новое</button></div></div>').join('');
+}
 function mdListHtml(){
-  const q=MD.q.trim().toLowerCase(),items=mdItems(),n=Object.keys(MD.lines).length;
+  const q=MD.q.trim().toLowerCase(),items=mdItems(),n=Object.keys(MD.lines).length,np=mdQHere().length;
   let rows;
   if(q){const hit=items.filter(i=>i.name.toLowerCase().startsWith(q));rows='<div class="mute">Найдено '+hit.length+' во всех разделах</div>'+hit.map(i=>mdRow(i,true)).join('')}
   else{let cur='';rows=items.filter(i=>i.section===MD.tab).map(i=>{const l=i.name[0].toUpperCase();const h=l!==cur?'<div class="md-lt">'+esc(l)+'</div>':'';cur=l;return h+mdRow(i)}).join('')}
   const tabs=Object.keys(MD_SEC).map(s=>'<button class="chip'+(MD.tab===s&&!q?' on':'')+'" data-mact="tab" data-id="'+s+'">'+MD_SEC[s]+' '+items.filter(i=>i.section===s).length+'</button>').join('');
   return '<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебная заявка</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · заявка открыта</div>'
-    +'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
+    +mdConflictHtml()+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
     +(mdUndo?'<div class="md-undo"><button class="chip" data-mact="undo">Отменить: вернуть «'+esc(mdName(mdUndo.id))+'»</button></div>':'')
-    +'<div class="md-bar"><div><b>В заявке: '+n+' поз.</b></div><button class="go" data-mact="review"'+(n?'':' disabled')+'>Проверить</button></div>';
+    +'<div class="md-bar"><div><b>В заявке: '+n+' поз.</b>'+(np?'<small class="md-pendtxt">Не отправлено: '+np+'. Появится связь — уйдёт само.</small>':'')+'</div><button class="go" data-mact="review"'+(n&&!np?'':' disabled')+'>Проверить</button></div>';
 }
 function mdReviewHtml(){
   const ids=Object.keys(MD.lines),odd=ids.filter(mdUnusual);let h='<button class="md-back" data-mact="list">‹ Назад к списку</button><h1 class="screen-title">Проверьте заявку</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · '+ids.length+' поз.'+(odd.length?' · необычных: '+odd.length:'')+'</div>';
@@ -118,7 +160,9 @@ document.addEventListener('click',async ev=>{
   else if(a==='tab'){MD.tab=id;MD.q='';paint()}
   else if(a==='step')await mdSet(id,(MD.lines[id]||0)+Number(el.dataset.s));
   else if(a==='undo'){const u=mdUndo;mdUndo=null;if(u)await mdSet(u.id,u.qty)}
-  else if(a==='review'){MD.step='review';paint();window.scrollTo(0,0)}
+  else if(a==='keepmine')await mdResolve(id,true);
+  else if(a==='takenew')await mdResolve(id,false);
+  else if(a==='review'){if(mdQHere().length)return;MD.step='review';paint();window.scrollTo(0,0)}
   else if(a==='list'){MD.step='list';paint();window.scrollTo(0,0)}
   else if(a==='ok'){MD.ok[id]=true;paint()}
   else if(a==='fix'){MD.step='list';MD.q=mdName(id).slice(0,3);paint()}

@@ -230,3 +230,4 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .md-bar .chip,.md-ask .chip,.md-adm .chip,.md-undo .chip{white-space:nowrap}
 .md-t .hl td{background:#fff4e0}.md-chg,.md-rr small{color:#b45309}.md-rr.wr,.md-ask{background:#fff4e0;border-color:#b45309}.md-t th{background:#e6f0f3}
 .md-br{border:0;border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.md-pendtxt{display:block;font-size:11.5px;color:#b45309}.md-it.pend{border-color:#b45309}.md-bar small.md-pendtxt{max-width:210px}
