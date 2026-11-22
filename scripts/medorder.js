@@ -56,10 +56,12 @@ async function mdResolve(id,keep){
 }
 window.addEventListener('online',()=>{mdFlush()});
 setInterval(()=>{if(mdQHere().length||mdQ().some(x=>x.who===mdWho()))mdFlush()},30000);
+/* справочник перечитывается при каждом входе в модуль и после каждой правки; пока грузится новый, показывается прежний (кэш). Возвращает true, если загрузилось. */
 async function mdLoadCat(all){
   try{const r=await rpc('ev_med_catalog',{p_token:S.token,p_all:!!all},8000);
-    if(r&&r.ok){MD.cat=r;MD.err=null}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
+    if(r&&r.ok){MD.cat=r;MD.err=null;return true}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
   catch(e){MD.err=e.net?'Нет связи: справочник не загрузился.':'Справочник пока недоступен.'}
+  return false;
 }
 /* закупщик (не руководитель) узнаётся у сервера: ev_med_summary отвечает ok только руководителю и людям из ev_med_buyers */
 async function mdProbeBuyer(){
@@ -69,7 +71,7 @@ async function mdProbeBuyer(){
 }
 async function showMed(){
   closeOv();S.view='med';MD.step='branch';MD.q='';MD.edit=null;paint();window.scrollTo(0,0);
-  if(!MD.cat||mdHead()===false)await mdLoadCat(false);paint();mdFlush();mdProbeBuyer();
+  await mdLoadCat(false);paint();mdFlush();mdProbeBuyer();
 }
 async function mdPickBranch(id){
   const shift=mdShiftBranch();
@@ -117,9 +119,9 @@ function mdConflictHtml(){
 function mdListHtml(){
   const q=MD.q.trim().toLowerCase(),items=mdItems(),n=Object.keys(MD.lines).length,np=mdQHere().length;
   let rows;
-  if(q){const hit=items.filter(i=>i.name.toLowerCase().startsWith(q));rows='<div class="mute">Найдено '+hit.length+' во всех разделах</div>'+hit.map(i=>mdRow(i,true)).join('')}
-  else{let cur='';rows=items.filter(i=>i.section===MD.tab).map(i=>{const l=i.name[0].toUpperCase();const h=l!==cur?'<div class="md-lt">'+esc(l)+'</div>':'';cur=l;return h+mdRow(i)}).join('')}
-  const tabs=Object.keys(MD_SEC).map(s=>'<button class="chip'+(MD.tab===s&&!q?' on':'')+'" data-mact="tab" data-id="'+s+'">'+MD_SEC[s]+' '+items.filter(i=>i.section===s).length+'</button>').join('');
+  if(q){const hit=items.filter(i=>i.active!==false&&i.name.toLowerCase().startsWith(q));rows='<div class="mute">Найдено '+hit.length+' во всех разделах</div>'+hit.map(i=>mdRow(i,true)).join('')}
+  else{let cur='';rows=items.filter(i=>i.section===MD.tab&&i.active!==false).map(i=>{const l=i.name[0].toUpperCase();const h=l!==cur?'<div class="md-lt">'+esc(l)+'</div>':'';cur=l;return h+mdRow(i)}).join('')}
+  const tabs=Object.keys(MD_SEC).map(s=>'<button class="chip'+(MD.tab===s&&!q?' on':'')+'" data-mact="tab" data-id="'+s+'">'+MD_SEC[s]+' '+items.filter(i=>i.section===s&&i.active!==false).length+'</button>').join('');
   return '<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебная заявка</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · заявка открыта</div>'
     +mdConflictHtml()+(mdQForeign()?'<div class="mute md-pendtxt">Есть неотправленные числа другого входа: '+mdQForeign()+'</div>':'')+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
     +(mdUndo?'<div class="md-undo"><button class="chip" data-mact="undo">Отменить: вернуть «'+esc(mdName(mdUndo.id))+'»</button></div>':'')
@@ -164,7 +166,15 @@ function medHtml(){
 }
 async function mdUpsert(id,section,name,active,unit,grp){
   const r=await rpc('ev_med_item_upsert',{p_token:S.token,p_item:id,p_section:section,p_name:name,p_active:active,p_unit:unit||null,p_grp:grp||null},8000).catch(e=>null);
-  if(r&&r.ok){await mdLoadCat(true);toast('Справочник обновлён');paint()}else toast(r&&r.error==='forbidden'?'Справочник правит только руководитель.':'Не удалось сохранить.');
+  if(r&&r.ok){
+    const fresh=await mdLoadCat(true);
+    if(!fresh&&MD.cat&&MD.cat.items){ /* список не перечитался: показываем сохранённое локально, чтобы правка не «пропадала» */
+      const it=MD.cat.items.find(x=>Number(x.id)===Number(r.item));const row={id:Number(r.item),section,name,unit:unit||null,grp:grp||null,active:active!==false,note:null};
+      if(it)Object.assign(it,row);else MD.cat.items.push(row);
+      toast('Сохранено, но список не обновился с сервера: откройте раздел заново');
+    }else toast('Справочник обновлён');
+    paint();
+  }else toast(r&&r.error==='forbidden'?'Справочник правит только руководитель.':'Не удалось сохранить.');
 }
 document.addEventListener('click',async ev=>{
   const el=ev.target.closest&&ev.target.closest('[data-mact]');if(!el||S.view!=='med')return;
@@ -180,7 +190,7 @@ document.addEventListener('click',async ev=>{
   else if(a==='ok'){MD.ok[id]=true;paint()}
   else if(a==='fix'){MD.step='list';MD.q=mdName(id).slice(0,3);paint()}
   else if(a==='done'){toast('Заявка отправлена. Её можно менять, пока закупщик не закрыл.');MD.step='branch';paint();window.scrollTo(0,0)}
-  else if(a==='back'){if(MD.step==='branch'||MD.step==='sum'&&false)goHome();else{MD.step='branch';paint()}}
+  else if(a==='back'){if(MD.step==='branch'||MD.step==='sum'&&false)goHome();else{const was=MD.step;MD.step='branch';paint();if(was==='edit'){await mdLoadCat(false);paint()}}}
   else if(a==='sum'){MD.step='sum';MD.sum=null;MD.sumBranch=null;paint();await mdSumLoad()}
   else if(a==='sumbr'){MD.sumBranch=id||null;await mdSumLoad()}
   else if(a==='copy'){try{await navigator.clipboard.writeText(mdSumRows().map(r=>r.join('\t')).join('\n'));toast('Скопировано')}catch(e){toast('Не удалось скопировать')}}

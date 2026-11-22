@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 29/29. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 34/34. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
 const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
@@ -65,6 +65,18 @@ ok(!mdRow(MD.cat.items[1]).includes('<b>файлы')&&!mdRow(MD.cat.items[1]).in
 calls=[];_rpc=async(n,b)=>{calls.push([n,b]);return{ok:true,items:[]}};
 await mdUpsert(null,'household','Скрепки','true'==='true','шт','Канцелярия');
 ok(calls[0][0]==='ev_med_item_upsert'&&calls[0][1].p_section==='household'&&calls[0][1].p_unit==='шт'&&calls[0][1].p_grp==='Канцелярия','правка справочника отправляет раздел, единицу и группу');
+// 4ж справочник перечитывается при входе и после правки; скрытые позиции не попадают в список
+HEAD=true;MD.lines={};MD.tab='med';MD.step='list';const cl=[];
+_rpc=async(n,b)=>{cl.push([n,b]);return n==='ev_med_catalog'?{ok:true,items:[{id:1000,section:'med',name:'Первая',active:true},{id:1232,section:'med',name:'Ледокаин 2%',active:true},{id:1233,section:'med',name:'Скрытая',active:false}]}:{ok:true,items:[]}};
+await showMed();await tick();ok(cl.filter(c=>c[0]==='ev_med_catalog').length===1,'вход в модуль: справочник перечитывается');
+await showMed();await tick();ok(cl.filter(c=>c[0]==='ev_med_catalog').length===2,'повторный вход: снова перечитывается (не кэш на всю сессию)');
+ok(/Ледокаин 2%/.test(mdListHtml())&&!/Скрытая/.test(mdListHtml()),'новая позиция видна в списке, скрытая нет');
+cl.length=0;_rpc=async(n,b)=>{cl.push([n,b]);return n==='ev_med_item_upsert'?{ok:true,item:1234}:n==='ev_med_catalog'?{ok:true,items:[{id:1234,section:'med',name:'Новая',active:true}]}:{ok:true}};
+await mdUpsert(null,'med','Новая',true,'шт','');
+ok(cl[0][0]==='ev_med_item_upsert'&&cl[1][0]==='ev_med_catalog'&&cl[1][1].p_all===true&&MD.cat.items.some(i=>i.id===1234),'после добавления каталог перечитан с сервера (p_all)');
+cl.length=0;_rpc=async(n,b)=>{if(n==='ev_med_item_upsert')return{ok:true,item:1235};throw {net:true}};
+await mdUpsert(null,'med','Локальная',true,'мл','');
+ok(MD.cat.items.some(i=>i.id===1235&&i.name==='Локальная'),'если список не перечитался, сохранённая позиция всё равно видна локально');
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');
