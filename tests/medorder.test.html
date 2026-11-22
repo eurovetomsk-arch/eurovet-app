@@ -1,11 +1,11 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 25/25. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 29/29. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
 const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
-const esc=s=>String(s==null?'':s),toast=()=>{},paint=()=>{},render=()=>{},closeOv=()=>{};let HEAD=true;const isHead=()=>HEAD,vacHm=()=>'',HOME_WHO={rows:[]};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),toast=()=>{},paint=()=>{},render=()=>{},closeOv=()=>{};let HEAD=true;const isHead=()=>HEAD,vacHm=()=>'',HOME_WHO={rows:[]};
 </script>
 <script src="../scripts/medorder.js"></script>
 <script>
@@ -57,6 +57,14 @@ ok(MD.buyer===false&&!/Сводная заявок/.test(mdBranchHtml()),'сот
 MD.buyer=undefined;_rpc=async(n)=>({ok:true,rows:[]});await mdProbeBuyer();
 ok(MD.buyer===true&&/Сводная заявок/.test(mdBranchHtml())&&!/Справочник/.test(mdBranchHtml()),'закупщик: сводная есть, справочника нет');
 HEAD=true;ok(/Справочник/.test(mdBranchHtml()),'руководитель: и сводная, и справочник');
+// 4е справочник v2: единица, группа, 4 раздела, esc
+HEAD=true;MD.cat={items:[{id:1000,section:'med',name:'Адреналин',unit:'ампула',grp:'Препараты',active:true},{id:1230,section:'household',name:'<b>файлы</b>',unit:null,grp:null,active:true}]};MD.lines={};MD.tab='household';MD.step='list';
+ok(/Хозяйственные нужды/.test(mdListHtml()),'четыре раздела: вкладка «Хозяйственные нужды»');
+ok(mdRow(MD.cat.items[0]).includes('Адреналин · ампула')&&mdRow(MD.cat.items[0]).includes('Препараты'),'единица рядом с названием, группа мелкой подписью');
+ok(!mdRow(MD.cat.items[1]).includes('<b>файлы')&&!mdRow(MD.cat.items[1]).includes(' · '),'название через esc; без единицы нет « · »');
+calls=[];_rpc=async(n,b)=>{calls.push([n,b]);return{ok:true,items:[]}};
+await mdUpsert(null,'household','Скрепки','true'==='true','шт','Канцелярия');
+ok(calls[0][0]==='ev_med_item_upsert'&&calls[0][1].p_section==='household'&&calls[0][1].p_unit==='шт'&&calls[0][1].p_grp==='Канцелярия','правка справочника отправляет раздел, единицу и группу');
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');
