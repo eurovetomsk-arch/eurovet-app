@@ -3,7 +3,7 @@
    После сдачи отчёта: ev_vm_check_request (сервер сам вызывает проверку; без сети — позже, отчёт не блокируется), затем несколько раз читаем ev_vm_check_status.
    При mismatch/no_data администратор видит «В Vetmanager X, у вас Y. Исправьте или напишите причину». «Контроль» руководителя: красные флаги ev_vm_check_flags + «Решить» с причиной (ev_vm_check_resolve).
    Вердикт считает сервер (жёсткое правило, порог 10 ₽). Здесь только показ. Токен Vetmanager в клиент не попадает. */
-const VMC={flags:null,err:null,loading:false};
+const VMC={flags:null,err:null,loading:false,acc:null};
 const VMC_FIELD={total:'итог клиники',cash:'наличные',cashless:'безнал'};
 const VMC_QKEY='ev_vmq';
 const vmcRub=n=>n==null?'—':String(Number(n).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}))+' ₽';
@@ -44,14 +44,34 @@ async function vmcFlushQueue(){
   for(const x of a){await vmcAfterSubmit(x.branch,x.date,0)}
 }
 window.addEventListener('online',()=>{vmcFlushQueue()});
+async function loadAccFlags(){
+  try{const r=await rpc('ev_access_flags',{p_token:S.token},10000);if(r&&r.ok)VMC.acc=r.flags||[]}catch(e){}
+  if(S.view==='ctl')paint();
+}
 async function loadVmFlags(){
-  if(!S.token||VMC.loading)return;VMC.loading=true;
+  if(!S.token||VMC.loading)return;VMC.loading=true;loadAccFlags();
   try{const r=await rpc('ev_vm_check_flags',{p_token:S.token},10000);
     if(r&&r.ok){VMC.flags=r.flags||[];VMC.err=null}else VMC.err=(r&&r.error==='forbidden')?null:'Сверка с Vetmanager пока недоступна.'}
   catch(e){VMC.err=e.net?'Нет связи: сверка с Vetmanager не загрузилась.':'Сверка с Vetmanager пока недоступна.'}
   VMC.loading=false;if(S.view==='ctl')paint();
 }
+const vmcHm=t=>{try{return new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(t))}catch(e){return ''}};
+function vmcAccLine(f){
+  const who=esc(f.who||'#'+f.person_id),d=f.detail||{};
+  if(f.kind==='night'){const a=(d.after||[]).map(x=>esc(x.action)).join(', ');return '<b>Ночной вход · '+who+' · '+vmcHm(f.at)+'</b>'+(d.money?' <b>(деньги)</b>':'')+(a?'<br>После входа: '+a:'')}
+  if(f.kind==='pin')return '<b>Неверный PIN ×'+Number(d.count)+' · '+who+' · '+esc(vmcDate(d.date))+'</b>';
+  if(f.kind==='device')return '<b>Новое устройство · '+who+' · '+vmcHm(f.at)+'</b>';
+  if(f.kind==='money')return '<b>Ночное денежное действие · '+who+' · '+vmcHm(f.at)+'</b><br>'+esc(d.action||'');
+  return esc(f.kind);
+}
+function vmcAccHtml(){
+  const a=VMC.acc;if(!a||!a.length)return '';
+  return '<div class="card vmc-flags"><h2>Входы и деньги</h2>'+a.map(f=>'<div class="chk bad"><i>!</i><div>'+vmcAccLine(f)+'<br><button class="btn sec small" data-vmact="accres" data-key="'+esc(f.key)+'">Это я / знаю</button></div></div>').join('')+'</div>';
+}
 function vmFlagsHtml(){
+  return vmcAccHtml()+vmVmHtml();
+}
+function vmVmHtml(){
   if(VMC.err)return '<div class="card"><p class="hint">'+esc(VMC.err)+'</p></div>';
   const f=VMC.flags;if(!f||!f.length)return '';
   return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(VMC_FIELD[x.field]||x.field)+'</b><br>'
@@ -61,6 +81,12 @@ function vmFlagsHtml(){
 document.addEventListener('click',async ev=>{
   const el=ev.target.closest&&ev.target.closest('[data-vmact]');if(!el)return;
   if(el.dataset.vmact==='close'){const b=document.getElementById('vmcbox');if(b)b.remove();return}
+  if(el.dataset.vmact==='accres'){
+    const why=prompt('Причина (не короче 5 знаков): почему это нормально');if(!why||why.trim().length<5){if(why!==null)toast('Причина слишком короткая');return}
+    try{const r=await rpc('ev_access_resolve',{p_token:S.token,p_key:el.dataset.key,p_reason:why.trim()},10000);toast(r&&r.ok?'Записано':'Не удалось записать');if(r&&r.ok)await loadAccFlags()}
+    catch(e){toast(e.net?'Нет связи':'Ошибка сервера')}
+    return;
+  }
   if(el.dataset.vmact==='resolve'){
     const why=prompt('Причина (не короче 5 знаков): почему это расхождение допустимо');if(!why||why.trim().length<5){if(why!==null)toast('Причина слишком короткая');return}
     try{const r=await rpc('ev_vm_check_resolve',{p_token:S.token,p_check_id:Number(el.dataset.id),p_reason:why.trim()},10000);

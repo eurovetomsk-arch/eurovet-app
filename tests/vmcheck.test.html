@@ -15,7 +15,11 @@ ok(/Не удалось сверить: наличные \(ключ истёк\)
 ok(!vmcMessage([{field:'cash',verdict:'no_data',reason:'<img src=x>'}]).includes('<img'),'причина через esc');
 VMC.flags=[{id:7,branch:'70let',date:'2026-11-20',field:'cashless',verdict:'mismatch',report:5204.25,vm:8628.25,diff:-3424}];
 const h=vmFlagsHtml();ok(h.includes('70 лет')&&h.includes('20.11')&&h.includes('безнал')&&h.includes('data-vmact="resolve"'),'Контроль: филиал, день, поле, суммы и кнопка решения');
-VMC.flags=[];ok(vmFlagsHtml()==='','флагов нет — блока нет');
+VMC.flags=[];VMC.acc=null;ok(vmFlagsHtml()==='','флагов нет — блока нет');
+VMC.acc=[{kind:'night',key:'night:9',person_id:1,who:'Таслицкий <b>',at:'2026-11-16T18:34:00Z',detail:{after:[{action:'safe_out_add'}],money:true}},{kind:'pin',key:'pin:3:2026-11-19',person_id:3,who:'Х',at:'2026-11-19T10:00:00Z',detail:{count:3,date:'2026-11-19'}},{kind:'device',key:'device:37:ab',person_id:37,who:'Y',at:'2026-11-22T11:03:00Z',detail:{}}];
+const ah=vmFlagsHtml();ok(ah.includes('Ночной вход')&&ah.includes('(деньги)')&&ah.includes('safe_out_add')&&ah.includes('Неверный PIN ×3')&&ah.includes('Новое устройство')&&ah.includes('Это я / знаю'),'Контроль входов: ночной вход с деньгами, PIN×3, новое устройство, кнопка «Это я / знаю»');
+ok(!ah.includes('<b>Таслицкий <b>')&&ah.includes('&lt;b&gt;'),'имена через esc');
+VMC.acc=null;
 // без сети: проверка откладывается, отчёт не блокируется
 localStorage.removeItem('ev_vmq');_rpc=async()=>{throw {net:true}};await vmcAfterSubmit('70let','2026-11-20',2);
 ok(vmcQ().length===1&&vmcQ()[0].branch==='70let','без сети: проверка поставлена в очередь на потом');
