@@ -4,7 +4,9 @@
    При mismatch/no_data администратор видит «В Vetmanager X, у вас Y. Исправьте или напишите причину». «Контроль» руководителя: красные флаги ev_vm_check_flags + «Решить» с причиной (ev_vm_check_resolve).
    Вердикт считает сервер (жёсткое правило, порог 10 ₽). Здесь только показ. Токен Vetmanager в клиент не попадает. */
 const VMC={flags:null,err:null,loading:false,acc:null};
-const VMC_FIELD={total:'итог клиники',cash:'наличные',cashless:'безнал'};
+const VMC_FIELD={total:'итог клиники',cash:'наличные',cashless:'безнал',fix_normal:'фиксации животных',fix_xray:'фиксации на R-снимке'};
+/* суммы в рублях, фиксации в штуках */
+const vmcVal=(f,n)=>n==null?'—':(String(f||'').startsWith('fix_')?String(Number(n))+' шт.':vmcRub(n));
 const VMC_QKEY='ev_vmq';
 const vmcRub=n=>n==null?'—':String(Number(n).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}))+' ₽';
 const vmcDate=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d||''));return m?m[3]+'.'+m[2]:String(d||'')};
@@ -14,7 +16,7 @@ function vmcQSave(a){try{localStorage.setItem(VMC_QKEY,JSON.stringify(a.slice(-2
 function vmcMessage(rows){
   const bad=(rows||[]).filter(r=>r.verdict==='mismatch'||r.verdict==='no_data');if(!bad.length)return '';
   return bad.map(r=>r.verdict==='mismatch'
-    ?'В Vetmanager '+vmcRub(r.vm)+', у вас '+vmcRub(r.report)+' ('+VMC_FIELD[r.field]+'). '+(r.reason?esc(r.reason)+'. ':'')+'Исправьте отчёт или напишите причину руководителю.'
+    ?'В Vetmanager '+vmcVal(r.field,r.vm)+', у вас '+vmcVal(r.field,r.report)+' ('+VMC_FIELD[r.field]+'). '+(r.reason?esc(r.reason)+'. ':'')+'Исправьте отчёт или напишите причину руководителю.'
     :'Не удалось сверить: '+VMC_FIELD[r.field]+' ('+esc(r.reason||'нет данных')+'). Отчёт сохранён.').join('<br>');
 }
 async function vmcStatus(branch,date,minVersion){
@@ -75,7 +77,7 @@ function vmVmHtml(){
   if(VMC.err)return '<div class="card"><p class="hint">'+esc(VMC.err)+'</p></div>';
   const f=VMC.flags;if(!f||!f.length)return '';
   return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(VMC_FIELD[x.field]||x.field)+'</b><br>'
-    +(x.verdict==='mismatch'?'В отчёте '+vmcRub(x.report)+', в Vetmanager '+vmcRub(x.vm)+', разница '+vmcRub(x.diff)+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
+    +(x.verdict==='mismatch'?'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+', разница '+vmcVal(x.field,x.diff)+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
     +'<br><button class="btn sec small" data-vmact="resolve" data-id="'+Number(x.id)+'">Решить с причиной</button></div></div>').join('')+'</div>';
 }
 document.addEventListener('click',async ev=>{
