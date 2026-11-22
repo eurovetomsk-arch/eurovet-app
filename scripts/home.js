@@ -133,7 +133,7 @@ function homeTileKeys(){
 }
 function homeTileHtml(k){
   const m=HOME_TILE_META[k],built=(UI2.moduleBuilt||{})[k]===true,attrs=built?(m.act?' data-act="'+m.act+'"':' data-act="go" data-v="'+m.view+'"'):' data-act="prepare" data-k="'+k+'"';
-  return '<button class="glass ui2-role-tile '+m.size+'"'+attrs+'><span class="ic">'+homeIcon(k)+'</span><span><span class="t">'+esc(m.title)+'</span><span class="sub">'+esc(m.sub)+'</span>'+((k==='vaccines'||k==='vaccines_all_branches')?vacTileBadge():'')+'</span></button>';
+  return '<button class="glass ui2-role-tile '+m.size+'"'+attrs+'><span class="ic">'+homeIcon(k)+'</span><span><span class="t">'+esc(m.title)+'</span><span class="sub">'+esc(m.sub)+'</span>'+((k==='supplies'||k==='supplies_all_requests')&&typeof medTileBadge==='function'?medTileBadge():'')+((k==='vaccines'||k==='vaccines_all_branches')?vacTileBadge():'')+'</span></button>';
 }
 /* свод §17: у не-руководителей разделы — Работа → Препараты → Клиника; у руководителя — Финансы → Препараты → Клиника (§15/«главная на плитках») */
 const HOME_NH_SECTION={cash_acceptance:'work',evening_report:'work',appointments:'work',where_i_work:'clinic'};

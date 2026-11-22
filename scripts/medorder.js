@@ -222,3 +222,20 @@ document.addEventListener('input',ev=>{
 /* нажали на число — оно выделяется целиком, и первая же цифра заменяет «0» (стирать вручную не нужно) */
 document.addEventListener('focusin',ev=>{const t=ev.target;if(S.view==='med'&&t&&t.classList&&t.classList.contains('md-q'))setTimeout(()=>{try{t.select()}catch(e){}},0)});
 document.addEventListener('change',ev=>{const t=ev.target;if(S.view==='med'&&t&&t.classList&&t.classList.contains('md-q'))mdSet(t.dataset.id,Number(t.value)||0)});
+
+/* ====== красная цифра на плитке «Врачебные заявки»: число отправленных и не закрытых заявок (закупщик и руководитель) ====== */
+const MDB={count:0,ok:undefined,at:0,busy:false,changed:false};
+async function mdBadgeLoad(force){
+  if(!S.token||MDB.busy||MDB.ok===false||(UI2.moduleBuilt||{}).supplies!==true)return;
+  if(!force&&Date.now()-MDB.at<5000)return;
+  MDB.busy=true;
+  try{const r=await rpc('ev_med_pending_count',{p_token:S.token},8000);
+    if(r&&r.ok){const was=MDB.count;MDB.ok=true;MDB.count=Number(r.count)||0;MDB.changed=(was!==MDB.count)}
+    else if(r&&r.error==='forbidden'){MDB.ok=false;MDB.count=0}
+  }catch(e){}
+  MDB.busy=false;MDB.at=Date.now();
+  if(MDB.changed&&S.view==='branch'&&typeof paint==='function'){MDB.changed=false;paint()}
+}
+/* на плитке: вызывается при каждой отрисовке главной (обновление при входе на главную); не закупщикам запрос один раз и больше не повторяется */
+function medTileBadge(){mdBadgeLoad(false);return MDB.ok&&MDB.count>0?'<span class="med-pend" aria-label="Не закрытых заявок">'+MDB.count+'</span>':''}
+setInterval(()=>{if(S.token&&S.view==='branch')mdBadgeLoad(true)},60000);

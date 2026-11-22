@@ -1,9 +1,9 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 41/41. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 44/44. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
-const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};let _rpc=async()=>({ok:true});
+const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};const UI2={moduleBuilt:{supplies:true}};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),toast=()=>{},paint=()=>{},render=()=>{},closeOv=()=>{};let HEAD=true;const isHead=()=>HEAD,vacHm=()=>'',HOME_WHO={rows:[]};
 </script>
@@ -93,6 +93,13 @@ MD.eq='';cl.length=0;_rpc=async(n,b)=>n==='ev_med_item_upsert'?{ok:true,item:9}:
 await mdUpsert(null,'household','Аа новая',true,'шт','');
 ok(MD.etab==='household'&&MD.hl===9&&mdEditHtml().includes('md-hl')&&mdEditHtml().indexOf('Аа новая')<mdEditHtml().indexOf('Скрепки'),'после добавления: открыта нужная вкладка, новая позиция подсвечена и стоит по алфавиту');
 MD.hl=null;MD.step='list';
+// 4к красная цифра на плитке: число отправленных и не закрытых заявок (закупщик, руководитель)
+S.view='branch';const bc=[];_rpc=async(n,b)=>{bc.push(n);return n==='ev_med_pending_count'?{ok:true,count:2,branches:['marksa','70let']}:{ok:true}};
+await mdBadgeLoad(true);ok(MDB.ok&&MDB.count===2&&/>2<\/span>/.test(medTileBadge()),'закупщику/руководителю: на плитке красная цифра 2');
+_rpc=async()=>({ok:true,count:0,branches:[]});await mdBadgeLoad(true);ok(medTileBadge()==='','заявок нет — цифры нет');
+MDB.ok=undefined;MDB.count=0;MDB.at=0;bc.length=0;_rpc=async(n)=>{bc.push(n);return{ok:false,error:'forbidden'}};await mdBadgeLoad(true);const nb=bc.length;await mdBadgeLoad(true);await mdBadgeLoad(true);
+ok(MDB.ok===false&&medTileBadge()===''&&bc.length===nb,'не закупщик: цифры нет, запрос больше не повторяется');
+MDB.ok=undefined;S.view='med';
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');
