@@ -5,7 +5,7 @@
    Число сохраняется на сервере сразу (ev_med_line_set); устаревшее изменение сервер отклоняет и показывает текущее число.
    Руководитель: сводная (ev_med_summary: филиалы + итог, копия, Excel, закрыть) и правка справочника (ev_med_item_upsert).
    Модуль выключен настройкой UI2.moduleBuilt.supplies до применения L11. */
-const MD={cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
+const MD={buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
 const MD_SEC={med:'Медицинские',vet:'Ветеринарные',supply:'Расходка'};
 const MD_BR=[{id:'marksa',title:'Маркса'},{id:'pereleta',title:'Перелёта'},{id:'70let',title:'70 лет'}];
 const mdBrTitle=id=>(MD_BR.find(b=>b.id===id)||{title:id}).title;
@@ -58,9 +58,15 @@ async function mdLoadCat(all){
     if(r&&r.ok){MD.cat=r;MD.err=null}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
   catch(e){MD.err=e.net?'Нет связи: справочник не загрузился.':'Справочник пока недоступен.'}
 }
+/* закупщик (не руководитель) узнаётся у сервера: ev_med_summary отвечает ok только руководителю и людям из ev_med_buyers */
+async function mdProbeBuyer(){
+  if(mdHead()||MD.buyer!==undefined||!S.token)return;
+  try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:null},10000);MD.buyer=!!(r&&r.ok)}catch(e){return}
+  if(S.view==='med')paint();
+}
 async function showMed(){
   closeOv();S.view='med';MD.step='branch';MD.q='';MD.edit=null;paint();window.scrollTo(0,0);
-  if(!MD.cat||mdHead()===false)await mdLoadCat(false);paint();mdFlush();
+  if(!MD.cat||mdHead()===false)await mdLoadCat(false);paint();mdFlush();mdProbeBuyer();
 }
 async function mdPickBranch(id){
   const shift=mdShiftBranch();
@@ -93,7 +99,7 @@ function mdBranchHtml(){
   const shift=mdShiftBranch(),list=MD_BR.slice().sort((a,b)=>(a.id===shift?-1:0)-(b.id===shift?-1:0));
   return '<h1 class="screen-title">Врачебная заявка</h1><p class="mute">На каком вы филиале?</p>'
     +list.map(b=>'<button class="glass md-br" data-mact="branch" data-id="'+b.id+'"><b>'+esc(b.title)+'</b>'+(b.id===shift?'<small>ваша смена сегодня</small>':'')+'</button>').join('')
-    +(mdHead()?'<div class="md-adm"><button class="chip" data-mact="sum">Сводная заявок</button><button class="chip" data-mact="edit">Справочник</button></div>':'');
+    +((mdHead()||MD.buyer)?'<div class="md-adm"><button class="chip" data-mact="sum">Сводная заявок</button>'+(mdHead()?'<button class="chip" data-mact="edit">Справочник</button>':'')+'</div>':'');
 }
 function mdRow(i,withSec){
   const q=MD.lines[i.id]||0,pd=mdQHere().find(x=>x.item===Number(i.id));
