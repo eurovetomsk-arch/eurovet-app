@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 37/37. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 41/41. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
 const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
@@ -83,6 +83,16 @@ await mdLoadCat(false);ok(mdItems().map(i=>i.name).join()==='Аааа,Бета,�
 MD.tab='med';MD.q='';const lh=mdListHtml();ok(lh.indexOf('Аааа')<lh.indexOf('Бета')&&lh.indexOf('Бета')<lh.indexOf('Яблоко'),'на экране «Аааа» стоит раньше «Бета» и «Яблока»');
 _rpc=async(n,b)=>n==='ev_med_summary'?{ok:true,rows:[{item:1,section:'med',name:'Яблоко',unit:null,qty:{},total:1},{item:1232,section:'med',name:'Аааа',unit:null,qty:{},total:2}]}:{ok:true};
 await mdSumLoad();ok(MD.sum.rows[0].name==='Аааа','сводная и Excel: тоже по алфавиту');
+// 4и «Справочник»: вкладки разделов, поиск по первым буквам, форма сверху с разделом открытой вкладки, подсветка новой позиции
+MD.cat={items:[{id:1,section:'med',name:'Аааа',active:true},{id:2,section:'vet',name:'Бета',active:true},{id:3,section:'vet',name:'Веха',active:false},{id:4,section:'household',name:'Скрепки',active:true}]};
+MD.step='edit';MD.etab='vet';MD.eq='';let eh=mdEditHtml();
+ok(eh.includes('Ветеринарные 2')&&eh.includes('Хозяйственные нужды 1')&&eh.includes('Бета')&&eh.includes('Веха')&&!eh.includes('Аааа')&&!eh.includes('Скрепки'),'справочник: вкладки с счётчиками, показан только открытый раздел (скрытая видна, помечена)');
+ok(eh.indexOf('md-new')<eh.indexOf('data-mact="etab"')&&eh.includes('<option value="vet" selected>'),'форма «Добавить» сверху, раздел по умолчанию = открытая вкладка');
+MD.eq='ве';eh=mdEditHtml();ok(eh.includes('Веха')&&!eh.includes('>Бета<')&&eh.includes('id="mdesearch"'),'поиск по первым буквам в справочнике');
+MD.eq='';cl.length=0;_rpc=async(n,b)=>n==='ev_med_item_upsert'?{ok:true,item:9}:n==='ev_med_catalog'?{ok:true,items:[{id:9,section:'household',name:'Аа новая',active:true},{id:4,section:'household',name:'Скрепки',active:true}]}:{ok:true};
+await mdUpsert(null,'household','Аа новая',true,'шт','');
+ok(MD.etab==='household'&&MD.hl===9&&mdEditHtml().includes('md-hl')&&mdEditHtml().indexOf('Аа новая')<mdEditHtml().indexOf('Скрепки'),'после добавления: открыта нужная вкладка, новая позиция подсвечена и стоит по алфавиту');
+MD.hl=null;MD.step='list';
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');

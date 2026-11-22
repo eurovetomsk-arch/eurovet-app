@@ -5,7 +5,7 @@
    Число сохраняется на сервере сразу (ev_med_line_set); устаревшее изменение сервер отклоняет и показывает текущее число.
    Руководитель: сводная (ev_med_summary: филиалы + итог, копия, Excel, закрыть) и правка справочника (ev_med_item_upsert).
    Модуль выключен настройкой UI2.moduleBuilt.supplies до применения L11. */
-const MD={buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
+const MD={etab:'med',eq:'',hl:null,buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
 const MD_SEC={med:'Медицинские',vet:'Ветеринарные',supply:'Расходка',household:'Хозяйственные нужды'};
 const MD_BR=[{id:'marksa',title:'Маркса'},{id:'pereleta',title:'Перелёта'},{id:'70let',title:'70 лет'}];
 const mdBrTitle=id=>(MD_BR.find(b=>b.id===id)||{title:id}).title;
@@ -157,9 +157,13 @@ function mdSumHtml(){
 function mdSumRows(){const rows=[['Раздел','Позиция','Ед.','Маркса','Перелёта','70 лет','Итого']];(MD.sum.rows||[]).forEach(r=>rows.push([MD_SEC[r.section],r.name,r.unit||'',...MD_BR.map(b=>(r.qty||{})[b.id]||0),r.total]));return rows}
 function mdSecSel(cur,cls,id){return '<select class="'+cls+'"'+(id!=null?' data-id="'+id+'"':'')+'>'+Object.keys(MD_SEC).map(k=>'<option value="'+k+'"'+(k===cur?' selected':'')+'>'+MD_SEC[k]+'</option>').join('')+'</select>'}
 function mdEditHtml(){
+  const tab=MD.etab||'med',q=(MD.eq||'').trim().toLowerCase();
   let h='<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Справочник</h1><p class="mute">Правит только руководитель. Скрытая позиция остаётся в прошлых заявках.</p>';
-  h+='<div class="md-new">'+mdSecSel('med','md-ns')+'<input id="mdnname" placeholder="Новая позиция"><input id="mdnunit" placeholder="Единица (ампула, мл, шт)"><input id="mdngrp" placeholder="Группа (необязательно)"><button class="go sm" data-mact="add">Добавить</button></div>';
-  Object.keys(MD_SEC).forEach(s=>{h+='<div class="md-sec">'+MD_SEC[s]+'</div>'+mdItems().filter(i=>i.section===s).map(i=>'<div class="md-ed2'+(i.active===false?' off':'')+'"><input data-id="'+i.id+'" class="md-en" value="'+esc(i.name)+'"><div class="md-ed3">'+mdSecSel(i.section,'md-es',i.id)+'<input data-id="'+i.id+'" class="md-eu" placeholder="ед." value="'+esc(i.unit||'')+'"><input data-id="'+i.id+'" class="md-eg" placeholder="группа" value="'+esc(i.grp||'')+'"></div><div class="md-ed3"><button class="chip" data-mact="save" data-id="'+i.id+'">Сохранить</button><button class="chip" data-mact="vis" data-id="'+i.id+'">'+(i.active===false?'Вернуть':'Скрыть')+'</button></div></div>').join('')});
+  h+='<div class="md-new">'+mdSecSel(tab,'md-ns')+'<input id="mdnname" placeholder="Новая позиция"><input id="mdnunit" placeholder="Единица (ампула, мл, шт)"><input id="mdngrp" placeholder="Группа (необязательно)"><button class="go sm" data-mact="add">Добавить</button></div>';
+  h+='<div class="chips">'+Object.keys(MD_SEC).map(k=>'<button class="chip'+(k===tab?' on':'')+'" data-mact="etab" data-id="'+k+'">'+MD_SEC[k]+' '+mdItems().filter(i=>i.section===k).length+'</button>').join('')+'</div>';
+  h+='<input class="md-search" id="mdesearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.eq||'')+'">';
+  const rows=mdItems().filter(i=>i.section===tab&&(!q||i.name.toLowerCase().startsWith(q)));
+  h+=rows.length?rows.map(i=>'<div id="mded'+i.id+'" class="md-ed2'+(i.active===false?' off':'')+(MD.hl===i.id?' md-hl':'')+'"><input data-id="'+i.id+'" class="md-en" value="'+esc(i.name)+'"><div class="md-ed3">'+mdSecSel(i.section,'md-es',i.id)+'<input data-id="'+i.id+'" class="md-eu" placeholder="ед." value="'+esc(i.unit||'')+'"><input data-id="'+i.id+'" class="md-eg" placeholder="группа" value="'+esc(i.grp||'')+'"></div><div class="md-ed3"><button class="chip" data-mact="save" data-id="'+i.id+'">Сохранить</button><button class="chip" data-mact="vis" data-id="'+i.id+'">'+(i.active===false?'Вернуть':'Скрыть')+'</button></div></div>').join(''):'<p class="mute">В этом разделе ничего не найдено.</p>';
   return h;
 }
 function medHtml(){
@@ -176,7 +180,9 @@ async function mdUpsert(id,section,name,active,unit,grp){
       if(it)Object.assign(it,row);else MD.cat.items.push(row);MD.cat.items=mdSorted(MD.cat.items);
       toast('Сохранено, но список не обновился с сервера: откройте раздел заново');
     }else toast('Справочник обновлён');
+    if(id==null&&r.item){MD.etab=section;MD.eq='';MD.hl=Number(r.item)}
     paint();
+    if(MD.hl){const el=document.getElementById('mded'+MD.hl);if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});setTimeout(()=>{MD.hl=null;if(S.view==='med'&&MD.step==='edit')paint()},4000)}
   }else toast(r&&r.error==='forbidden'?'Справочник правит только руководитель.':'Не удалось сохранить.');
 }
 document.addEventListener('click',async ev=>{
@@ -200,7 +206,8 @@ document.addEventListener('click',async ev=>{
   else if(a==='xls'){if(typeof XLSX==='undefined'){toast('Excel пока недоступен');return}const wb=XLSX.utils.book_new();Object.keys(MD_SEC).forEach(sec=>{const rows=[['Позиция','Ед.','Маркса','Перелёта','70 лет','Итого']];(MD.sum.rows||[]).filter(r=>r.section===sec).forEach(r=>rows.push([r.name,r.unit||'',...MD_BR.map(b=>(r.qty||{})[b.id]||0),r.total]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),MD_SEC[sec])});XLSX.writeFile(wb,'Врачебные_заявки.xlsx')}
   else if(a==='close'){if(!confirm('Закрыть открытые заявки'+(MD.sumBranch?' филиала '+mdBrTitle(MD.sumBranch):' всех филиалов')+'? Новая откроется при первом числе.'))return;
     const r=await rpc('ev_med_close',{p_token:S.token,p_branch:MD.sumBranch},8000).catch(e=>null);toast(r&&r.ok?'Закрыто заявок: '+r.closed:'Не удалось закрыть');await mdSumLoad()}
-  else if(a==='edit'){MD.step='edit';paint();await mdLoadCat(true);paint()}
+  else if(a==='etab'){MD.etab=id;MD.eq='';paint()}
+  else if(a==='edit'){MD.step='edit';MD.etab=MD.tab||'med';MD.eq='';paint();await mdLoadCat(true);paint()}
   else if(a==='add'){const n=document.getElementById('mdnname').value.trim();if(n)await mdUpsert(null,document.querySelector('.md-ns').value,n,true,document.getElementById('mdnunit').value.trim(),document.getElementById('mdngrp').value.trim())}
   else if(a==='save'||a==='vis'){const it=mdItems().find(x=>String(x.id)===id);if(!it)return;const q=c=>document.querySelector(c+'[data-id="'+id+'"]');
     await mdUpsert(it.id,a==='save'?q('.md-es').value:it.section,a==='save'?q('.md-en').value.trim():it.name,a==='vis'?it.active===false:it.active!==false,a==='save'?q('.md-eu').value.trim():it.unit,a==='save'?q('.md-eg').value.trim():it.grp)}
@@ -209,6 +216,7 @@ function goHome(){S.view='branch';render();window.scrollTo(0,0)}
 document.addEventListener('input',ev=>{
   const t=ev.target;if(S.view!=='med'||!t)return;
   if(t.id==='mdsearch'){MD.q=t.value;const pos=t.selectionStart;paint();const n=document.getElementById('mdsearch');if(n){n.focus();n.setSelectionRange(pos,pos)}}
+  else if(t.id==='mdesearch'){MD.eq=t.value;const pos=t.selectionStart;paint();const n=document.getElementById('mdesearch');if(n){n.focus();n.setSelectionRange(pos,pos)}}
   else if(t.classList&&t.classList.contains('md-q')){t.value=t.value.replace(/\D/g,'').slice(0,3)}
 });
 /* нажали на число — оно выделяется целиком, и первая же цифра заменяет «0» (стирать вручную не нужно) */
