@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
+<!-- Тест клиента контроля Vetmanager (node на Mac нет). Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/vmcheck.test.html | grep -o '<pre id="o">[^<]*' → RESULT PASS n/n -->
+<script>
+const S={token:'t',view:'ctl'};let _rpc=async()=>({ok:true});async function rpc(n,b){return _rpc(n,b)}
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),toast=()=>{},paint=()=>{};const BRANCHES=[{id:'70let',title:'70 лет'}];
+</script>
+<script src="../scripts/vmcheck.js"></script>
+<script>
+(async()=>{
+const res=[];const ok=(c,m)=>res.push([!!c,m]);
+const m=vmcMessage([{field:'cashless',verdict:'mismatch',report:5204.25,vm:8628.25}]);
+ok(m.includes('В Vetmanager')&&m.includes('8')&&m.includes('628')&&m.includes('Исправьте отчёт или напишите причину'),'mismatch: «В Vetmanager X, у вас Y. Исправьте или напишите причину»');
+ok(vmcMessage([{field:'total',verdict:'ok'}])==='','ok: сообщения нет');
+ok(/Не удалось сверить: наличные \(ключ истёк\)/.test(vmcMessage([{field:'cash',verdict:'no_data',reason:'ключ истёк'}])),'no_data: причина показана, не «ок»');
+ok(!vmcMessage([{field:'cash',verdict:'no_data',reason:'<img src=x>'}]).includes('<img'),'причина через esc');
+VMC.flags=[{id:7,branch:'70let',date:'2026-11-20',field:'cashless',verdict:'mismatch',report:5204.25,vm:8628.25,diff:-3424}];
+const h=vmFlagsHtml();ok(h.includes('70 лет')&&h.includes('20.11')&&h.includes('безнал')&&h.includes('data-vmact="resolve"'),'Контроль: филиал, день, поле, суммы и кнопка решения');
+VMC.flags=[];ok(vmFlagsHtml()==='','флагов нет — блока нет');
+// без сети: проверка откладывается, отчёт не блокируется
+localStorage.removeItem('ev_vmq');_rpc=async()=>{throw {net:true}};await vmcAfterSubmit('70let','2026-11-20',2);
+ok(vmcQ().length===1&&vmcQ()[0].branch==='70let','без сети: проверка поставлена в очередь на потом');
+const calls=[];_rpc=async(n,b)=>{calls.push(n);return{ok:true,queued:false}};await vmcFlushQueue();
+ok(calls.includes('ev_vm_check_request')&&vmcQ().length===0,'связь вернулась: запрос проверки повторён, очередь пуста');
+ok(!JSON.stringify(vmcQ()).match(/token|pin/i),'в очереди нет токена и PIN');
+const o=document.getElementById('o');const bad=res.filter(x=>!x[0]);o.textContent='RESULT '+(bad.length?'FAIL '+bad.map(x=>x[1]).join(' | '):'PASS')+' '+(res.length-bad.length)+'/'+res.length;
+})();
+</script>

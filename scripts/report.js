@@ -135,6 +135,7 @@ async function flush(auto){
       if(!S.online){S.online=true;setHeader()}
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
+        try{vmcAfterSubmit(it.branch,it.date,Number(res.version)||0)}catch(e){}
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
       }else if(res.error==='session'){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;

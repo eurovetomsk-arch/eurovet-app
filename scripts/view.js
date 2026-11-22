@@ -259,7 +259,7 @@ function navHtml(){
   return '<nav class="nv ui2-bottom-nav">'+bottomNavItems().map(n=>'<button '+(n.key==='menu'?'data-act="menu"':'data-act="go" data-v="'+n.view+'"')+' class="'+(cur===n.key?'on':'')+'"><i>'+NAV_ICON[n.key]+'</i>'+n.label+'</button>').join('')+'</nav>';
 }
 async function showControl(){
-  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();loadVmNames();
+  S.view='ctl';S.ctlLoad=true;S.ctlErr=null;paint();window.scrollTo(0,0);loadMr();loadVmNames();loadVmFlags();
   try{
     const r=await rpc('ev_flags_pending',{p_token:S.token},20000);
     if(!r||!r.ok)S.ctlErr=(r&&r.error==='session'?'Сессия закончилась, войдите заново.':'Нет доступа.');
@@ -289,7 +289,7 @@ function ctlOldRows(flAll,cv){
   return [...m.values()].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.branch).localeCompare(String(b.branch)));
 }
 function ctlHtml(){
-  let h='<div class="mrbox">'+mrHtml()+'</div><div class="card"><h2>Контроль · с 27.10</h2>';
+  let h='<div class="mrbox">'+mrHtml()+'</div>'+vmFlagsHtml()+'<div class="card"><h2>Контроль · с 27.10</h2>';
   if(S.ctlErr)h+='<p>'+esc(S.ctlErr)+'</p><button class="btn sec small" data-act="go" data-v="ctl">Повторить</button>';
   else if(S.ctlLoad&&!S.ctl)h+='<p class="hint">Загружаю…</p>';
   else{
