@@ -9,6 +9,9 @@ const MD={buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',
 const MD_SEC={med:'Медицинские',vet:'Ветеринарные',supply:'Расходка',household:'Хозяйственные нужды'};
 const MD_BR=[{id:'marksa',title:'Маркса'},{id:'pereleta',title:'Перелёта'},{id:'70let',title:'70 лет'}];
 const mdBrTitle=id=>(MD_BR.find(b=>b.id===id)||{title:id}).title;
+/* сервер отдаёт порядок sort,id (новая позиция оказывалась в конце раздела); на экране всегда по алфавиту внутри раздела */
+const mdByName=(a,b)=>String(a.name).localeCompare(String(b.name),'ru',{sensitivity:'base'});
+const mdSorted=a=>(a||[]).slice().sort(mdByName);
 const mdItems=()=>(MD.cat&&MD.cat.items)||[];
 /* название с единицей: «Адреналин · ампула» (единица может быть пустой) */
 const mdUnitOf=i=>i&&i.unit?' · '+esc(i.unit):'';
@@ -59,7 +62,7 @@ setInterval(()=>{if(mdQHere().length||mdQ().some(x=>x.who===mdWho()))mdFlush()},
 /* справочник перечитывается при каждом входе в модуль и после каждой правки; пока грузится новый, показывается прежний (кэш). Возвращает true, если загрузилось. */
 async function mdLoadCat(all){
   try{const r=await rpc('ev_med_catalog',{p_token:S.token,p_all:!!all},8000);
-    if(r&&r.ok){MD.cat=r;MD.err=null;return true}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
+    if(r&&r.ok){r.items=mdSorted(r.items);MD.cat=r;MD.err=null;return true}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
   catch(e){MD.err=e.net?'Нет связи: справочник не загрузился.':'Справочник пока недоступен.'}
   return false;
 }
@@ -136,7 +139,7 @@ function mdReviewHtml(){
   return h+'<div class="md-bar"><button class="chip" data-mact="list">Изменить</button><button class="go" data-mact="done">Отправить</button></div>';
 }
 async function mdSumLoad(){
-  try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:MD.sumBranch},10000);MD.sum=(r&&r.ok)?r:{err:(r&&r.error==='forbidden')?'Сводная — только у руководителя.':'Сводная пока недоступна.'}}
+  try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:MD.sumBranch},10000);MD.sum=(r&&r.ok)?Object.assign(r,{rows:mdSorted(r.rows)}):{err:(r&&r.error==='forbidden')?'Сводная — только у руководителя.':'Сводная пока недоступна.'}}
   catch(e){MD.sum={err:e.net?'Нет связи.':'Сводная пока недоступна.'}}
   paint();
 }
@@ -170,7 +173,7 @@ async function mdUpsert(id,section,name,active,unit,grp){
     const fresh=await mdLoadCat(true);
     if(!fresh&&MD.cat&&MD.cat.items){ /* список не перечитался: показываем сохранённое локально, чтобы правка не «пропадала» */
       const it=MD.cat.items.find(x=>Number(x.id)===Number(r.item));const row={id:Number(r.item),section,name,unit:unit||null,grp:grp||null,active:active!==false,note:null};
-      if(it)Object.assign(it,row);else MD.cat.items.push(row);
+      if(it)Object.assign(it,row);else MD.cat.items.push(row);MD.cat.items=mdSorted(MD.cat.items);
       toast('Сохранено, но список не обновился с сервера: откройте раздел заново');
     }else toast('Справочник обновлён');
     paint();
