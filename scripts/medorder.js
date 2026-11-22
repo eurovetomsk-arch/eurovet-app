@@ -5,7 +5,7 @@
    Число сохраняется на сервере сразу (ev_med_line_set); устаревшее изменение сервер отклоняет и показывает текущее число.
    Руководитель: сводная (ev_med_summary: филиалы + итог, копия, Excel, закрыть) и правка справочника (ev_med_item_upsert).
    Модуль выключен настройкой UI2.moduleBuilt.supplies до применения L11. */
-const MD={etab:'med',eq:'',hl:null,buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
+const MD={sumCounts:null,fromSum:false,etab:'med',eq:'',hl:null,buyer:undefined,cat:null,err:null,step:'branch',branch:null,tab:'med',q:'',lines:{},prev:{},meta:{},ok:{},sum:null,sumBranch:null,busy:false,edit:null};
 const MD_SEC={med:'Медицинские',vet:'Ветеринарные',supply:'Расходка',household:'Хозяйственные нужды'};
 const MD_BR=[{id:'marksa',title:'Маркса'},{id:'pereleta',title:'Перелёта'},{id:'70let',title:'70 лет'}];
 const mdBrTitle=id=>(MD_BR.find(b=>b.id===id)||{title:id}).title;
@@ -72,10 +72,17 @@ async function mdProbeBuyer(){
   try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:null},10000);MD.buyer=!!(r&&r.ok)}catch(e){return}
   if(S.view==='med')paint();
 }
+/* закупщик и руководитель: плитка открывает сразу «Сводную заявок» (открытые заявки по филиалам и итог); остальные роли — выбор филиала */
+const mdPriv=()=>mdHead()||MD.buyer===true;
 async function showMed(){
-  closeOv();S.view='med';MD.step='branch';MD.q='';MD.edit=null;paint();window.scrollTo(0,0);
-  await mdLoadCat(false);paint();mdFlush();mdProbeBuyer();
+  closeOv();S.view='med';MD.q='';MD.edit=null;MD.fromSum=false;
+  const priv=mdPriv();MD.step=priv?'sum':'branch';if(priv){MD.sum=null;MD.sumBranch=null}
+  paint();window.scrollTo(0,0);
+  await mdLoadCat(false);paint();mdFlush();
+  if(priv)await mdSumLoad();
+  else{await mdProbeBuyer();if(MD.buyer===true&&MD.step==='branch'&&S.view==='med'){MD.step='sum';MD.sum=null;MD.sumBranch=null;paint();await mdSumLoad()}}
 }
+const mdCounts=rows=>{const c={};MD_BR.forEach(b=>{c[b.id]=(rows||[]).filter(r=>Number((r.qty||{})[b.id])>0).length});return c};
 async function mdPickBranch(id){
   const shift=mdShiftBranch();
   if(shift&&shift!==id&&!confirm('Сегодня у вас смена на '+mdBrTitle(shift)+'. Заполнить заявку '+mdBrTitle(id)+'?'))return;
@@ -141,18 +148,20 @@ function mdReviewHtml(){
 async function mdSumLoad(){
   try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:MD.sumBranch},10000);MD.sum=(r&&r.ok)?Object.assign(r,{rows:mdSorted(r.rows)}):{err:(r&&r.error==='forbidden')?'Сводная — только у руководителя.':'Сводная пока недоступна.'}}
   catch(e){MD.sum={err:e.net?'Нет связи.':'Сводная пока недоступна.'}}
+  if(MD.sum&&!MD.sum.err&&!MD.sumBranch)MD.sumCounts=mdCounts(MD.sum.rows);
   paint();
 }
 function mdSumHtml(){
   const s=MD.sum;let h='<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебные заявки</h1>';
   if(!s)return h+'<p class="mute">Загрузка…</p>';if(s.err)return h+'<p class="mute">'+esc(s.err)+'</p>';
-  const f=['','marksa','pereleta','70let'],fl=['Все филиалы','Маркса','Перелёта','70 лет'];
-  h+='<div class="chips">'+f.map((b,i)=>'<button class="chip'+((MD.sumBranch||'')===b?' on':'')+'" data-mact="sumbr" data-id="'+b+'">'+fl[i]+'</button>').join('')+'</div>';
+  const f=['','marksa','pereleta','70let'],fl=['Все филиалы','Маркса','Перелёта','70 лет'],cn=MD.sumCounts||mdCounts(s.rows),open=MD_BR.filter(b=>cn[b.id]>0);
+  h+='<div class="md-open"><b>Открытых заявок: '+open.length+'</b>'+(open.length?' · '+open.map(b=>esc(b.title)+' '+cn[b.id]).join(', '):'')+'</div>';
+  h+='<div class="chips">'+f.map((b,i)=>'<button class="chip'+((MD.sumBranch||'')===b?' on':'')+'" data-mact="sumbr" data-id="'+b+'">'+fl[i]+(b&&cn[b]?' '+cn[b]:'')+'</button>').join('')+(mdHead()?'<button class="chip" data-mact="edit">Справочник</button>':'')+'</div>';
   let t='<table class="md-t"><thead><tr><th>Позиция</th>'+MD_BR.map(b=>'<th>'+esc(b.title)+'</th>').join('')+'<th class="tot">Итого</th></tr></thead><tbody>';
   Object.keys(MD_SEC).forEach(sec=>{const rs=(s.rows||[]).filter(r=>r.section===sec);if(!rs.length)return;
     t+='<tr class="sh"><td colspan="5">'+MD_SEC[sec]+' · '+rs.length+'</td></tr>'+rs.map(r=>{const l=r.last,ch=l&&l.old!=null?'<div class="md-chg">изменено '+vacHm(l.at)+' · было '+l.old+' → стало '+(l.new==null?0:l.new)+' · '+esc(l.by)+'</div>':'';
       return '<tr'+(ch?' class="hl"':'')+'><td>'+esc(r.name)+(r.unit?' · '+esc(r.unit):'')+ch+'</td>'+MD_BR.map(b=>'<td>'+((r.qty||{})[b.id]||'—')+'</td>').join('')+'<td class="tot">'+r.total+'</td></tr>'}).join('')});
-  return h+t+'</tbody></table><div class="md-bar"><button class="chip" data-mact="copy">Копировать</button><button class="chip" data-mact="xls">Excel</button><button class="go" data-mact="close">Закрыть заявки</button></div>';
+  return h+t+'</tbody></table><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button><div class="md-bar"><button class="chip" data-mact="copy">Копировать</button><button class="chip" data-mact="xls">Excel</button><button class="go" data-mact="close">Закрыть заявки</button></div>';
 }
 function mdSumRows(){const rows=[['Раздел','Позиция','Ед.','Маркса','Перелёта','70 лет','Итого']];(MD.sum.rows||[]).forEach(r=>rows.push([MD_SEC[r.section],r.name,r.unit||'',...MD_BR.map(b=>(r.qty||{})[b.id]||0),r.total]));return rows}
 function mdSecSel(cur,cls,id){return '<select class="'+cls+'"'+(id!=null?' data-id="'+id+'"':'')+'>'+Object.keys(MD_SEC).map(k=>'<option value="'+k+'"'+(k===cur?' selected':'')+'>'+MD_SEC[k]+'</option>').join('')+'</select>'}
@@ -199,7 +208,12 @@ document.addEventListener('click',async ev=>{
   else if(a==='ok'){MD.ok[id]=true;paint()}
   else if(a==='fix'){MD.step='list';MD.q=mdName(id).slice(0,3);paint()}
   else if(a==='done'){toast('Заявка отправлена. Её можно менять, пока закупщик не закрыл.');MD.step='branch';paint();window.scrollTo(0,0)}
-  else if(a==='back'){if(MD.step==='branch'||MD.step==='sum'&&false)goHome();else{const was=MD.step;MD.step='branch';paint();if(was==='edit'){await mdLoadCat(false);paint()}}}
+  else if(a==='mkorder'){MD.step='branch';MD.fromSum=true;paint();window.scrollTo(0,0)}
+  else if(a==='back'){
+    if(MD.step==='branch'){if(MD.fromSum){MD.fromSum=false;MD.step='sum';paint()}else goHome()}
+    else if(MD.step==='sum')goHome();
+    else{const was=MD.step;MD.step=(mdPriv()&&was==='edit')?'sum':'branch';paint();if(was==='edit'){await mdLoadCat(false);paint()}}
+  }
   else if(a==='sum'){MD.step='sum';MD.sum=null;MD.sumBranch=null;paint();await mdSumLoad()}
   else if(a==='sumbr'){MD.sumBranch=id||null;await mdSumLoad()}
   else if(a==='copy'){try{await navigator.clipboard.writeText(mdSumRows().map(r=>r.join('\t')).join('\n'));toast('Скопировано')}catch(e){toast('Не удалось скопировать')}}

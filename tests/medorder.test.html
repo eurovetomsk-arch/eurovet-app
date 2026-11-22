@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 44/44. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 51/51. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
 const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};const UI2={moduleBuilt:{supplies:true}};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
@@ -11,7 +11,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 <script>
 (async()=>{
 const res=[];const ok=(c,m)=>res.push([!!c,m]);
-const NET=()=>{throw {net:true}};const tick=()=>new Promise(r=>setTimeout(r,30));
+const NET=()=>{throw {net:true}};const handleClick=async a=>{const b=document.createElement('button');b.dataset.mact=a;document.body.appendChild(b);b.click();await new Promise(r=>setTimeout(r,30));b.remove()};const tick=()=>new Promise(r=>setTimeout(r,30));
 localStorage.removeItem('ev_medq');
 MD.branch='marksa';MD.lines={};MD.cat={items:[{id:70,section:'vet',name:'Тест',active:true}]};MD.tab='vet';MD.step='list';
 // 1 очередь без связи
@@ -100,6 +100,17 @@ _rpc=async()=>({ok:true,count:0,branches:[]});await mdBadgeLoad(true);ok(medTile
 MDB.ok=undefined;MDB.count=0;MDB.at=0;bc.length=0;_rpc=async(n)=>{bc.push(n);return{ok:false,error:'forbidden'}};await mdBadgeLoad(true);const nb=bc.length;await mdBadgeLoad(true);await mdBadgeLoad(true);
 ok(MDB.ok===false&&medTileBadge()===''&&bc.length===nb,'не закупщик: цифры нет, запрос больше не повторяется');
 MDB.ok=undefined;S.view='med';
+// 4л плитка: закупщик и руководитель → сразу «Сводная заявок», остальные → выбор филиала; счётчики по филиалам
+const SUMR={ok:true,rows:[{item:1,section:'med',name:'А',unit:null,qty:{marksa:3},total:3},{item:2,section:'med',name:'Б',unit:null,qty:{marksa:1,pereleta:2},total:3}]};
+_rpc=async(n,b)=>n==='ev_med_summary'?SUMR:n==='ev_med_catalog'?{ok:true,items:[]}:{ok:true};
+HEAD=true;MD.buyer=undefined;S.view='branch';await showMed();await tick();ok(MD.step==='sum'&&MD.sum&&!MD.sum.err,'руководитель: плитка открывает сразу сводную');
+const sh=mdSumHtml();ok(sh.includes('Открытых заявок: 2')&&sh.includes('Маркса 2')&&sh.includes('Перелёта 1')&&sh.includes('data-mact="mkorder"')&&sh.includes('Сделать заявку филиала'),'сводная: «Открытых заявок: 2», филиалы с числом позиций, кнопка «Сделать заявку филиала»');
+await handleClick('mkorder');ok(MD.step==='branch'&&MD.fromSum===true,'«Сделать заявку филиала» ведёт на выбор филиала');
+await handleClick('back');ok(MD.step==='sum','назад с выбора филиала — снова сводная');
+HEAD=false;MD.buyer=true;await showMed();await tick();ok(MD.step==='sum','закупщик (не руководитель): сразу сводная');
+HEAD=false;MD.buyer=false;_rpc=async(n)=>n==='ev_med_catalog'?{ok:true,items:[]}:{ok:true};await showMed();await tick();ok(MD.step==='branch','врач/сотрудник: выбор филиала, как раньше');
+HEAD=false;MD.buyer=undefined;_rpc=async(n)=>n==='ev_med_summary'?SUMR:n==='ev_med_catalog'?{ok:true,items:[]}:{ok:true};await showMed();await tick();await tick();ok(MD.step==='sum'&&MD.buyer===true,'закупщик, ещё не опознанный: после проверки сервера открывается сводная');
+HEAD=true;MD.buyer=undefined;MD.step='branch';MD.fromSum=false;S.view='med';
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');
