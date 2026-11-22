@@ -4,9 +4,13 @@
    При mismatch/no_data администратор видит «В Vetmanager X, у вас Y. Исправьте или напишите причину». «Контроль» руководителя: красные флаги ev_vm_check_flags + «Решить» с причиной (ev_vm_check_resolve).
    Вердикт считает сервер (жёсткое правило, порог 10 ₽). Здесь только показ. Токен Vetmanager в клиент не попадает. */
 const VMC={flags:null,err:null,loading:false,acc:null,info:null};
-const VMC_FIELD={total:'итог клиники',cash:'наличные',cashless:'безнал',fix_normal:'фиксации животных',fix_xray:'фиксации на R-снимке'};
+const VMC_FIELD={total:'Вал клиники',cash:'Наличные клиники',cashless:'Безнал клиники',fix_normal:'Фиксация животного (обычная)',fix_xray:'Фиксация на R-снимке'};
+const vmcLabel=f=>VMC_FIELD[f]||String(f||'');
+const vmcIsFix=f=>String(f||'').startsWith('fix_');
+/* пояснение к расхождению фиксаций: report — в отчёте, vm — в счетах Vetmanager */
+const vmcFixNote=(rep,vm)=>Number(rep)<Number(vm)?(Number(rep)===0?'в счёте есть фиксация, в отчёте её нет':'в счетах фиксаций больше, чем в отчёте'):'в отчёте больше, чем в счетах';
 /* суммы в рублях, фиксации в штуках */
-const vmcVal=(f,n)=>n==null?'—':(String(f||'').startsWith('fix_')?String(Number(n))+' шт.':vmcRub(n));
+const vmcVal=(f,n)=>n==null?'—':(vmcIsFix(f)?String(Math.round(Number(n)))+' шт.':vmcRub(n));
 const VMC_QKEY='ev_vmq';
 const vmcRub=n=>n==null?'—':String(Number(n).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}))+' ₽';
 const vmcDate=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d||''));return m?m[3]+'.'+m[2]:String(d||'')};
@@ -16,8 +20,10 @@ function vmcQSave(a){try{localStorage.setItem(VMC_QKEY,JSON.stringify(a.slice(-2
 function vmcMessage(rows){
   const bad=(rows||[]).filter(r=>r.verdict==='mismatch'||r.verdict==='no_data');if(!bad.length)return '';
   return bad.map(r=>r.verdict==='mismatch'
-    ?'В Vetmanager '+vmcVal(r.field,r.vm)+', у вас '+vmcVal(r.field,r.report)+' ('+VMC_FIELD[r.field]+'). '+(r.reason?esc(r.reason)+'. ':'')+'Исправьте отчёт или напишите причину руководителю.'
-    :'Не удалось сверить: '+VMC_FIELD[r.field]+' ('+esc(r.reason||'нет данных')+'). Отчёт сохранён.').join('<br>');
+    ?(vmcIsFix(r.field)
+      ?'<b>'+vmcLabel(r.field)+'.</b> В отчёте '+vmcVal(r.field,r.report)+', в Vetmanager '+vmcVal(r.field,r.vm)+' — '+vmcFixNote(r.report,r.vm)+'. Исправьте отчёт или напишите причину руководителю.'
+      :'<b>'+vmcLabel(r.field)+'.</b> В Vetmanager '+vmcVal(r.field,r.vm)+', у вас '+vmcVal(r.field,r.report)+'. '+(r.reason?esc(r.reason)+'. ':'')+'Исправьте отчёт или напишите причину руководителю.')
+    :'<b>'+vmcLabel(r.field)+'.</b> Не удалось сверить ('+esc(r.reason||'нет данных')+'). Отчёт сохранён.').join('<br>');
 }
 async function vmcStatus(branch,date,minVersion){
   try{const r=await rpc('ev_vm_check_status',{p_token:S.token,p_branch:branch,p_date:date},10000);
@@ -82,8 +88,8 @@ function vmFlagsHtml(){
 function vmVmHtml(){
   if(VMC.err)return '<div class="card"><p class="hint">'+esc(VMC.err)+'</p></div>';
   const f=VMC.flags;if(!f||!f.length)return '';
-  return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(VMC_FIELD[x.field]||x.field)+'</b><br>'
-    +(x.verdict==='mismatch'?'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+', разница '+vmcVal(x.field,x.diff)+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
+  return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(vmcLabel(x.field))+'</b><br>'
+    +(x.verdict==='mismatch'?(vmcIsFix(x.field)?'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+' — '+vmcFixNote(x.report,x.vm):'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+', разница '+vmcVal(x.field,x.diff))+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
     +'<br><button class="btn sec small" data-vmact="resolve" data-id="'+Number(x.id)+'">Решить с причиной</button></div></div>').join('')+'</div>';
 }
 document.addEventListener('click',async ev=>{
