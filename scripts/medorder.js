@@ -15,25 +15,28 @@ const mdShiftBranch=()=>{const m=(typeof HOME_WHO!=='undefined'&&HOME_WHO.rows||
 const mdHead=()=>{try{return !!isHead()}catch(e){return false}};
 /* ---- офлайн-очередь (только item, qty, branch, время и число, которое человек видел; без PIN, токена и имён) ---- */
 const MDQ_KEY='ev_medq';
-function mdQ(){try{const a=JSON.parse(localStorage.getItem(MDQ_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&Number.isInteger(x.item)&&Number.isInteger(x.qty)&&x.qty>=0&&x.qty<=999&&Number.isInteger(x.exp)&&x.exp>=0&&x.exp<=999&&typeof x.branch==='string'):[]}catch(e){return[]}}
+/* who = те же 3 цифры номера входа, что приложение уже хранит; запись уходит только при том же входе, чужие не удаляются и не отправляются */
+function mdWho(){const n=(S.loginNumber&&/^\d{3}$/.test(S.loginNumber))?S.loginNumber:(typeof LOGIN_NUM_KEY!=='undefined'?(function(){try{return localStorage.getItem(LOGIN_NUM_KEY)||''}catch(e){return ''}})():'');return /^\d{3}$/.test(n)?n:''}
+function mdQ(){try{const a=JSON.parse(localStorage.getItem(MDQ_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&Number.isInteger(x.item)&&Number.isInteger(x.qty)&&x.qty>=0&&x.qty<=999&&Number.isInteger(x.exp)&&x.exp>=0&&x.exp<=999&&typeof x.branch==='string'&&/^\d{3}$/.test(x.who||'')):[]}catch(e){return[]}}
 function mdQSave(a){try{localStorage.setItem(MDQ_KEY,JSON.stringify(a))}catch(e){}}
 function mdQPut(branch,item,qty,exp){
-  item=Number(item);const a=mdQ(),i=a.findIndex(x=>x.branch===branch&&x.item===item);
+  item=Number(item);const w=mdWho();if(!w)return;const a=mdQ(),i=a.findIndex(x=>x.branch===branch&&x.item===item&&x.who===w);
   if(qty===exp){if(i>=0)a.splice(i,1)}
   else if(i>=0){a[i].qty=qty;a[i].at=Date.now();delete a[i].conflict}
-  else a.push({item,qty,branch,exp,at:Date.now()});
+  else a.push({item,qty,branch,exp,at:Date.now(),who:w});
   mdQSave(a);
 }
-const mdQHere=()=>mdQ().filter(x=>x.branch===MD.branch);
+const mdQHere=()=>mdQ().filter(x=>x.branch===MD.branch&&x.who===mdWho());
+const mdQForeign=()=>mdQ().filter(x=>x.who!==mdWho()).length;
 function mdApply(id,q){if(q)MD.lines[id]=q;else delete MD.lines[id]}
 let mdFlushing=false;
 async function mdFlush(){
-  if(mdFlushing||!S.token||!S.person)return;mdFlushing=true;let changed=false;
+  const who=mdWho();if(mdFlushing||!S.token||!S.person||!who)return;mdFlushing=true;let changed=false;
   try{
-    for(const e of mdQ()){
+    for(const e of mdQ().filter(x=>x.who===who)){
       if(e.conflict)continue;
       let r;try{r=await rpc('ev_med_line_set',{p_token:S.token,p_branch:e.branch,p_item:e.item,p_qty:e.qty,p_expect:e.exp},8000)}catch(x){break}
-      const a=mdQ(),i=a.findIndex(y=>y.branch===e.branch&&y.item===e.item);
+      const a=mdQ(),i=a.findIndex(y=>y.branch===e.branch&&y.item===e.item&&y.who===who);
       if(r&&r.ok){if(i>=0){if(a[i].qty===e.qty)a.splice(i,1);else a[i].exp=e.qty}changed=true} /* пока шёл запрос, число могли изменить: тогда новое значение ждёт с exp=ушедшее */
       else if(r&&r.error==='conflict'){if(i>=0){a[i].conflict={cur:Number(r.current)||0};changed=true}}
       else if(r&&r.error==='session'){break}
@@ -44,12 +47,12 @@ async function mdFlush(){
   if(changed&&S.view==='med'){if(MD.branch&&MD.step!=='branch'&&MD.step!=='sum'&&MD.step!=='edit')await mdLoadOrder();paint()}
 }
 async function mdResolve(id,keep){
-  const a=mdQ(),i=a.findIndex(x=>x.branch===MD.branch&&x.item===Number(id));if(i<0)return;
+  const a=mdQ(),i=a.findIndex(x=>x.branch===MD.branch&&x.item===Number(id)&&x.who===mdWho());if(i<0)return;
   if(keep){a[i].exp=a[i].conflict?a[i].conflict.cur:a[i].exp;delete a[i].conflict;mdQSave(a);await mdFlush()}
   else{a.splice(i,1);mdQSave(a);await mdLoadOrder();paint()}
 }
 window.addEventListener('online',()=>{mdFlush()});
-setInterval(()=>{if(mdQ().length)mdFlush()},30000);
+setInterval(()=>{if(mdQHere().length||mdQ().some(x=>x.who===mdWho()))mdFlush()},30000);
 async function mdLoadCat(all){
   try{const r=await rpc('ev_med_catalog',{p_token:S.token,p_all:!!all},8000);
     if(r&&r.ok){MD.cat=r;MD.err=null}else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Справочник пока недоступен.'}
@@ -109,7 +112,7 @@ function mdListHtml(){
   else{let cur='';rows=items.filter(i=>i.section===MD.tab).map(i=>{const l=i.name[0].toUpperCase();const h=l!==cur?'<div class="md-lt">'+esc(l)+'</div>':'';cur=l;return h+mdRow(i)}).join('')}
   const tabs=Object.keys(MD_SEC).map(s=>'<button class="chip'+(MD.tab===s&&!q?' on':'')+'" data-mact="tab" data-id="'+s+'">'+MD_SEC[s]+' '+items.filter(i=>i.section===s).length+'</button>').join('');
   return '<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебная заявка</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · заявка открыта</div>'
-    +mdConflictHtml()+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
+    +mdConflictHtml()+(mdQForeign()?'<div class="mute md-pendtxt">Есть неотправленные числа другого входа: '+mdQForeign()+'</div>':'')+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
     +(mdUndo?'<div class="md-undo"><button class="chip" data-mact="undo">Отменить: вернуть «'+esc(mdName(mdUndo.id))+'»</button></div>':'')
     +'<div class="md-bar"><div><b>В заявке: '+n+' поз.</b>'+(np?'<small class="md-pendtxt">Не отправлено: '+np+'. Появится связь — уйдёт само.</small>':'')+'</div><button class="go" data-mact="review"'+(n&&!np?'':' disabled')+'>Проверить</button></div>';
 }
