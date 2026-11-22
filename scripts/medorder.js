@@ -159,8 +159,8 @@ function mdSumHtml(){
   h+='<div class="chips">'+f.map((b,i)=>'<button class="chip'+((MD.sumBranch||'')===b?' on':'')+'" data-mact="sumbr" data-id="'+b+'">'+fl[i]+(b&&cn[b]?' '+cn[b]:'')+'</button>').join('')+(mdHead()?'<button class="chip" data-mact="edit">Справочник</button>':'')+'</div>';
   let t='<table class="md-t"><thead><tr><th>Позиция</th>'+MD_BR.map(b=>'<th>'+esc(b.title)+'</th>').join('')+'<th class="tot">Итого</th></tr></thead><tbody>';
   Object.keys(MD_SEC).forEach(sec=>{const rs=(s.rows||[]).filter(r=>r.section===sec);if(!rs.length)return;
-    t+='<tr class="sh"><td colspan="5">'+MD_SEC[sec]+' · '+rs.length+'</td></tr>'+rs.map(r=>{const l=r.last,ch=l&&l.old!=null?'<div class="md-chg">изменено '+vacHm(l.at)+' · было '+l.old+' → стало '+(l.new==null?0:l.new)+' · '+esc(l.by)+'</div>':'';
-      return '<tr'+(ch?' class="hl"':'')+'><td>'+esc(r.name)+(r.unit?' · '+esc(r.unit):'')+ch+'</td>'+MD_BR.map(b=>'<td>'+((r.qty||{})[b.id]||'—')+'</td>').join('')+'<td class="tot">'+r.total+'</td></tr>'}).join('')});
+    t+='<tr class="sh"><td colspan="5">'+MD_SEC[sec]+' · '+rs.length+'</td></tr>'+rs.map(r=>{ /* история «было → стало» в сводной не показывается (слово Михаила 22.11); в базе журнал остаётся */
+      return '<tr><td>'+esc(r.name)+(r.unit?' · '+esc(r.unit):'')+'</td>'+MD_BR.map(b=>'<td>'+((r.qty||{})[b.id]||'—')+'</td>').join('')+'<td class="tot">'+r.total+'</td></tr>'}).join('')});
   return h+t+'</tbody></table><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button><div class="md-bar"><button class="chip" data-mact="copy">Копировать</button><button class="chip" data-mact="xls">Excel</button><button class="go" data-mact="close">Закрыть заявки</button></div>';
 }
 function mdSumRows(){const rows=[['Раздел','Позиция','Ед.','Маркса','Перелёта','70 лет','Итого']];(MD.sum.rows||[]).forEach(r=>rows.push([MD_SEC[r.section],r.name,r.unit||'',...MD_BR.map(b=>(r.qty||{})[b.id]||0),r.total]));return rows}

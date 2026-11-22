@@ -236,3 +236,4 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .md-hl{outline:3px solid #f0a400;background:#fff4d6!important}
 .vmc-box{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}.vmc-card{background:#fff;color:#1d2b30;border:2px solid #b45309;border-radius:14px;padding:16px;max-width:360px}.vmc-card p{margin:10px 0}.vmc-card .go{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;width:100%}
 .md-open{background:var(--card);color:#1d2b30;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}.md-mk{display:block;width:100%;margin:12px 0 4px;background:var(--acc);color:var(--acc-ink);border:0;border-radius:12px;padding:13px;font-weight:700}
+.md-t .sh td{background:#d6e8ee;color:#0d2f38;font-size:17px;font-weight:800;text-transform:none;letter-spacing:.2px;padding:11px 10px;border-top:2px solid #9fc3cf}
