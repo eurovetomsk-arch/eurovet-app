@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
 <!-- Тест офлайн-очереди «Врачебная заявка» (node на Mac нет, поэтому тест в браузере).
      Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/medorder.test.html | grep -o 'RESULT[^<]*'
-     Ожидается: RESULT PASS 21/21. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
+     Ожидается: RESULT PASS 22/22. Грузит только scripts/medorder.js с заглушками; сеть и база не используются. -->
 <script>
 const S={token:'t',person:{id:1},view:'med',loginNumber:'111'};let _rpc=async()=>({ok:true});
 async function rpc(n,b){return _rpc(n,b)}
@@ -48,6 +48,9 @@ await mdFlush();ok(LC().length===0&&mdQ().length===1,'вход Б: записи 
 ok(/другого входа: 1/.test(mdListHtml()),'вход Б видит «неотправленные числа другого входа: 1»');
 ok(mdQHere().length===0,'у Б своей очереди нет');
 S.loginNumber='111';calls=[];await mdFlush();ok(LC().length===1&&LC()[0][1].p_qty===3&&mdQ().length===0,'вход А: всё ушло');
+// 4г нажали на поле с нулём: число выделено, цифра заменяет 0
+const inp=document.createElement('input');inp.className='md-q';inp.value='0';document.body.appendChild(inp);inp.focus();await tick();
+ok(inp.selectionStart===0&&inp.selectionEnd===inp.value.length&&inp.value.length===1,'нажали на поле: «0» выделен целиком (первая цифра его заменит)');
 // 5 границы
 localStorage.setItem('ev_medq',JSON.stringify([{item:70,qty:1000,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:0,branch:'marksa',exp:1,at:1,who:'111'},{item:'x',qty:1,branch:'marksa',exp:0,at:1,who:'111'},{item:70,qty:2,branch:'marksa',exp:1,at:1}]));
 ok(mdQ().length===1&&mdQ()[0].qty===0,'неверные записи (qty>999, не число) отбрасываются');

@@ -188,4 +188,6 @@ document.addEventListener('input',ev=>{
   if(t.id==='mdsearch'){MD.q=t.value;const pos=t.selectionStart;paint();const n=document.getElementById('mdsearch');if(n){n.focus();n.setSelectionRange(pos,pos)}}
   else if(t.classList&&t.classList.contains('md-q')){t.value=t.value.replace(/\D/g,'').slice(0,3)}
 });
+/* нажали на число — оно выделяется целиком, и первая же цифра заменяет «0» (стирать вручную не нужно) */
+document.addEventListener('focusin',ev=>{const t=ev.target;if(S.view==='med'&&t&&t.classList&&t.classList.contains('md-q'))setTimeout(()=>{try{t.select()}catch(e){}},0)});
 document.addEventListener('change',ev=>{const t=ev.target;if(S.view==='med'&&t&&t.classList&&t.classList.contains('md-q'))mdSet(t.dataset.id,Number(t.value)||0)});
