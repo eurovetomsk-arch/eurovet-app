@@ -14,7 +14,7 @@ function vmcQSave(a){try{localStorage.setItem(VMC_QKEY,JSON.stringify(a.slice(-2
 function vmcMessage(rows){
   const bad=(rows||[]).filter(r=>r.verdict==='mismatch'||r.verdict==='no_data');if(!bad.length)return '';
   return bad.map(r=>r.verdict==='mismatch'
-    ?'В Vetmanager '+vmcRub(r.vm)+', у вас '+vmcRub(r.report)+' ('+VMC_FIELD[r.field]+'). Исправьте отчёт или напишите причину руководителю.'
+    ?'В Vetmanager '+vmcRub(r.vm)+', у вас '+vmcRub(r.report)+' ('+VMC_FIELD[r.field]+'). '+(r.reason?esc(r.reason)+'. ':'')+'Исправьте отчёт или напишите причину руководителю.'
     :'Не удалось сверить: '+VMC_FIELD[r.field]+' ('+esc(r.reason||'нет данных')+'). Отчёт сохранён.').join('<br>');
 }
 async function vmcStatus(branch,date,minVersion){
@@ -75,7 +75,7 @@ function vmVmHtml(){
   if(VMC.err)return '<div class="card"><p class="hint">'+esc(VMC.err)+'</p></div>';
   const f=VMC.flags;if(!f||!f.length)return '';
   return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(VMC_FIELD[x.field]||x.field)+'</b><br>'
-    +(x.verdict==='mismatch'?'В отчёте '+vmcRub(x.report)+', в Vetmanager '+vmcRub(x.vm)+', разница '+vmcRub(x.diff):'Не удалось сверить: '+esc(x.reason||'нет данных'))
+    +(x.verdict==='mismatch'?'В отчёте '+vmcRub(x.report)+', в Vetmanager '+vmcRub(x.vm)+', разница '+vmcRub(x.diff)+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
     +'<br><button class="btn sec small" data-vmact="resolve" data-id="'+Number(x.id)+'">Решить с причиной</button></div></div>').join('')+'</div>';
 }
 document.addEventListener('click',async ev=>{
