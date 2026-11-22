@@ -628,3 +628,11 @@ body.ui2 .ctl-old{margin-top:16px}
 body.ui2 .ctl-old summary{cursor:pointer;font-weight:700;padding:8px 0;color:var(--ev-soft)}
 body.ui2 .ctl-old-row{padding:8px 0;border-top:1px solid var(--ev-line,#D0E2E6);color:var(--ev-soft)}
 body.ui2 .ctl-old-row small{color:var(--ev-soft)}
+
+/* К-w: поля сумм отчёта вмещают «999 999,99» + ₽ на любой ширине (раньше колонка поля была 124–138 px и срезала копейки) */
+body.ui2 .mf{grid-template-columns:minmax(0,1fr) minmax(176px,188px);gap:10px}
+body.ui2 .num input{padding:0 36px 0 10px;font-size:19px}
+body.ui2 .num::after{right:12px}
+@media(max-width:480px){
+  body.ui2 .mf{grid-template-columns:minmax(0,1fr);gap:6px}
+}
