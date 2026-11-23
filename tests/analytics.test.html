@@ -8,23 +8,45 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 <script>
 (async()=>{
 const res=[];const ok=(c,m)=>res.push([!!c,m]);const tick=()=>new Promise(r=>setTimeout(r,30));
-ok(anPct(20).includes('up')&&anPct(20).includes('▲ +20,0%')&&anPct(-5.25).includes('down')&&anPct(-5.25).includes('▼ −5,3%')&&anPct(null).includes('нет базы')&&anPct(0).includes('0,0%'),'проценты: рост ▲ зелёный, падение ▼ красный, нет базы, ноль');
-ok(anLabel('day','2026-11-23','2026-11-23')==='23.11.2026'&&anLabel('week','2026-11-23','2026-11-29')==='23.11 – 29.11.2026'&&anLabel('month','2026-11-01','2026-11-23')==='Ноябрь 2026'&&anLabel('year','2026-01-01','2026-11-23')==='2026','подписи периодов');
-ok(anShift('day','2026-11-23',-1)==='2026-11-22'&&anShift('week','2026-11-23',-1)==='2026-11-16'&&anShift('month','2026-11-23',-1)==='2026-10-01'&&anShift('month','2026-01-15',-1)==='2025-12-01'&&anShift('year','2026-11-23',-1)==='2025-01-01'&&anShift('month','2026-11-23',1)==='2026-12-01','стрелки: день −1, неделя −7, месяц на 1-е предыдущего, год на 1 января');
-const blk=(rev,inv,pr,pi)=>({revenue:rev,invoices:inv,avg_check:rev/inv,pharmacy:5000,prev_revenue:pr,prev_invoices:pi,prev_avg_check:pr/pi,prev_pharmacy:4000,revenue_pct:20,invoices_pct:-20,avg_check_pct:50,pharmacy_pct:25,days:1,prev_days:1});
-const DATA={ok:true,period:'day',anchor:'2026-11-23',from:'2026-11-23',to:'2026-11-23',prev_from:'2026-11-16',prev_to:'2026-11-16',can_next:false,network:blk(120000,40,100000,50),branches:[Object.assign({id:'marksa',title:'Маркса'},blk(60000,20,50000,25)),Object.assign({id:'pereleta',title:'Перелёта'},{revenue:0,invoices:0,days:0,prev_days:0})],doctors:[{doctor_id:66,name:'Иванов <b>',revenue:30000,invoices:10,avg_check:3000,revenue_pct:12.5,avg_check_pct:-3.2},{doctor_id:7,name:'Врач №7',revenue:1000,invoices:1,avg_check:1000,revenue_pct:null,avg_check_pct:null}]};
-_rpc=async(n,b)=>DATA;AN.period='day';AN.anchor='2026-11-23';await showAnalytics();await tick();
-const h=analyticsHtml();
-ok(h.includes('Вся сеть')&&h.includes('Маркса')&&h.includes('Клиника')&&h.includes('Аптека')&&h.includes('из отчётов'),'сеть, филиалы, клиника и аптека отдельно');
-ok(/120\s000 ₽/.test(h)&&h.includes('▲ +20,0%')&&h.includes('▼ −20,0%')&&h.includes('▲ +50,0%')&&/было 100\s000 ₽/.test(h),'выручка, счета, средний чек, проценты и прошлый период');
-ok(h.includes('Данных за этот период ещё нет'),'филиал без данных: понятное сообщение');
-ok(h.includes('Иванов &lt;b&gt;')&&!h.includes('Иванов <b>')&&h.includes('Врач №7')&&h.includes('нет базы'),'врачи: имена через esc, без базы — «нет базы»');
-ok(h.includes('сравнение с 16.11.2026')&&/data-anact="next"[^>]*disabled/.test(h),'подпись сравнения; «вперёд» недоступна, если период текущий');
-ok(calls.some(c=>c[0]==='ev_analytics_overview'&&c[1].p_period==='day'&&c[1].p_anchor==='2026-11-23'),'запрос: ev_analytics_overview с периодом и датой');
-calls.length=0;S.view='an';const b=document.createElement('button');b.dataset.anact='period';b.dataset.id='month';document.body.appendChild(b);b.click();await tick();
-ok(AN.period==='month'&&calls.some(c=>c[1].p_period==='month'),'переключатель периода: месяц');
-const b2=document.createElement('button');b2.dataset.anact='prev';document.body.appendChild(b2);calls.length=0;b2.click();await tick();ok(calls.some(c=>c[1].p_anchor==='2026-10-01'),'стрелка «назад»: прошлый месяц');
-_rpc=async()=>({ok:false,error:'forbidden'});AN.data=null;await loadAnalytics();ok(analyticsHtml().includes('только у руководителя'),'не руководитель: сообщение');
+const cmp=(rev,inv,pr,pi,x={})=>Object.assign({revenue:rev,invoices:inv,avg_check:inv?rev/inv:null,pharmacy:5000,prev_revenue:pr,prev_invoices:pi,prev_avg_check:pi?pr/pi:null,prev_pharmacy:4000,revenue_pct:20,invoices_pct:-20,avg_check_pct:50,pharmacy_pct:null,days:1,prev_days:1,clinic_complete:true,pharmacy_complete:false,alt:null},x);
+const D=(period,x={})=>Object.assign({ok:true,period,anchor:'2026-11-22',from:'2026-11-22',to:'2026-11-22',prev_from:'2026-11-21',prev_to:'2026-11-21',alt_from:'2026-11-15',alt_to:'2026-11-15',partial:false,open:false,can_next:true,network:cmp(120000,40,100000,50,{alt:cmp(120000,40,80000,40,{revenue_pct:50,invoices_pct:0,avg_check_pct:50})}),branches:[Object.assign({id:'marksa',title:'Маркса'},cmp(60000,20,50000,25)),Object.assign({id:'pereleta',title:'Перелёта'},{revenue:0,invoices:0,days:0,prev_days:0})],doctors:[{doctor_id:66,name:'Иванов <b>',revenue:30000,invoices:10,avg_check:3000,revenue_pct:12.5,avg_check_pct:-3.2}]},x);
+// подписи периодов
+ok(anRange('2026-11-01','2026-11-23')==='1–23 ноября 2026'&&anRange('2026-10-01','2026-10-23')==='1–23 октября 2026'&&anRange('2026-11-01','2026-11-30')==='Ноябрь 2026'&&anRange('2026-01-01','2026-11-23')==='1 января – 23 ноября 2026'&&anRange('2026-01-01','2026-12-31')==='2026'&&anRange('2025-11-01','2025-11-23')==='1–23 ноября 2025','подписи отрезков: «1–23 ноября 2026», «Ноябрь 2026», «1 января – 23 ноября 2026», «2026»');
+let L=anLabels(D('month',{from:'2026-11-01',to:'2026-11-23',prev_from:'2026-10-01',prev_to:'2026-10-23',alt_from:'2025-11-01',alt_to:'2025-11-23',partial:true}));
+ok(L.main==='1–23 ноября 2026'&&L.cmp==='к тем же дням: 1–23 октября 2026'&&L.alt==='к тем же дням прошлого года: 1–23 ноября 2025','месяц: «1–23 ноября 2026 к 1–23 октября 2026», вторая строка — к тем же дням прошлого года');
+L=anLabels(D('day',{from:'2026-11-22',anchor:'2026-11-22'}));ok(L.main==='22.11.2026'&&L.cmp==='к предыдущему дню, 21.11.2026'&&L.alt==='к тому же дню прошлой недели, 15.11.2026','день: вчера, сравнение с предыдущим днём, мелко — тот же день прошлой недели');
+L=anLabels(D('day',{open:true,from:'2026-11-23',anchor:'2026-11-23'}));ok(L.main.startsWith('Сегодня'),'сегодня подписано «Сегодня»');
+L=anLabels(D('week',{from:'2026-11-23',to:'2026-11-25',prev_from:'2026-11-16',prev_to:'2026-11-18',partial:true}));ok(L.main==='пн–вчера: 23.11 – 25.11.2026'&&L.cmp.startsWith('к тем же дням прошлой недели'),'текущая неделя: «пн–вчера против тех же дней прошлой недели»');
+L=anLabels(D('week',{from:'2026-11-16',to:'2026-11-22',prev_from:'2026-11-09',prev_to:'2026-11-15'}));ok(L.main==='16.11 – 22.11.2026'&&L.cmp==='к 09.11 – 15.11.2026','полная неделя пн–вс против предыдущей полной');
+L=anLabels(D('year',{from:'2026-01-01',to:'2026-11-23',prev_from:'2025-01-01',prev_to:'2025-11-23',partial:true}));ok(L.main==='1 января – 23 ноября 2026'&&L.cmp.includes('к тому же отрезку')&&L.cmp.includes('2025'),'год: с 1 января по сегодня против того же отрезка прошлого года');
+// проценты и правило полноты
+ok(anPct(20,true,false).includes('▲ +20,0%')&&anPct(-5.25,true,false).includes('▼ −5,3%')&&anPct(null,false,false).includes('нет полных данных')&&anPct(null,true,false).includes('нет базы')&&anPct(20,true,true).includes('день не закрыт')&&!anPct(20,true,true).includes('20'),'проценты: ▲▼, «нет полных данных», «нет базы», «день не закрыт» без цифры');
+// экран
+_rpc=async(n,b)=>D('day');await showAnalytics();await tick();let h=analyticsHtml();
+ok(h.includes('Вся сеть')&&h.includes('Маркса')&&h.includes('Клиника')&&h.includes('Аптека')&&h.includes('из отчётов')&&h.includes('Данных за этот период ещё нет'),'сеть, филиалы, клиника и аптека отдельно, филиал без данных');
+ok(h.includes('▲ +20,0%')&&h.includes('▼ −20,0%')&&h.includes('▲ +50,0%'),'проценты по выручке, счетам и среднему чеку');
+ok(h.includes('к тому же дню прошлой недели, 15.11.2026: выручка ▲ +50,0%'),'мелкая строка: к тому же дню прошлой недели');
+ok(/Аптека[\s\S]*нет полных данных/.test(h),'аптека без полных данных: «нет полных данных», а не ложный процент');
+ok(h.includes('Иванов &lt;b&gt;')&&!h.includes('Иванов <b>'),'имена врачей через esc');
+ok(calls.some(c=>c[0]==='ev_analytics_overview'&&c[1].p_period==='day'&&c[1].p_anchor===null&&c[1].p_from===null),'по умолчанию клиент не задаёт дату: период выбирает сервер (вчера, последняя полная неделя)');
+// сегодня
+_rpc=async()=>D('day',{open:true,from:'2026-11-23',anchor:'2026-11-23',can_next:false,network:cmp(5000,2,0,0,{revenue_pct:null,invoices_pct:null,avg_check_pct:null,clinic_complete:false})});AN.data=null;await loadAnalytics();h=analyticsHtml();
+ok(h.includes('день не закрыт')&&!/▲|▼/.test(h.split('Вся сеть')[1].split('Маркса')[0])&&/data-anact="next"[^>]*disabled/.test(h),'сегодня: пометка «день не закрыт», без процентов, «вперёд» недоступна');
+// переключатель и стрелки
+_rpc=async(n,b)=>D('month',{from:'2026-11-01',to:'2026-11-23',prev_from:'2026-10-01',prev_to:'2026-10-23',alt_from:'2025-11-01',alt_to:'2025-11-23',partial:true});
+S.view='an';calls.length=0;let bt=document.createElement('button');bt.dataset.anact='period';bt.dataset.id='month';document.body.appendChild(bt);bt.click();await tick();
+ok(AN.period==='month'&&calls[0][1].p_period==='month'&&calls[0][1].p_anchor===null,'переключатель: месяц, дату выбирает сервер');
+calls.length=0;bt=document.createElement('button');bt.dataset.anact='prev';document.body.appendChild(bt);bt.click();await tick();ok(calls[0][1].p_anchor==='2026-10-01','стрелка «назад» в месяце: 1-е число предыдущего месяца');
+ok(anShift({period:'week',from:'2026-11-16',anchor:'2026-11-16'},1)==='2026-11-23'&&anShift({period:'year',from:'2026-01-01',anchor:'2026-01-01'},-1)==='2025-01-01'&&anShift({period:'day',anchor:'2026-11-22',from:'2026-11-22'},-1)==='2026-11-21','стрелки: неделя +7 дней, год на 1 января, день ±1');
+// произвольный период
+calls.length=0;_rpc=async(n,b)=>D('custom',{from:'2026-11-16',to:'2026-11-22',prev_from:'2026-11-09',prev_to:'2026-11-15'});
+bt=document.createElement('button');bt.dataset.anact='period';bt.dataset.id='custom';document.body.appendChild(bt);bt.click();await tick();
+ok(AN.period==='custom'&&calls.length===0&&analyticsHtml().includes('id="an-from"')&&analyticsHtml().includes('id="an-to"'),'«Свой период»: две даты «с» и «по», запрос не идёт, пока не выбраны');
+const f=document.createElement('input');f.id='an-from';f.value='2026-11-16';const t2=document.createElement('input');t2.id='an-to';t2.value='2026-11-22';document.body.append(f,t2);
+bt=document.createElement('button');bt.dataset.anact='apply';document.body.appendChild(bt);bt.click();await tick();
+ok(calls.some(c=>c[1].p_period==='custom'&&c[1].p_from==='2026-11-16'&&c[1].p_to==='2026-11-22')&&analyticsHtml().includes('к такому же отрезку перед ним'),'свой период: запрос с датами, подпись «к такому же отрезку перед ним»');
+f.value='2026-11-25';t2.value='2026-11-20';bt.click();await tick();ok(AN.err&&AN.err.includes('«с» не позже «по»'),'«с» позже «по»: понятная ошибка, без запроса');
+_rpc=async()=>({ok:false,error:'forbidden'});AN.period='day';AN.data=null;AN.err=null;await loadAnalytics();ok(analyticsHtml().includes('только у руководителя'),'не руководитель: сообщение');
 const o=document.getElementById('o');const bad=res.filter(x=>!x[0]);o.textContent='RESULT '+(bad.length?'FAIL '+bad.map(x=>x[1]).join(' | '):'PASS')+' '+(res.length-bad.length)+'/'+res.length;
 })();
 </script>
