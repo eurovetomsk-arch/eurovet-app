@@ -7,6 +7,7 @@ const CARD={ok:undefined,role:null,st:null,err:null,busy:false,q:null,probing:fa
 const CARD_QKEY='ev_cardq';
 const cardRub=n=>String(Math.round(Number(n||0))).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽';
 const cardRubS=n=>(Number(n)>=0?'+':'−')+cardRub(Math.abs(Number(n)));
+const cardWhen=iso=>{const d=new Date(iso);if(isNaN(d))return'';const f=new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d).reduce((o,x)=>(o[x.type]=x.value,o),{});return f.day+'.'+f.month+' '+f.hour+':'+f.minute};
 const cardUid=()=>'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 function cardQ(){try{const a=JSON.parse(localStorage.getItem(CARD_QKEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.uid&&x.fn):[]}catch(e){return[]}}
 function cardQSave(a){try{localStorage.setItem(CARD_QKEY,JSON.stringify(a.slice(-50)))}catch(e){}}
@@ -19,7 +20,7 @@ const cardLow=()=>!!CARD.st&&cardShown()<Number(CARD.st.threshold||0);
 const cardRoleOk=()=>(typeof isHead==='function'&&isHead())||CARD.ok===true;
 async function cardCall(fn,args){
   const t=S.token;
-  if(fn==='add')return rpc('ev_card_add',{p_token:t,p_kind:args.kind,p_amount:args.amount,p_date:args.date,p_comment:args.comment||null,p_uid:args.uid},12000);
+  if(fn==='add')return rpc('ev_card_add',{p_token:t,p_kind:args.kind,p_amount:args.amount,p_at:args.at||null,p_uid:args.uid},12000);
   if(fn==='fix')return rpc('ev_card_fix',{p_token:t,p_op:args.op,p_uid:args.uid},12000);
   if(fn==='check')return rpc('ev_card_bank_check',{p_token:t,p_actual:args.actual,p_uid:args.uid},12000);
   if(fn==='thr')return rpc('ev_card_threshold_set',{p_token:t,p_value:args.value},12000);
@@ -46,7 +47,7 @@ async function cardFlush(){
     let r;
     try{r=await cardCall(x.fn,Object.assign({},x.args,{uid:x.uid}))}catch(e){if(e.net||e.status)break;r={ok:false,error:'http'}}
     const rest=cardQ().filter(y=>y.uid!==x.uid);cardQSave(rest);
-    if(r&&r.ok){CARD.st=r;sent=true}else{try{toast('Операция не принята: '+(({amount:'сумма',date:'дата',comment:'нужно написать, на что',forbidden:'нет доступа',already_fixed:'уже исправлено'})[r&&r.error]||'ошибка'),6000)}catch(e){}}
+    if(r&&r.ok){CARD.st=r;sent=true}else{try{toast('Операция не принята: '+(({amount:'сумма',date:'дата',forbidden:'нет доступа',already_fixed:'уже исправлено'})[r&&r.error]||'ошибка'),6000)}catch(e){}}
   }
   CARD.busy=false;if(S.view==='card'||S.view==='branch')paint();
   return sent;
@@ -64,8 +65,8 @@ const cardKindText=o=>({opening:'Стартовый остаток',deposit:'П�
 function cardOpHtml(o){
   const amt=o.kind==='opening'||o.kind==='deposit'?Number(o.amount):o.kind==='spend'?-Number(o.amount):Number(o.amount);
   const title=o.kind==='opening'?'Стартовый остаток '+cardRub(o.amount):o.kind==='bank_check'?'Сверка с банком '+cardRubS(o.amount):cardKindText(o)+' '+cardRubS(amt);
-  const cm=o.kind==='bank_check'?('в банке '+cardRub(o.actual)):(o.comment||'');
-  return '<div class="person card-op"><div class="srow"><span><b'+(o.kind==='bank_check'||o.kind==='fix'?'':' class="'+(amt>=0?'plus':'minus')+'"')+'>'+esc(title)+'</b><br><small>'+esc(vmcDate(o.date))+' · '+esc(o.who||'')+(cm?' · '+esc(cm):'')+(o.fixed?' · исправлено':'')+'</small></span>'
+  const cm=o.kind==='bank_check'?('в банке '+cardRub(o.actual)):o.kind==='opening'?'':(o.comment||'');
+  return '<div class="person card-op"><div class="srow"><span><b'+(o.kind==='bank_check'||o.kind==='fix'?'':' class="'+(amt>=0?'plus':'minus')+'"')+'>'+esc(title)+'</b><br><small>'+esc(o.at?cardWhen(o.at):vmcDate(o.date))+' · '+esc(o.who||'')+(cm?' · '+esc(cm):'')+(o.fixed?' · исправлено':'')+'</small></span>'
     +((o.kind==='deposit'||o.kind==='spend')&&!o.fixed?'<button class="chip" data-cardact="fix" data-id="'+Number(o.id)+'">Исправить</button>':'')+'</div></div>';
 }
 function cardHtml(){
@@ -77,7 +78,7 @@ function cardHtml(){
   if(low)h+='<div class="chk bad"><i>!</i><div><b>Остаток меньше '+cardRub(st.threshold)+'</b></div></div>';
   if(CARD.err)h+='<p class="hint">'+esc(CARD.err)+'</p>';
   if(q.length)h+='<p class="hint">Ждут отправки: '+q.length+'. Остаток показан с учётом этих операций.</p>';
-  h+=(CARD.role==='head'?'<button class="btn" data-cardact="deposit">Положил</button>':'<button class="btn" data-cardact="spend">Потратил</button>');
+  h+=(CARD.role==='head'?'<button class="btn big" data-cardact="deposit">Положил</button>':'<button class="btn big" data-cardact="spend">Потратил</button>');
   const weekOld=!st.last_check||(Date.now()-Date.parse(st.last_check))>=7*86400000;
   h+='<button class="btn'+(weekOld?'':' sec')+'" data-cardact="check">Сверить с банком</button>'+(weekOld?'<p class="hint">Раз в неделю: введите фактический остаток из банка.</p>':'');
   if(CARD.role==='head')h+='<button class="chip" data-cardact="thr">Порог «мало денег»: '+cardRub(st.threshold)+'</button>';
@@ -85,9 +86,7 @@ function cardHtml(){
   return h;
 }
 function cardFormOverlay(kind){
-  const today=omskToday(),spend=kind==='spend';
-  overlay('<h2>'+(spend?'Потратил':'Положил')+'</h2><label class="f"><span>Сумма, ₽</span><input id="card-amt" inputmode="decimal" autocomplete="off"></label><label class="f"><span>Дата</span><input id="card-date" type="date" value="'+today+'" max="'+today+'"></label>'
-    +'<label class="f"><span>'+(spend?'На что (обязательно, коротко)':'Комментарий (необязательно)')+'</span><input id="card-cm" maxlength="120" autocomplete="off"></label><button class="btn" data-cardact="send" data-kind="'+kind+'">Записать</button><button class="btn sec small" data-act="ovclose">Отмена</button>');
+  overlay('<h2>'+(kind==='spend'?'Потратил':'Положил')+'</h2><label class="f"><span>Сумма, ₽</span><input id="card-amt" type="text" inputmode="numeric" pattern="[0-9 ]*" autocomplete="off" enterkeyhint="done"></label><p class="hint">Дата и время запишутся сами.</p><button class="btn" data-cardact="send" data-kind="'+kind+'">Сохранить</button><button class="btn sec small" data-act="ovclose">Отмена</button>');
 }
 document.addEventListener('click',async ev=>{
   const el=ev.target.closest&&ev.target.closest('[data-cardact]');if(!el)return;
@@ -96,10 +95,9 @@ document.addEventListener('click',async ev=>{
   if(a==='reload'){await cardLoad();paint();return}
   if(a==='deposit'||a==='spend'){cardFormOverlay(a);return}
   if(a==='send'){
-    const amt=Number(String(document.getElementById('card-amt').value).replace(/\s/g,'').replace(',','.')),date=document.getElementById('card-date').value,cm=(document.getElementById('card-cm').value||'').trim(),kind=el.dataset.kind;
+    const amt=Number(String(document.getElementById('card-amt').value).replace(/\s/g,'').replace(',','.')),kind=el.dataset.kind;
     if(!(amt>0)){toast('Введите сумму');return}
-    if(kind==='spend'&&cm.length<2){toast('Напишите, на что потратили');return}
-    closeOv();await cardSubmit('add',{kind,amount:amt,date,comment:cm});return
+    closeOv();await cardSubmit('add',{kind,amount:amt,at:new Date().toISOString()});return
   }
   if(a==='fix'){if(confirm('Исправить запись? Будет добавлена обратная запись, сама запись останется в истории.')){await cardSubmit('fix',{op:Number(el.dataset.id)})}return}
   if(a==='check'){

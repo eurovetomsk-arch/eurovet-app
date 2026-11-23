@@ -268,3 +268,5 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .card-tile .sub{max-width:none!important;width:100%!important;white-space:normal}.card-tile .card-warn{color:#ff8a76!important;font-weight:700}
 .card-tile{grid-template-columns:1fr!important;display:grid!important}.card-tile>span{grid-column:1/-1}
 .card-tile .card-sum.low,.card-tile .card-warn{color:#ffc3b6!important}
+.card-main .btn.big{font-size:22px;padding:18px 16px;margin-top:10px}
+.card-main .btn.big{text-align:center;justify-content:center}
