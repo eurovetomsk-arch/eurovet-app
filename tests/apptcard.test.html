@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=375">
+
+<body class="ui2" style="width:375px;margin:0"><header id="hdr"></header><main id="app"></main><pre id="o"></pre>
+<script>
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const ruDate=d=>d.split('-').reverse().slice(0,2).join('.');
+const APPT={status:'ok',updatedAt:Date.parse('2026-11-23T10:20:00Z'),rows:[{id:101,date:'2026-11-24',time:'09:00',end:'09:30',branch:'marksa',status:'completed',alias:'Бим',species:'Собака',visit_type:'Первичный приём'},
+{id:102,date:'2026-11-24',time:'10:00',end:'10:30',branch:'marksa',status:'booked',alias:'Мурка',species:'Кошка',visit_type:'УЗИ'},
+{id:103,date:'2026-11-24',time:'11:00',end:'11:30',branch:'pereleta',status:'reschedule_requested',alias:'Барсик',species:'Кошка'},
+{id:104,date:'2026-11-24',time:'12:00',end:'12:30',branch:'marksa',status:'unconfirmed',alias:'Тоша',species:'Собака',visit_type:'Повторный приём'}]};
+function appointmentsHtml(day){
+  const br={marksa:'Маркса, 45','70let':'70 лет Октября, 20',pereleta:'Перелёта, 19'};
+  const st={booked:'запланирован',unconfirmed:'не подтверждён',cancelled:'отменён',waiting:'ожидает',in_treatment:'у врача',completed:'завершён',overdue:'просрочен',reschedule_requested:'перенос'};
+  let h='<div style="margin:12px 0 4px;padding-top:10px;border-top:1px solid var(--line)"><h3 style="margin:0">Мои записи · '+ruDate(day)+'</h3><p class="hint">Нажмите другой цветной день своей смены, чтобы посмотреть его. Данные обновляются в 11:00, 15:00, 18:00 и 21:30 по Омску.</p>';
+  if(APPT.status==='loading')return h+'<p class="hint">Загружаю сохранённый снимок…</p></div>';
+  if(APPT.status==='unavailable')return h+'<p class="hint" style="color:var(--bad)">'+esc(APPT.error||'Записи недоступны')+'</p></div>';
+  if(APPT.updatedAt)h+='<p class="hint">Данные на '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(APPT.updatedAt))+' по Омску</p>';
+  const rows=(APPT.rows||[]).filter(x=>x.status!=='cancelled'&&x.date===day);
+  if(!rows.length)return h+'<p>На этот день записей пока нет.</p></div>';
+  rows.forEach(x=>{
+    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span></div>'+(x.visit_type?'<p style="margin:8px 0 0"><b>Цель визита:</b> '+esc(x.visit_type)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
+  });
+  return h+'</div>';
+}
+
+document.getElementById('app').innerHTML='<div class="card">'+appointmentsHtml('2026-11-24')+'</div>';
+const h=document.getElementById('app').innerHTML;
+const ok=!h.includes('class="chip"')&&!/Записан|Принят|Отложен|Направлен|Не подтверждён|перенос|завершён|запланирован/.test(h)&&!h.includes('Комментарий')&&['09:00–09:30','Бим','Собака','Маркса, 45','Перелёта, 19','Первичный приём','УЗИ'].every(x=>h.includes(x))&&(h.match(/Цель визита/g)||[]).length===3;
+document.getElementById('o').textContent='RESULT '+(ok?'PASS':'FAIL')+' карточка записи: время, кличка, вид, клиника, цель; без статуса и комментария 1/1';</script>

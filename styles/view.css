@@ -262,12 +262,9 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 @media (prefers-reduced-motion:reduce){.vmw-blink{animation:none}}
 
 /* c32: «Карта ВТБ» */
-.card-tile .card-sum{display:block;font-size:26px;font-weight:800;color:var(--ok,#1f7a4d);margin:4px 0}.card-tile .card-sum.low,.card-tile .card-warn{color:var(--bad,#b3402a)}
 .card-big{font-size:34px;font-weight:800;color:var(--ok,#1f7a4d);margin:8px 0 12px}.card-big.low{color:var(--bad,#b3402a)}.card-main .btn{margin-top:8px}.card-op .plus{color:var(--ok,#1f7a4d)}.card-op .minus{color:var(--bad,#b3402a)}
-.card-tile{display:block;text-align:left;width:100%}.card-tile>span{display:block;width:100%}.card-tile .t{display:block;white-space:nowrap}.card-tile .card-sum{font-size:24px;white-space:nowrap}.card-tile .sub{display:block}
-.card-tile .sub{max-width:none!important;width:100%!important;white-space:normal}.card-tile .card-warn{color:#ff8a76!important;font-weight:700}
-.card-tile{grid-template-columns:1fr!important;display:grid!important}.card-tile>span{grid-column:1/-1}
-.card-tile .card-sum.low,.card-tile .card-warn{color:#ffc3b6!important}
 .card-main .btn.big{font-size:22px;padding:18px 16px;margin-top:10px}
 .card-main .btn.big{text-align:center;justify-content:center}
 .card-main .btn.card-bigbtn{font-size:22px;padding:18px 16px;margin-top:10px;text-align:center!important;justify-content:center!important;display:block;width:100%}
+
+.card-tile .card-sub{font-weight:800;font-size:15px}.card-tile .card-sub.low,.card-tile .card-warn{color:#ffc3b6!important;font-weight:700}

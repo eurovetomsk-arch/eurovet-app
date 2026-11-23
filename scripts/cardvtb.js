@@ -58,8 +58,9 @@ async function cardSubmit(fn,args){
   await cardFlush();
 }
 function cardTileHtml(){
+  /* обычная плитка сетки: значок слева, «Карта ВТБ», остаток под подписью; без логотипа и цветов банка */
   const low=cardLow(),has=!!CARD.st;
-  return '<button class="glass ui2-role-tile wide card-tile'+(low?' low':'')+'" data-cardact="open"><span style="display:block;width:100%;max-width:none;flex:1 1 auto"><span class="t">Карта ВТБ</span><span class="card-sum'+(low?' low':'')+'">'+(has?'Остаток '+cardRub(cardShown()):'Остаток …')+'</span>'+(low?'<span class="sub card-warn" style="width:100%;max-width:none;display:block">Остаток меньше '+cardRub(CARD.st.threshold)+'</span>':'<span class="sub">Пополнения и траты</span>')+'</span></button>';
+  return '<button class="glass ui2-role-tile sm card-tile'+(low?' low':'')+'" data-cardact="open"><span class="ic"><img src="icons/24-card-vtb.svg" alt=""></span><span><span class="t">Карта ВТБ</span><span class="sub card-sub'+(low?' low':'')+'">'+(has?'Остаток '+cardRub(cardShown()):'Остаток …')+'</span>'+(low?'<span class="sub card-warn">Остаток меньше '+cardRub(CARD.st.threshold)+'</span>':'')+'</span></button>';
 }
 const cardKindText=o=>({opening:'Стартовый остаток',deposit:'Положил',spend:'Потратил',fix:'Исправление',bank_check:'Сверка с банком'})[o.kind]||o.kind;
 function cardOpHtml(o){

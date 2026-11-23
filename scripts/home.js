@@ -98,7 +98,7 @@ function repStatusOverlay(){
   overlay('<h2>Отчёты сегодня</h2><p class="hint">Нажмите на филиал — откроется его отчёт.</p>'+rows+'<button class="btn sec" style="margin-top:10px" data-act="ovclose">Закрыть</button>');
 }
 function homeIcon(name){
-  const files={evening_report:'icons/01-evening-report.png',cash_acceptance:'icons/03-cash-acceptance.png',appointments:'icons/10-my-appointments.png',callcenter_shift:'icons/08-my-schedule.png',where_i_work:'icons/07-who-is-where.png',my_accruals:'icons/09-my-accruals.png',my_schedule:'icons/08-my-schedule.png',vaccines:'icons/05-vaccines.png',vaccines_all_branches:'icons/05-vaccines.png',dose_calculator:'icons/20-dose-calc.png',supplies:'icons/21-order.png',supplies_all_requests:'icons/06-drug-request.png',supply_order:'icons/21-order.png',head_money:'icons/14-revenue-director-only.png',analytics:'icons/14-revenue-director-only.png',head_reports:'icons/04-audit.png',head_cash_safe:'icons/19-safe.png',head_payroll:'icons/09-my-accruals.png',people_roles:'icons/15-access-permissions.png',head_collections:'icons/02-cash-register.png',head_schedule:'icons/08-my-schedule.png',birthdays:'icons/23-greetings.png'};
+  const files={card_vtb:'icons/24-card-vtb.svg',evening_report:'icons/01-evening-report.png',cash_acceptance:'icons/03-cash-acceptance.png',appointments:'icons/10-my-appointments.png',callcenter_shift:'icons/08-my-schedule.png',where_i_work:'icons/07-who-is-where.png',my_accruals:'icons/09-my-accruals.png',my_schedule:'icons/08-my-schedule.png',vaccines:'icons/05-vaccines.png',vaccines_all_branches:'icons/05-vaccines.png',dose_calculator:'icons/20-dose-calc.png',supplies:'icons/21-order.png',supplies_all_requests:'icons/06-drug-request.png',supply_order:'icons/21-order.png',head_money:'icons/14-revenue-director-only.png',analytics:'icons/14-revenue-director-only.png',head_reports:'icons/04-audit.png',head_cash_safe:'icons/19-safe.png',head_payroll:'icons/09-my-accruals.png',people_roles:'icons/15-access-permissions.png',head_collections:'icons/02-cash-register.png',head_schedule:'icons/08-my-schedule.png',birthdays:'icons/23-greetings.png'};
   if(files[name])return '<img src="'+files[name]+'" alt="">';
   return '';
 }
@@ -115,7 +115,7 @@ const HOME_TILE_META={
   dose_calculator:{section:'preparations',size:'sm',title:'Расчёт дозы',sub:'Быстрый расчёт препарата',prepare:'Здесь будет безопасный расчёт дозы препарата.'},
   supplies:{section:'preparations',size:'sm',title:'Врачебная заявка',sub:'Препараты и расходники',view:'med',prepare:'Скоро: заявка препаратов и расходников — здесь же будут остатки.'},
   supplies_all_requests:{section:'preparations',size:'sm',title:'Врачебные заявки',sub:'Сводная по филиалам',view:'med',prepare:'Здесь будут заявки филиалов на препараты и расходники.'},
-  card_vtb:{section:'finance',size:'wide',title:'Карта ВТБ',sub:'Остаток на карте закупщика',view:'card'},
+  card_vtb:{section:'finance',size:'sm',title:'Карта ВТБ',sub:'Остаток на карте закупщика',view:'card'},
   supply_order:{section:'preparations',size:'sm',title:'Заказ снабжения',sub:'Собрать и отметить заказ',prepare:'Здесь можно будет собрать и отметить заказ снабжения.'},
   head_money:{section:'finance',size:'main',title:'Выручка',sub:'Выручка и врачи по дням',view:'rev'},
   analytics:{section:'finance',size:'sm',title:'Аналитика',sub:'Выручка, чек, рост по сети',view:'an'},

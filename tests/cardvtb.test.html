@@ -35,7 +35,7 @@ ok(cardShown()===25000&&cardQ().length===0,'пополнение: остаток
 SV.role='buyer';CARD.role='buyer';HEAD=false;
 await cardSubmit('add',{kind:'spend',amount:21000,at:'2026-11-23T08:32:00.000Z'});
 ok(cardShown()===4000&&cardLow(),'трата: остаток 4 000 ₽ меньше порога 5 000 → красный');
-t=cardTileHtml();ok(t.includes('card-tile low')&&t.includes('card-sum low')&&t.includes('Остаток меньше 5 000 ₽'),'плитка красная: «Остаток меньше 5 000 ₽» (у закупщика)');
+t=cardTileHtml();ok(t.includes('card-tile low')&&t.includes('card-sub low')&&t.includes('icons/24-card-vtb.svg')&&t.includes('ui2-role-tile sm')&&t.includes('Остаток меньше 5 000 ₽'),'плитка красная: «Остаток меньше 5 000 ₽» (у закупщика)');
 let h=cardHtml();ok(h.includes('card-big low')&&h.includes('Остаток меньше')&&h.includes('data-cardact="spend"')&&!h.includes('data-cardact="deposit"')&&!h.includes('data-cardact="thr"'),'экран закупщика: красная цифра, «Потратил», без «Положил» и порога');
 SV.role='head';CARD.role='head';HEAD=true;await cardLoad();h=cardHtml();
 ok(h.includes('data-cardact="deposit"')&&!h.includes('data-cardact="spend"')&&h.includes('data-cardact="thr"')&&h.includes('Карта ВТБ'),'экран руководителя: «Положил», порог, без «Потратил»');

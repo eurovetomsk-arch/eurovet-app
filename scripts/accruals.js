@@ -1115,7 +1115,7 @@ function appointmentsHtml(day){
   const rows=(APPT.rows||[]).filter(x=>x.status!=='cancelled'&&x.date===day);
   if(!rows.length)return h+'<p>На этот день записей пока нет.</p></div>';
   rows.forEach(x=>{
-    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span><span class="chip">'+esc(st[x.status]||x.status)+'</span></div>'+(x.visit_type?'<p style="margin:8px 0 0"><b>Цель визита:</b> '+esc(x.visit_type)+'</p>':'')+(x.reason?'<p class="hint" style="margin:5px 0 0"><b>Комментарий:</b> '+esc(x.reason)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
+    h+='<div class="person"><div class="srow"><span><b>'+esc(x.time)+'–'+esc(x.end)+' · '+esc(x.alias||'Служебная запись')+'</b><br><small>'+esc([x.species,br[x.branch]].filter(Boolean).join(' · '))+'</small></span></div>'+(x.visit_type?'<p style="margin:8px 0 0"><b>Цель визита:</b> '+esc(x.visit_type)+'</p>':'')+'<p class="hint" style="margin:5px 0 0">Запись №'+esc(x.id)+'</p></div>';
   });
   return h+'</div>';
 }
