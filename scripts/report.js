@@ -135,7 +135,7 @@ async function flush(auto){
       if(!S.online){S.online=true;setHeader()}
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
-        if(S.done&&S.done.uid===it.uid&&typeof vmwStart==='function'){vmwStart(it.branch,it.date,Number(res.version)||0)}   /* 2.0: экран «Ожидайте сверки» */
+        if(S.done&&S.done.uid===it.uid&&typeof vmwStart==='function'){vmwStart(it.branch,it.date,Number(res.version)||0,!!(it.data&&Array.isArray(it.data.doctors)&&it.data.doctors.length))}   /* 2.0: экран «Ожидайте сверки» */
         else{try{vmcAfterSubmit(it.branch,it.date,Number(res.version)||0)}catch(e){}}
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
       }else if(res.error==='session'){

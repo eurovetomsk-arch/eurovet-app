@@ -30,17 +30,24 @@ S.vmw={branch:'marksa',date:'2026-11-23',version:3,t0:0,state:'red_money',rows:r
 ok(hd.includes('Врач Аристова:')&&/в отчёте 60[\s\u00a0]000,00[\s\u00a0]₽/.test(hd)&&/в Vetmanager 64[\s\u00a0]005,00[\s\u00a0]₽/.test(hd)&&hd.includes('В Vetmanager врач выбирается в шапке счёта — проверь, кто указан.')&&hd.includes('Исправить отчёт')&&!hd.includes('vmwhome'),'экран: «Врач Х: в отчёте A ₽, в Vetmanager B ₽», подсказка про шапку счёта, «Исправить отчёт»');
 VMC.flags=[{id:9,branch:'pereleta',date:'2026-11-22',field:'doctor:7',verdict:'mismatch',report:0,vm:64005,diff:-64005,reason:'Аристова — в отчёте нет врача'}];
 const fh=vmFlagsHtml();ok(fh.includes('Зарплатная база')&&fh.includes('Врач Аристова, разница')&&/64[\s\u00a0]005,00/.test(fh)&&fh.includes('в отчёте нет врача')&&fh.includes('data-vmact="resolve"'),'«Контроль»: «Зарплатная база: Врач Х, разница N ₽» и «Решить с причиной»');VMC.flags=[];
+// гонка: деньги ok, врачей ещё нет → не зелёный; врачи пришли → зелёный; mismatch по деньгам красный сразу
+ok(vmwEval(MOK,3,true).state==='wait'&&vmwEval(MOK.concat([R('fix_normal','mismatch',1,2)]),3,true).state==='wait','деньги ok, врачей ещё нет → ждём (ни зелёного, ни красного по фиксациям)');
+ok(vmwEval(MOK.concat([DR(7,'ok',100,100,null)]),3,true).state==='green'&&vmwEval(MOK.concat([DR(7,'ok',100,100,null)]).map(x=>Object.assign({},x,{version:2})),3,true).state==='wait','врачи пришли ok → зелёный; врачи старой версии не считаются');
+ok(vmwEval([R('total','mismatch',1,2),R('cash','ok',1,1),R('cashless','ok',1,1)],3,true).state==='red_money','mismatch по деньгам — красный, не ждёт врачей');
+ok(vmwEval(MOK,3,false).state==='green','в отчёте нет врачей (needDocs=false) → зелёный по деньгам');
 // сценарии с опросом
-async function run(rowsSeq,reqRes,reqErr){
+async function run(rowsSeq,reqRes,reqErr,needDocs){
   T=0;renders.length=0;S.view='done';S.vmw=null;let i=0,calls=[];
   _rpc=async(n,b)=>{calls.push(n);if(n==='ev_vm_check_request'){if(reqErr)throw reqErr;return reqRes||{ok:true,queued:true}}
     if(n==='ev_vm_check_status'){const rows=rowsSeq[Math.min(i++,rowsSeq.length-1)];return{ok:true,rows}}return{ok:true}};
-  await vmwStart('marksa','2026-11-23',3);await new Promise(r=>setTimeout(r,0));return{calls,t:T};
+  await vmwStart('marksa','2026-11-23',3,needDocs);await new Promise(r=>setTimeout(r,0));return{calls,t:T};
 }
 // 1. зелёный: сначала пусто, потом ответ
 let o=await run([[],[],MOK]);
 ok(S.vmw.state==='green'&&S.view==='vmw'&&renders[0]==='vmw:wait'&&o.calls.filter(c=>c==='ev_vm_check_status').length===3,'зелёный: экран ожидания → опрос раз в 5 с → green');
 let h=vmwHtml();ok(h.includes('Сверено с Vetmanager. Можно идти домой')&&h.includes('data-act="vmwhome"')&&!h.includes('vmwfix'),'зелёный экран: надпись и кнопка «На главную»');
+o=await run([MOK,MOK,MOK.concat([DR(7,'ok',100,100,null)])],null,null,true);ok(S.vmw.state==='green'&&o.calls.filter(c=>c==='ev_vm_check_status').length===3,'гонка в опросе: деньги ok без врачей → ждём, затем врачи ok → green');
+o=await run([MOK],null,null,true);ok(S.vmw.state==='yellow'&&o.t>=180000,'врачи так и не пришли → жёлтый по таймауту 3 минуты');
 // 2. красный по деньгам
 o=await run([[R('total','ok',100,100),R('cash','mismatch',60,40.5),R('cashless','ok',40,59.5)]]);
 h=vmwHtml();ok(S.vmw.state==='red_money'&&h.includes('Наличные клиники')&&/в отчёте 60,00\s₽/i.test(h.replace('В отчёте','в отчёте'))&&/в Vetmanager 40,50\s₽/i.test(h)&&h.includes('Исправить отчёт')&&h.includes('data-act="vmwfix"')&&!h.includes('vmwhome'),'красный по деньгам: поле, «в отчёте X ₽, в Vetmanager Y ₽», «Исправить отчёт», без выхода домой');

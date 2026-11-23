@@ -119,7 +119,7 @@ document.addEventListener('click',async ev=>{
    yellow (нет ответа 3 минуты или Vetmanager не ответил) → «Руководитель увидит в Контроле», выход разрешён; offline (нет связи) → «Сверка будет после связи». Закрыть экран кнопкой нельзя, пока идёт ожидание. */
 const VMW_POLL=5000,VMW_TIMEOUT=180000,VMW_MONEY=['total','cash','cashless'];
 let vmwTick=null;
-function vmwEval(rows,version){
+function vmwEval(rows,version,needDocs){
   const cur=(rows||[]).filter(r=>Number(r.version||0)>=Number(version||0));
   const by={};cur.forEach(r=>{by[r.field]=r});
   if(!VMW_MONEY.every(f=>by[f]))return{state:'wait',rows:[]};
@@ -128,6 +128,7 @@ function vmwEval(rows,version){
   if(mm.length||dm.length)return{state:'red_money',rows:mm.concat(dm,fixes.filter(r=>r.verdict==='mismatch'))};   /* К3: расхождение по врачу — красное как по деньгам */
   if(money.some(r=>r.verdict==='no_data'))return{state:'yellow',rows:money.filter(r=>r.verdict==='no_data')};
   if(!money.every(r=>r.verdict==='ok'||r.verdict==='no_clinic_activity'))return{state:'wait',rows:[]};
+  if(needDocs&&!cur.some(r=>vmcIsDoc(r.field)))return{state:'wait',rows:[]};   /* К3: зелёный/красный по фиксациям только когда по этой версии есть результат врачей (гонка: деньги приходят раньше) */
   const fm=fixes.filter(r=>r.verdict==='mismatch');
   return fm.length?{state:'red_fix',rows:fm}:{state:'green',rows:[]};
 }
@@ -149,8 +150,8 @@ function vmwHtml(){
   return'<div class="card vmw"><div class="chk warn"><i>!</i><div><b>Сверка не ответила. Руководитель увидит в Контроле</b></div></div>'+home+'</div>';
 }
 function vmwSet(w,state,rows){if(S.vmw!==w)return;w.state=state;w.rows=rows||[];if(vmwTick){clearInterval(vmwTick);vmwTick=null}if(S.view==='vmw')render()}
-async function vmwStart(branch,date,version){
-  const w=S.vmw={branch,date,version:Number(version)||0,t0:Date.now(),state:'wait',rows:[]};
+async function vmwStart(branch,date,version,needDocs){
+  const w=S.vmw={branch,date,version:Number(version)||0,needDocs:!!needDocs,t0:Date.now(),state:'wait',rows:[]};
   S.view='vmw';render();
   if(vmwTick)clearInterval(vmwTick);
   vmwTick=setInterval(()=>{const e=document.getElementById('vmwsec');if(e)e.textContent=String(Math.floor((Date.now()-w.t0)/1000))},1000);
@@ -164,7 +165,7 @@ async function vmwStart(branch,date,version){
   while(S.vmw===w&&w.state==='wait'){
     const rows=await vmcStatus(branch,date,w.version);
     if(S.vmw!==w)return;
-    const ev=vmwEval(rows,w.version);
+    const ev=vmwEval(rows,w.version,w.needDocs);
     if(ev.state!=='wait'){vmwSet(w,ev.state,ev.rows);return}
     if(Date.now()-w.t0>=VMW_TIMEOUT){vmwSet(w,'yellow');return}
     await new Promise(r=>setTimeout(r,VMW_POLL));
