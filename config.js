@@ -31,6 +31,7 @@ window.EVROVET_UI2_CONFIG=Object.freeze({
     vaccines_input:false,
     dose_calculator:false,
     supplies:true,
+    analytics:true,
     supplies_all_requests:true,
     supply_order:false,
     modules_roles:false,
@@ -38,7 +39,7 @@ window.EVROVET_UI2_CONFIG=Object.freeze({
   }),
   roleTiles:Object.freeze({
     /* 2.0, решение Михаила 17.11: главная руководителя на плитках — Финансы / Препараты / Клиника */
-    head:Object.freeze(['head_money','head_cash_safe','head_payroll','head_reports','head_collections','evening_report','vaccines_all_branches','supplies','dose_calculator','head_schedule','my_accruals','people_roles','birthdays']),
+    head:Object.freeze(['head_money','analytics','head_cash_safe','head_payroll','head_reports','head_collections','evening_report','vaccines_all_branches','supplies','dose_calculator','head_schedule','my_accruals','people_roles','birthdays']),
     /* 2.0, свод §17 (слово Михаила 17.11): у всех, кроме руководителя, главная сверху вниз — РАБОТА → ПРЕПАРАТЫ → КЛИНИКА (График, затем Мои начисления).
        Раздел плитки определяется функцией homeTileSection (home.js); порядок плиток внутри раздела = порядок в этом списке. */
     admin:Object.freeze(['cash_acceptance','evening_report','vaccines','supplies','my_schedule','my_accruals']),

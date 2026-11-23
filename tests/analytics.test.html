@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
+<!-- Тест экрана «Аналитика» (node на Mac нет). Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/analytics.test.html | grep -o '<pre id="o">[^<]*' → RESULT PASS n/n -->
+<script>
+const S={token:'t',view:'an'};let _rpc=async()=>({ok:true});const calls=[];async function rpc(n,b){calls.push([n,b]);return _rpc(n,b)}
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),paint=()=>{},render=()=>{},closeOv=()=>{};
+</script>
+<script src="../scripts/analytics.js"></script>
+<script>
+(async()=>{
+const res=[];const ok=(c,m)=>res.push([!!c,m]);const tick=()=>new Promise(r=>setTimeout(r,30));
+ok(anPct(20).includes('up')&&anPct(20).includes('▲ +20,0%')&&anPct(-5.25).includes('down')&&anPct(-5.25).includes('▼ −5,3%')&&anPct(null).includes('нет базы')&&anPct(0).includes('0,0%'),'проценты: рост ▲ зелёный, падение ▼ красный, нет базы, ноль');
+ok(anLabel('day','2026-11-23','2026-11-23')==='23.11.2026'&&anLabel('week','2026-11-23','2026-11-29')==='23.11 – 29.11.2026'&&anLabel('month','2026-11-01','2026-11-23')==='Ноябрь 2026'&&anLabel('year','2026-01-01','2026-11-23')==='2026','подписи периодов');
+ok(anShift('day','2026-11-23',-1)==='2026-11-22'&&anShift('week','2026-11-23',-1)==='2026-11-16'&&anShift('month','2026-11-23',-1)==='2026-10-01'&&anShift('month','2026-01-15',-1)==='2025-12-01'&&anShift('year','2026-11-23',-1)==='2025-01-01'&&anShift('month','2026-11-23',1)==='2026-12-01','стрелки: день −1, неделя −7, месяц на 1-е предыдущего, год на 1 января');
+const blk=(rev,inv,pr,pi)=>({revenue:rev,invoices:inv,avg_check:rev/inv,pharmacy:5000,prev_revenue:pr,prev_invoices:pi,prev_avg_check:pr/pi,prev_pharmacy:4000,revenue_pct:20,invoices_pct:-20,avg_check_pct:50,pharmacy_pct:25,days:1,prev_days:1});
+const DATA={ok:true,period:'day',anchor:'2026-11-23',from:'2026-11-23',to:'2026-11-23',prev_from:'2026-11-16',prev_to:'2026-11-16',can_next:false,network:blk(120000,40,100000,50),branches:[Object.assign({id:'marksa',title:'Маркса'},blk(60000,20,50000,25)),Object.assign({id:'pereleta',title:'Перелёта'},{revenue:0,invoices:0,days:0,prev_days:0})],doctors:[{doctor_id:66,name:'Иванов <b>',revenue:30000,invoices:10,avg_check:3000,revenue_pct:12.5,avg_check_pct:-3.2},{doctor_id:7,name:'Врач №7',revenue:1000,invoices:1,avg_check:1000,revenue_pct:null,avg_check_pct:null}]};
+_rpc=async(n,b)=>DATA;AN.period='day';AN.anchor='2026-11-23';await showAnalytics();await tick();
+const h=analyticsHtml();
+ok(h.includes('Вся сеть')&&h.includes('Маркса')&&h.includes('Клиника')&&h.includes('Аптека')&&h.includes('из отчётов'),'сеть, филиалы, клиника и аптека отдельно');
+ok(/120\s000 ₽/.test(h)&&h.includes('▲ +20,0%')&&h.includes('▼ −20,0%')&&h.includes('▲ +50,0%')&&/было 100\s000 ₽/.test(h),'выручка, счета, средний чек, проценты и прошлый период');
+ok(h.includes('Данных за этот период ещё нет'),'филиал без данных: понятное сообщение');
+ok(h.includes('Иванов &lt;b&gt;')&&!h.includes('Иванов <b>')&&h.includes('Врач №7')&&h.includes('нет базы'),'врачи: имена через esc, без базы — «нет базы»');
+ok(h.includes('сравнение с 16.11.2026')&&/data-anact="next"[^>]*disabled/.test(h),'подпись сравнения; «вперёд» недоступна, если период текущий');
+ok(calls.some(c=>c[0]==='ev_analytics_overview'&&c[1].p_period==='day'&&c[1].p_anchor==='2026-11-23'),'запрос: ev_analytics_overview с периодом и датой');
+calls.length=0;S.view='an';const b=document.createElement('button');b.dataset.anact='period';b.dataset.id='month';document.body.appendChild(b);b.click();await tick();
+ok(AN.period==='month'&&calls.some(c=>c[1].p_period==='month'),'переключатель периода: месяц');
+const b2=document.createElement('button');b2.dataset.anact='prev';document.body.appendChild(b2);calls.length=0;b2.click();await tick();ok(calls.some(c=>c[1].p_anchor==='2026-10-01'),'стрелка «назад»: прошлый месяц');
+_rpc=async()=>({ok:false,error:'forbidden'});AN.data=null;await loadAnalytics();ok(analyticsHtml().includes('только у руководителя'),'не руководитель: сообщение');
+const o=document.getElementById('o');const bad=res.filter(x=>!x[0]);o.textContent='RESULT '+(bad.length?'FAIL '+bad.map(x=>x[1]).join(' | '):'PASS')+' '+(res.length-bad.length)+'/'+res.length;
+})();
+</script>
