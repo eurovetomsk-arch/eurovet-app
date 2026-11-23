@@ -640,3 +640,6 @@ body.ui2 .num::after{right:12px}
 body.ui2 .med-pend{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;margin-left:8px;padding:0 7px;border-radius:999px;background:var(--ev-bad);color:#fff;font-size:13px;font-weight:800;vertical-align:middle}
 
 body.ui2 .vmc-infoline{padding:7px 0;border-top:1px solid var(--ev-line);color:var(--ev-muted,#587078);font-size:13.5px}body.ui2 .vmc-info h2{color:var(--ev-muted,#587078)}
+
+body.ui2 .ui2-role-tiles .ui2-role-tile.sm:last-child:nth-child(odd):not(.full){grid-column:auto}
+body.ui2 .ui2-role-tiles .ui2-role-tile.full{grid-column:1/-1}

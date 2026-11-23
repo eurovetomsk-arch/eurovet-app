@@ -1,0 +1,91 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=375">
+<link rel="stylesheet" href="../styles/view.css"><link rel="stylesheet" href="../ui2-common.css"><link rel="stylesheet" href="../ui2-common.css">
+<body class="ui2" style="width:375px;margin:0"><main id="app"></main><pre id="o"></pre>
+<script src="../config.js"></script>
+<script>
+let S={token:'t',view:'branch',person:{head:true,roles:['head']}};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const UI2=window.EVROVET_UI2_CONFIG||{};const isHead=()=>!!(S.person&&S.person.head===true);const isCC=()=>false;
+const normRole=r=>r;function personRoles(p=S.person){return p.roles||[]}const hasRole=r=>personRoles().includes(r);
+const toast=()=>{},paint=()=>{},overlay=()=>{},closeOv=()=>{},omskToday=()=>'2026-11-23';async function rpc(){return{ok:true}}
+const BRANCHES=[];const ccMarkHtml=()=>'';const vacTileBadge=()=>'';const medTileBadge=()=>'';
+</script>
+<script src="../scripts/vmcheck.js"></script><script src="../scripts/cardvtb.js"></script>
+<script>
+/* только функции плиток из настоящего home.js */
+</script>
+<script>
+const isAdminCC=()=>false;
+function homeIcon(name){
+  const files={card_vtb:'icons/24-card-vtb.svg',evening_report:'icons/01-evening-report.png',cash_acceptance:'icons/03-cash-acceptance.png',appointments:'icons/10-my-appointments.png',callcenter_shift:'icons/08-my-schedule.png',where_i_work:'icons/07-who-is-where.png',my_accruals:'icons/09-my-accruals.png',my_schedule:'icons/08-my-schedule.png',vaccines:'icons/05-vaccines.png',vaccines_all_branches:'icons/05-vaccines.png',dose_calculator:'icons/20-dose-calc.png',supplies:'icons/21-order.png',supplies_all_requests:'icons/06-drug-request.png',supply_order:'icons/21-order.png',head_money:'icons/14-revenue-director-only.png',analytics:'icons/14-revenue-director-only.png',head_reports:'icons/04-audit.png',head_cash_safe:'icons/19-safe.png',head_payroll:'icons/09-my-accruals.png',people_roles:'icons/15-access-permissions.png',head_collections:'icons/02-cash-register.png',head_schedule:'icons/08-my-schedule.png',birthdays:'icons/23-greetings.png'};
+  if(files[name])return '<img src="'+files[name]+'" alt="">';
+  return '';
+}
+const HOME_TILE_META={
+  evening_report:{section:'finance',size:'wide',title:'Вечерний отчёт',sub:'Закройте день — это пара минут',act:'homebranches'},
+  cash_acceptance:{section:'finance',size:'wide',title:'Приём кассы',sub:'Утром: пересчитать и подтвердить',act:'homebranches'},
+  appointments:{section:'clinic',size:'main',title:'Мои записи',sub:'Ближайшие приёмы и пациенты',view:'sched'},
+  callcenter_shift:{section:'clinic',size:'wide',title:'Мои выходы',sub:'Отметки по дням и итог',view:'cc'},
+  my_schedule:{section:'clinic',size:'sm',title:'График',sub:'Мои смены и кто где',view:'sched'},
+  my_accruals:{section:'clinic',size:'sm',title:'Мои начисления',sub:'Начислено за период',view:'work'},
+  where_i_work:{section:'work',size:'wide',title:'Где я работаю',sub:'Мои смены и кто где сегодня',view:'sched'},
+  vaccines:{section:'preparations',size:'sm',title:'Вакцины',sub:'Остатки по филиалам',view:'vac',prepare:'Здесь будут остатки вакцин и их движение по филиалам.'},
+  vaccines_all_branches:{section:'preparations',size:'sm',title:'Вакцины по филиалам',sub:'Остатки во всех клиниках',view:'vac',prepare:'Здесь будут остатки вакцин по всем филиалам.'},
+  dose_calculator:{section:'preparations',size:'sm',title:'Расчёт дозы',sub:'Быстрый расчёт препарата',prepare:'Здесь будет безопасный расчёт дозы препарата.'},
+  supplies:{section:'preparations',size:'sm',title:'Врачебная заявка',sub:'Препараты и расходники',view:'med',prepare:'Скоро: заявка препаратов и расходников — здесь же будут остатки.'},
+  supplies_all_requests:{section:'preparations',size:'sm',title:'Врачебные заявки',sub:'Сводная по филиалам',view:'med',prepare:'Здесь будут заявки филиалов на препараты и расходники.'},
+  card_vtb:{section:'finance',size:'sm',title:'Карта ВТБ',sub:'Остаток на карте закупщика',view:'card'},
+  supply_order:{section:'preparations',size:'sm',title:'Заказ снабжения',sub:'Собрать и отметить заказ',prepare:'Здесь можно будет собрать и отметить заказ снабжения.'},
+  head_money:{section:'finance',size:'main',title:'Выручка',sub:'Выручка и врачи по дням',view:'rev'},
+  analytics:{section:'finance',size:'sm',title:'Аналитика',sub:'Выручка, чек, рост по сети',view:'an'},
+  head_cash_safe:{section:'finance',size:'sm',title:'Сейф и наличные',sub:'Остаток, выемки, мои наличные',view:'safe'},
+  head_payroll:{section:'finance',size:'sm',title:'Зарплата',sub:'Начисления и выплаты',view:'ppl'},
+  head_reports:{section:'finance',size:'sm',title:'Отчёты филиалов',sub:'Что требует внимания',view:'ctl'},
+  head_collections:{section:'finance',size:'sm',title:'Касса и инкассации',sub:'Забрал с филиала — в пути',act:'transitpickup'},
+  head_schedule:{section:'clinic',size:'sm',title:'График',sub:'Смены и кто где',view:'sched'},
+  people_roles:{section:'clinic',size:'sm',title:'Люди и доступы',sub:'Сотрудники, PIN, доступы',act:'mupinopen'},
+  birthdays:{section:'clinic',size:'wide',title:'Поздравления',sub:'С днём рождения сотрудников',prepare:'Здесь будут поздравления сотрудников с днём рождения — от вашего имени, по-доброму.'}
+};
+function homeTileKeys(){
+  const map=UI2.roleTiles||{},seen=new Set(),out=[];
+  /* 2.0: у руководителя главная — только плитки руководителя (даже если он ещё и врач) */
+  (isHead()?['head']:personRoles()).forEach(role=>(map[role]||[]).forEach(k=>{if(!seen.has(k)&&HOME_TILE_META[k]){seen.add(k);out.push(k)}}));
+  if(typeof cardProbe==='function'){cardProbe();if((isHead()||CARD.ok===true)&&!seen.has('card_vtb'))out.splice(Math.max(0,out.indexOf('head_collections')+1)||out.length,0,'card_vtb')}   /* Карта ВТБ: только руководитель и закупщик; у руководителя — рядом с «Касса и инкассации» */
+  return out;
+}
+function homeTileHtml(k){
+  if(k==='card_vtb'&&typeof cardTileHtml==='function')return cardTileHtml();
+  const m=HOME_TILE_META[k],built=(UI2.moduleBuilt||{})[k]===true,attrs=built?(m.act?' data-act="'+m.act+'"':' data-act="go" data-v="'+m.view+'"'):' data-act="prepare" data-k="'+k+'"';
+  return '<button class="glass ui2-role-tile '+m.size+'"'+attrs+'><span class="ic">'+homeIcon(k)+'</span><span><span class="t">'+esc(m.title)+'</span><span class="sub">'+esc(m.sub)+'</span>'+((k==='supplies'||k==='supplies_all_requests')&&typeof medTileBadge==='function'?medTileBadge():'')+((k==='vaccines'||k==='vaccines_all_branches')?vacTileBadge():'')+'</span></button>';
+}
+/* свод §17: у не-руководителей разделы — Работа → Препараты → Клиника; у руководителя — Финансы → Препараты → Клиника (§15/«главная на плитках») */
+const HOME_NH_SECTION={card_vtb:'work',cash_acceptance:'work',evening_report:'work',appointments:'work',where_i_work:'clinic'};
+function homeTileSection(k){return isHead()?HOME_TILE_META[k].section:(HOME_NH_SECTION[k]||HOME_TILE_META[k].section)}
+/* сетка главной без дыр (все роли): сначала крупная плитка «main», затем маленькие парами, широкие — целой строкой ниже пар; нечётная последняя маленькая растягивается на всю ширину */
+function homeOrderTiles(a){
+  const sz=k=>HOME_TILE_META[k].size,mains=a.filter(k=>sz(k)==='main'),sm=a.filter(k=>sz(k)==='sm'),wides=a.filter(k=>sz(k)!=='sm'&&sz(k)!=='main');
+  return {keys:mains.concat(sm,wides),fullKey:sm.length%2===1?sm[sm.length-1]:null};
+}
+function homeSectionsHtml(){
+  const names={finance:'Финансы',work:'Работа',preparations:'Препараты',clinic:'Клиника'},keys=homeTileKeys();
+  return (isHead()?['finance','preparations','clinic']:['work','preparations','clinic','finance']).map(sec=>{const a=keys.filter(k=>homeTileSection(k)===sec);if(!a.length)return '';const o=homeOrderTiles(a);return '<div class="ui2-group-title">'+names[sec]+'</div>'+(sec==='work'&&isAdminCC()?ccMarkHtml():'')+'<div class="ui2-role-tiles'+(a.length===1?' single':'')+'">'+o.keys.map(k=>{const t=homeTileHtml(k);return k===o.fullKey?t.replace('ui2-role-tile sm','ui2-role-tile sm full'):t}).join('')+'</div>'}).join('');
+}
+
+
+
+const ROLES={head:{head:true,roles:['head']},admin:{head:false,roles:['admin']},doctor:{head:false,roles:['doctor']},buyer:{head:false,roles:['doctor'],buyer:true},courier:{head:false,roles:['courier']},callcenter:{head:false,roles:['callcenter']}};
+const bad=[],info={};
+for(const [name,p] of Object.entries(ROLES)){
+  S.person=p;CARD.ok=name==='buyer'?true:undefined;CARD.probing=true;CARD.role=name==='head'?'head':'buyer';CARD.st={ok:true,role:CARD.role,balance:22000,threshold:5000,low:false,last_check:null,ops:[]};
+  document.getElementById('app').innerHTML=homeSectionsHtml().replace(/src="icons\//g,'src="../icons/');
+  document.querySelectorAll('.ui2-role-tiles').forEach((g,gi)=>{
+    const tiles=[...g.children].map(e=>e.getBoundingClientRect());const rows={};tiles.forEach(b=>{(rows[Math.round(b.top)]=rows[Math.round(b.top)]||[]).push(b)});
+    Object.values(rows).forEach(r=>{const w=r.reduce((a,b)=>a+b.width,0);if(!(r.length===2||(r.length===1&&r[0].width>300)))bad.push(name+':'+gi+' строка из '+r.length)});
+    const seq=[...g.children].map(e=>/ main/.test(e.className)?'M':/ wide/.test(e.className)?'W':'S').join('');
+    if(!/^M*S*W*$/.test(seq))bad.push(name+':'+gi+' порядок '+seq);
+    info[name]=(info[name]||0)+tiles.length;
+  });
+}
+const cardHead=(()=>{S.person=ROLES.head;CARD.ok=undefined;CARD.role='head';document.getElementById('app').innerHTML=homeSectionsHtml();const t=[...document.querySelectorAll('.ui2-role-tile')];const i=t.findIndex(e=>/Карта ВТБ/.test(e.textContent)),j=t.findIndex(e=>/Касса и инкассации/.test(e.textContent));return i>=0&&j>=0&&Math.abs(i-j)===1&&Math.round(t[i].getBoundingClientRect().top)===Math.round(t[j].getBoundingClientRect().top)})();
+document.getElementById('o').textContent='RESULT '+(bad.length===0&&cardHead?'PASS':'FAIL')+' главная без дыр для 6 ролей; «Карта ВТБ» рядом с «Касса и инкассации» '+bad.join(' | ')+' 1/1';
+</script>
