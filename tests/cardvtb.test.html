@@ -6,7 +6,7 @@ let OV='';const toasts=[];const toast=m=>toasts.push(m),paint=()=>{},overlay=h=>
 /* имитация сервера: остаток, порог, журнал, роль, офлайн */
 const SV={role:'head',net:true,ops:[],thr:5000,nid:1,uids:new Set()};
 const bal=()=>SV.ops.reduce((b,o)=>b+(o.kind==='spend'?-o.amount:o.amount),0);
-const state=()=>({ok:true,role:SV.role,balance:bal(),threshold:SV.thr,low:bal()<SV.thr,last_check:(SV.ops.filter(o=>o.kind==='bank_check').pop()||{}).at||null,ops:SV.ops.slice().reverse().map(o=>Object.assign({who:'Тест'},o))});
+const state=()=>({ok:true,role:SV.role,balance:bal(),threshold:SV.thr,low:bal()<SV.thr,last_check:(SV.ops.filter(o=>o.kind==='bank_check').pop()||{}).at||null,ops:SV.ops.slice().reverse().map(o=>Object.assign({who:'Тест',mine:o.kind==='opening'?SV.role==='head':(o.kind==='spend')===(SV.role==='buyer')},o))});
 async function rpc(n,b){
   if(!SV.net)throw{net:true};
   if(SV.role==='stranger')return{ok:false,error:'forbidden'};
@@ -54,6 +54,8 @@ const ops=CARD.st.ops;ok(ops[0].kind==='spend'&&ops[ops.length-1].kind==='openin
 const sp=CARD.st.ops.find(o=>o.kind==='spend');await cardSubmit('fix',{op:sp.id});
 ok(cardShown()===25000&&CARD.st.ops[0].kind==='fix'&&CARD.st.ops[0].comment==='исправление №'+sp.id&&cardHtml().includes('исправлено')&&cardHtml().includes('исправление №'+sp.id)&&cardHtml().includes('Исправление'),'исправление: обратная запись «исправление №N», обе видны, остаток вернулся');
 ok(!/data-cardact="fix" data-id="'+sp.id+'"/.test(cardHtml())&&!cardHtml().includes('data-cardact="fix" data-id="'+sp.id+'"'),'исправленную запись исправить второй раз нельзя');
+// «Исправить» только у своих записей: руководитель — свои «Положил»/сверки, закупщик — свои «Потратил»
+{const prev=CARD.st;CARD.st=Object.assign({},prev,{ops:[{id:1,kind:'deposit',amount:1,at:'2026-11-23T05:00:00Z',who:'Р',mine:true},{id:2,kind:'spend',amount:1,at:'2026-11-23T05:00:00Z',who:'З',mine:false}]});const hh=cardHtml();ok(hh.includes('data-cardact="fix" data-id="1"')&&!hh.includes('data-cardact="fix" data-id="2"'),'«Исправить» есть только у своей записи, у чужой нет');CARD.st=prev;}
 // сверка с банком: разница отдельной строкой
 await cardSubmit('check',{actual:25250});
 ok(CARD.st.ops[0].kind==='bank_check'&&CARD.st.ops[0].amount===250&&cardShown()===25250&&cardHtml().includes('Сверка с банком +250 ₽')&&cardHtml().includes('в банке 25 250 ₽'),'сверка с банком: «Сверка с банком +250 ₽», остаток = фактический');

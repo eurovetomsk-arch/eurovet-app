@@ -67,7 +67,7 @@ function cardOpHtml(o){
   const title=o.kind==='opening'?'Стартовый остаток '+cardRub(o.amount):o.kind==='bank_check'?'Сверка с банком '+cardRubS(o.amount):cardKindText(o)+' '+cardRubS(amt);
   const cm=o.kind==='bank_check'?('в банке '+cardRub(o.actual)):o.kind==='opening'?'':(o.comment||'');
   return '<div class="person card-op"><div class="srow"><span><b'+(o.kind==='bank_check'||o.kind==='fix'?'':' class="'+(amt>=0?'plus':'minus')+'"')+'>'+esc(title)+'</b><br><small>'+esc(o.at?cardWhen(o.at):vmcDate(o.date))+' · '+esc(o.who||'')+(cm?' · '+esc(cm):'')+(o.fixed?' · исправлено':'')+'</small></span>'
-    +((o.kind==='deposit'||o.kind==='spend')&&!o.fixed?'<button class="chip" data-cardact="fix" data-id="'+Number(o.id)+'">Исправить</button>':'')+'</div></div>';
+    +((o.kind==='deposit'||o.kind==='spend'||o.kind==='bank_check')&&o.mine&&!o.fixed?'<button class="chip" data-cardact="fix" data-id="'+Number(o.id)+'">Исправить</button>':'')+'</div></div>';
 }
 function cardHtml(){
   const st=CARD.st,q=cardQ(),low=cardLow();
@@ -78,7 +78,7 @@ function cardHtml(){
   if(low)h+='<div class="chk bad"><i>!</i><div><b>Остаток меньше '+cardRub(st.threshold)+'</b></div></div>';
   if(CARD.err)h+='<p class="hint">'+esc(CARD.err)+'</p>';
   if(q.length)h+='<p class="hint">Ждут отправки: '+q.length+'. Остаток показан с учётом этих операций.</p>';
-  h+=(CARD.role==='head'?'<button class="btn big" data-cardact="deposit">Положил</button>':'<button class="btn big" data-cardact="spend">Потратил</button>');
+  h+=(CARD.role==='head'?'<button class="btn card-bigbtn" data-cardact="deposit">Положил</button>':'<button class="btn card-bigbtn" data-cardact="spend">Потратил</button>');
   const weekOld=!st.last_check||(Date.now()-Date.parse(st.last_check))>=7*86400000;
   h+='<button class="btn'+(weekOld?'':' sec')+'" data-cardact="check">Сверить с банком</button>'+(weekOld?'<p class="hint">Раз в неделю: введите фактический остаток из банка.</p>':'');
   if(CARD.role==='head')h+='<button class="chip" data-cardact="thr">Порог «мало денег»: '+cardRub(st.threshold)+'</button>';

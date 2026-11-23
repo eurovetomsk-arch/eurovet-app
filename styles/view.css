@@ -270,3 +270,4 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .card-tile .card-sum.low,.card-tile .card-warn{color:#ffc3b6!important}
 .card-main .btn.big{font-size:22px;padding:18px 16px;margin-top:10px}
 .card-main .btn.big{text-align:center;justify-content:center}
+.card-main .btn.card-bigbtn{font-size:22px;padding:18px 16px;margin-top:10px;text-align:center!important;justify-content:center!important;display:block;width:100%}
