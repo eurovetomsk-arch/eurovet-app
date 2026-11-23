@@ -1,0 +1,67 @@
+<!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
+<!-- Тест «Карта ВТБ» (node на Mac нет). Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/cardvtb.test.html | grep -o '<pre id="o">[^<]*' -->
+<script>
+const S={token:'t',view:'branch'};const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toasts=[];const toast=m=>toasts.push(m),paint=()=>{},overlay=()=>{},closeOv=()=>{},omskToday=()=>'2026-11-23';let HEAD=true;const isHead=()=>HEAD;const BRANCHES=[];
+/* имитация сервера: остаток, порог, журнал, роль, офлайн */
+const SV={role:'head',net:true,ops:[],thr:5000,nid:1,uids:new Set()};
+const bal=()=>SV.ops.reduce((b,o)=>b+(o.kind==='spend'?-o.amount:o.amount),0);
+const state=()=>({ok:true,role:SV.role,balance:bal(),threshold:SV.thr,low:bal()<SV.thr,last_check:(SV.ops.filter(o=>o.kind==='bank_check').pop()||{}).at||null,ops:SV.ops.slice().reverse().map(o=>Object.assign({who:'Тест'},o))});
+async function rpc(n,b){
+  if(!SV.net)throw{net:true};
+  if(SV.role==='stranger')return{ok:false,error:'forbidden'};
+  if(n==='ev_card_state')return state();
+  if(b.p_uid&&SV.uids.has(b.p_uid))return state();
+  if(n==='ev_card_add'){if((b.p_kind==='deposit'&&SV.role!=='head')||(b.p_kind==='spend'&&SV.role!=='buyer'))return{ok:false,error:'forbidden'};SV.uids.add(b.p_uid);SV.ops.push({id:SV.nid++,kind:b.p_kind,amount:b.p_amount,date:b.p_date,comment:b.p_comment});return state()}
+  if(n==='ev_card_fix'){const o=SV.ops.find(x=>x.id===b.p_op);SV.uids.add(b.p_uid);SV.ops.push({id:SV.nid++,kind:'fix',amount:o.kind==='spend'?o.amount:-o.amount,comment:'исправление №'+o.id,fixes:o.id});o.fixed=true;return state()}
+  if(n==='ev_card_bank_check'){SV.uids.add(b.p_uid);SV.ops.push({id:SV.nid++,kind:'bank_check',amount:b.p_actual-bal(),actual:b.p_actual,at:new Date().toISOString()});return state()}
+  if(n==='ev_card_threshold_set'){SV.thr=b.p_value;return state()}
+}
+</script>
+<script src="../scripts/vmcheck.js"></script><script src="../scripts/cardvtb.js"></script>
+<script>
+(async()=>{
+const res=[];const ok=(c,m)=>res.push([!!c,m]);
+localStorage.removeItem('ev_cardq');
+// стартовый остаток 22 000: плитка зелёная
+SV.ops.push({id:SV.nid++,kind:'opening',amount:22000,date:'2026-11-23',comment:'Стартовый остаток'});
+await cardProbe();
+ok(CARD.ok===true&&CARD.role==='head'&&cardShown()===22000&&!cardLow(),'после стартового остатка 22 000 ₽ плитка зелёная');
+let t=cardTileHtml();ok(t.includes('Остаток 22 000 ₽')&&!t.includes('card-tile low')&&!t.includes('Остаток меньше'),'плитка: крупно «Остаток 22 000 ₽», не красная');
+// пополнение (руководитель)
+await cardSubmit('add',{kind:'deposit',amount:3000,date:'2026-11-23',comment:'на препараты'});
+ok(cardShown()===25000&&cardQ().length===0,'пополнение: остаток растёт, очередь пуста');
+// трата закупщиком
+SV.role='buyer';CARD.role='buyer';HEAD=false;
+await cardSubmit('add',{kind:'spend',amount:21000,date:'2026-11-23',comment:'бинты'});
+ok(cardShown()===4000&&cardLow(),'трата: остаток 4 000 ₽ меньше порога 5 000 → красный');
+t=cardTileHtml();ok(t.includes('card-tile low')&&t.includes('card-sum low')&&t.includes('Остаток меньше 5 000 ₽'),'плитка красная: «Остаток меньше 5 000 ₽» (у закупщика)');
+let h=cardHtml();ok(h.includes('card-big low')&&h.includes('Остаток меньше')&&h.includes('data-cardact="spend"')&&!h.includes('data-cardact="deposit"')&&!h.includes('data-cardact="thr"'),'экран закупщика: красная цифра, «Потратил», без «Положил» и порога');
+SV.role='head';CARD.role='head';HEAD=true;await cardLoad();h=cardHtml();
+ok(h.includes('data-cardact="deposit"')&&!h.includes('data-cardact="spend"')&&h.includes('data-cardact="thr"')&&h.includes('Карта ВТБ'),'экран руководителя: «Положил», порог, без «Потратил»');
+// порог настраивается
+await cardCall('thr',{value:3000}).then(r=>{CARD.st=r});ok(!cardLow()&&cardShown()===4000,'порог 3 000: остаток 4 000 уже зелёный');
+await cardCall('thr',{value:5000}).then(r=>{CARD.st=r});
+// история: новые сверху, обе стороны, кнопка «Исправить» только у пополнений/трат
+const ops=CARD.st.ops;ok(ops[0].kind==='spend'&&ops[ops.length-1].kind==='opening'&&cardHtml().indexOf('бинты')<cardHtml().indexOf('Стартовый остаток')&&cardHtml().includes('Стартовый остаток 22 000 ₽'),'история: новые сверху, стартовый остаток внизу, видят оба');
+// исправление: обратная запись, обе видны, повторно нельзя
+const sp=CARD.st.ops.find(o=>o.kind==='spend');await cardSubmit('fix',{op:sp.id});
+ok(cardShown()===25000&&CARD.st.ops[0].kind==='fix'&&CARD.st.ops[0].comment==='исправление №'+sp.id&&cardHtml().includes('исправлено')&&cardHtml().includes('исправление №'+sp.id)&&cardHtml().includes('Исправление'),'исправление: обратная запись «исправление №N», обе видны, остаток вернулся');
+ok(!/data-cardact="fix" data-id="'+sp.id+'"/.test(cardHtml())&&!cardHtml().includes('data-cardact="fix" data-id="'+sp.id+'"'),'исправленную запись исправить второй раз нельзя');
+// сверка с банком: разница отдельной строкой
+await cardSubmit('check',{actual:25250});
+ok(CARD.st.ops[0].kind==='bank_check'&&CARD.st.ops[0].amount===250&&cardShown()===25250&&cardHtml().includes('Сверка с банком +250 ₽')&&cardHtml().includes('в банке 25 250 ₽'),'сверка с банком: «Сверка с банком +250 ₽», остаток = фактический');
+// офлайн-очередь
+SV.net=false;await cardSubmit('add',{kind:'deposit',amount:1000,date:'2026-11-23',comment:'офлайн'});
+ok(cardQ().length===1&&cardShown()===26250&&cardHtml().includes('Ждут отправки: 1'),'офлайн: операция в очереди, остаток с её учётом');
+SV.net=true;await cardFlush();ok(cardQ().length===0&&CARD.st.balance===26250&&SV.ops.filter(o=>o.comment==='офлайн').length===1,'связь вернулась: очередь ушла один раз');
+// повтор того же uid не дублирует
+const q0=SV.ops.length;SV.net=false;await cardSubmit('add',{kind:'deposit',amount:5,date:'2026-11-23',comment:'д'});const u=cardQ()[0].uid;SV.net=true;await cardFlush();SV.uids.add(u);ok(SV.ops.length===q0+1,'повторная отправка по тому же ключу не дублирует запись');
+// чужая роль
+CARD.ok=undefined;CARD.st=null;SV.role='stranger';HEAD=false;await cardProbe();
+ok(CARD.ok===false&&!cardRoleOk(),'чужая роль: сервер отказал, плитка и экран недоступны');
+// нет суммы 0 и дроби
+ok(cardRub(1234.4)==='1 234 ₽'&&cardRubS(-300)==='−300 ₽'&&cardRubS(250)==='+250 ₽','формат: пробел тысяч и знак');
+document.getElementById('o').textContent='RESULT '+(res.every(r=>r[0])?'PASS':'FAIL')+' '+res.filter(r=>!r[0]).map(r=>r[1]).join(' | ')+' '+res.filter(r=>r[0]).length+'/'+res.length;document.title='DONE';
+})();
+</script>

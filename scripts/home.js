@@ -115,6 +115,7 @@ const HOME_TILE_META={
   dose_calculator:{section:'preparations',size:'sm',title:'Расчёт дозы',sub:'Быстрый расчёт препарата',prepare:'Здесь будет безопасный расчёт дозы препарата.'},
   supplies:{section:'preparations',size:'sm',title:'Врачебная заявка',sub:'Препараты и расходники',view:'med',prepare:'Скоро: заявка препаратов и расходников — здесь же будут остатки.'},
   supplies_all_requests:{section:'preparations',size:'sm',title:'Врачебные заявки',sub:'Сводная по филиалам',view:'med',prepare:'Здесь будут заявки филиалов на препараты и расходники.'},
+  card_vtb:{section:'finance',size:'wide',title:'Карта ВТБ',sub:'Остаток на карте закупщика',view:'card'},
   supply_order:{section:'preparations',size:'sm',title:'Заказ снабжения',sub:'Собрать и отметить заказ',prepare:'Здесь можно будет собрать и отметить заказ снабжения.'},
   head_money:{section:'finance',size:'main',title:'Выручка',sub:'Выручка и врачи по дням',view:'rev'},
   analytics:{section:'finance',size:'sm',title:'Аналитика',sub:'Выручка, чек, рост по сети',view:'an'},
@@ -130,14 +131,16 @@ function homeTileKeys(){
   const map=UI2.roleTiles||{},seen=new Set(),out=[];
   /* 2.0: у руководителя главная — только плитки руководителя (даже если он ещё и врач) */
   (isHead()?['head']:personRoles()).forEach(role=>(map[role]||[]).forEach(k=>{if(!seen.has(k)&&HOME_TILE_META[k]){seen.add(k);out.push(k)}}));
+  if(typeof cardProbe==='function'){cardProbe();if((isHead()||CARD.ok===true)&&!seen.has('card_vtb'))out.push('card_vtb')}   /* Карта ВТБ: только руководитель и закупщик */
   return out;
 }
 function homeTileHtml(k){
+  if(k==='card_vtb'&&typeof cardTileHtml==='function')return cardTileHtml();
   const m=HOME_TILE_META[k],built=(UI2.moduleBuilt||{})[k]===true,attrs=built?(m.act?' data-act="'+m.act+'"':' data-act="go" data-v="'+m.view+'"'):' data-act="prepare" data-k="'+k+'"';
   return '<button class="glass ui2-role-tile '+m.size+'"'+attrs+'><span class="ic">'+homeIcon(k)+'</span><span><span class="t">'+esc(m.title)+'</span><span class="sub">'+esc(m.sub)+'</span>'+((k==='supplies'||k==='supplies_all_requests')&&typeof medTileBadge==='function'?medTileBadge():'')+((k==='vaccines'||k==='vaccines_all_branches')?vacTileBadge():'')+'</span></button>';
 }
 /* свод §17: у не-руководителей разделы — Работа → Препараты → Клиника; у руководителя — Финансы → Препараты → Клиника (§15/«главная на плитках») */
-const HOME_NH_SECTION={cash_acceptance:'work',evening_report:'work',appointments:'work',where_i_work:'clinic'};
+const HOME_NH_SECTION={card_vtb:'work',cash_acceptance:'work',evening_report:'work',appointments:'work',where_i_work:'clinic'};
 function homeTileSection(k){return isHead()?HOME_TILE_META[k].section:(HOME_NH_SECTION[k]||HOME_TILE_META[k].section)}
 function homeSectionsHtml(){
   const names={finance:'Финансы',work:'Работа',preparations:'Препараты',clinic:'Клиника'},keys=homeTileKeys();

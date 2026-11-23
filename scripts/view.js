@@ -57,7 +57,8 @@ function render(){
   else if(S.view==='vac')app.innerHTML=vacHtml();
   else if(S.view==='med')app.innerHTML=medHtml();
   else if(S.view==='an')app.innerHTML=analyticsHtml();
-  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an'].includes(S.view))bar.innerHTML=navHtml();
+  else if(S.view==='card')app.innerHTML=cardHtml();
+  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an','card'].includes(S.view))bar.innerHTML=navHtml();
 }
 window.addEventListener('popstate',e=>{
   if(typeof vmwBlockBack==='function'&&vmwBlockBack())return; /* экран «Ожидайте сверки»: назад не выводит */

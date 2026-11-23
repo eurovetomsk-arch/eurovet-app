@@ -260,3 +260,10 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 /* c31: экран «Ожидайте сверки» */
 .vmw{text-align:center}.vmw-blink{animation:vmwb 1.1s ease-in-out infinite}@keyframes vmwb{0%,100%{opacity:1}50%{opacity:.25}}.vmw .btn{margin-top:12px}.vmw .chk{text-align:left}
 @media (prefers-reduced-motion:reduce){.vmw-blink{animation:none}}
+
+/* c32: «Карта ВТБ» */
+.card-tile .card-sum{display:block;font-size:26px;font-weight:800;color:var(--ok,#1f7a4d);margin:4px 0}.card-tile .card-sum.low,.card-tile .card-warn{color:var(--bad,#b3402a)}
+.card-big{font-size:34px;font-weight:800;color:var(--ok,#1f7a4d);margin:8px 0 12px}.card-big.low{color:var(--bad,#b3402a)}.card-main .btn{margin-top:8px}.card-op .plus{color:var(--ok,#1f7a4d)}.card-op .minus{color:var(--bad,#b3402a)}
+.card-tile{display:block;text-align:left;width:100%}.card-tile>span{display:block;width:100%}.card-tile .t{display:block;white-space:nowrap}.card-tile .card-sum{font-size:24px;white-space:nowrap}.card-tile .sub{display:block}
+.card-tile .sub{max-width:none!important;width:100%!important;white-space:normal}.card-tile .card-warn{color:#ff8a76!important;font-weight:700}
+.card-tile{grid-template-columns:1fr!important;display:grid!important}.card-tile>span{grid-column:1/-1}
