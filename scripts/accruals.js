@@ -1092,7 +1092,10 @@ async function loadAppointments(){
     else{
       const allowed=new Set(['id','date','time','end','branch','status','pet_id','alias','species','reason','visit_type']);
       const states=new Set(['booked','unconfirmed','cancelled','waiting','in_treatment','completed','overdue','reschedule_requested']);
-      const rows=(Array.isArray(r.rows)?r.rows:[]).map(x=>{
+      /* c30: снимок может содержать «сырые» статусы Vetmanager — приводим к словарю приложения; deleted и неизвестные пропускаем, а не роняем весь снимок */
+      const rawSt={save:'booked',directed:'waiting',accepted:'completed',delayed:'reschedule_requested',not_approved:'unconfirmed',not_confirmed:'unconfirmed'};
+      const src=(Array.isArray(r.rows)?r.rows:[]).map(x=>(x&&typeof x==='object'&&rawSt[x.status])?Object.assign({},x,{status:rawSt[x.status]}):x).filter(x=>!(x&&typeof x==='object'&&(x.status==='deleted'||(typeof x.status==='string'&&!states.has(x.status)))));
+      const rows=src.map(x=>{
         if(!x||Object.keys(x).some(k=>!allowed.has(k))||!x.id||!/^\d{4}-\d{2}-\d{2}$/.test(x.date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(x.end)||!['marksa','70let','pereleta'].includes(x.branch)||!states.has(x.status))throw Error('contract');
         const row={};Object.keys(x).forEach(k=>{if(x[k]!=null&&typeof x[k]!=='string'&&typeof x[k]!=='number')throw Error('contract');row[k]=x[k]});return row
       });
