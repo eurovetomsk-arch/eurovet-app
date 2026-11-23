@@ -53,6 +53,7 @@ function anAltTitle(d){
   return '';
 }
 /* процент: рост ▲ зелёный, падение ▼ красный; нет данных для сравнения — серо */
+const anDir=p=>p==null?'na':Number(p)>0?'up':Number(p)<0?'down':'zero';
 const anNoData='<span class="an-pct na">нет данных за прошлый период</span>';
 function anPct(p,open){
   if(open)return '<span class="an-pct na">день не закрыт</span>';
@@ -83,7 +84,8 @@ async function loadAnalytics(){
 async function showAnalytics(){closeOv();S.view='an';AN.data=null;paint();window.scrollTo(0,0);await loadAnalytics()}
 /* строка показателя: крупная цифра, рядом ▲▼ %, под ней мелко «было …» */
 function anRow(label,val,pct,prev,open){
-  const was=(prev!=null&&pct!=null&&!open)?'<small>было '+prev+'</small>':'';
+  /* «было …» — крупно, жирно, на ступень меньше главной цифры; зелёная, если стало больше (рост), красная, если меньше; нет данных — не показывается */
+  const was=(prev!=null&&pct!=null&&!open)?'<small class="an-was '+anDir(pct)+'">было '+prev+'</small>':'';
   return '<div class="an-m"><span class="an-ml">'+label+'</span><span class="an-mv">'+val+was+'</span>'+anPct(pct,open)+'</div>';
 }
 function anHasData(b){return b&&(b.days||b.revenue||b.invoices)}
@@ -111,7 +113,7 @@ function anBranch(b,d){
 const anDocsMain=p=>p==='day'||p==='week';
 function anDocList(list,d){
   const o=!!d.open,rows=list.slice().sort((a,b)=>{const x=a.avg_check_pct==null?-Infinity:Number(a.avg_check_pct),y=b.avg_check_pct==null?-Infinity:Number(b.avg_check_pct);return y-x||Number(b.revenue)-Number(a.revenue)});
-  return '<div class="card an-card an-docs"><h2>Врачи <small>по росту среднего чека</small></h2>'+rows.map(x=>'<div class="an-doc"><div class="an-dl"><b>'+esc(x.name)+'</b> — чек '+anRub(x.avg_check)+' '+anPct(x.avg_check_pct,o)+'</div><div class="an-ds">выручка '+anRub(x.revenue)+' · счетов '+anInt(x.invoices)+'</div></div>').join('')+'</div>';
+  return '<div class="card an-card an-docs"><h2>Врачи <small>по росту среднего чека</small></h2>'+rows.map(x=>'<div class="an-doc"><div class="an-dl"><b>'+esc(x.name)+'</b> — чек '+anRub(x.avg_check)+' '+anPct(x.avg_check_pct,o)+(x.prev_avg_check!=null&&x.avg_check_pct!=null&&!o?' <span class="an-was an-wasd '+anDir(x.avg_check_pct)+'">было '+anRub(x.prev_avg_check)+'</span>':'')+'</div><div class="an-ds">выручка '+anRub(x.revenue)+' · счетов '+anInt(x.invoices)+'</div></div>').join('')+'</div>';
 }
 function anDoctors(list,d){
   if(!list||!list.length)return '';
