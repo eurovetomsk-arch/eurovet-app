@@ -253,3 +253,5 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .an-dl{font-size:15.5px;color:#1d2b30;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}.an-docs small{font-weight:500;font-size:12px;color:#8aa0a7}
 .an-m{grid-template-columns:1fr auto minmax(84px,120px)}.an-pct.na{font-size:12px;font-weight:600;line-height:1.2;text-align:right}
 .an-mv small.an-was{font-size:16px;font-weight:800;color:#8aa0a7}.an-was.up{color:#15803d!important}.an-was.down{color:#b91c1c!important}.an-was.zero,.an-was.na{color:#587078!important}.an-wasd{font-size:13.5px;font-weight:800}
+.an-mv small.an-was{font-size:20px;font-weight:800}.an-wasd{font-size:inherit!important;font-weight:800}
+.an-m{grid-template-columns:78px 1fr minmax(64px,auto);gap:2px 8px}.an-ml{font-size:13px;line-height:1.2}.an-mv{white-space:nowrap;font-size:20px}.an-mv small.an-was{white-space:nowrap;font-size:20px;font-weight:800;line-height:1.15}.an-m .an-pct{font-size:13px;white-space:nowrap}.an-m .an-pct.na{white-space:normal}

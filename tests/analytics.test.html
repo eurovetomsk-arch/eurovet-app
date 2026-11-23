@@ -32,7 +32,7 @@ ok(/<details class="an-br"><summary><b>Маркса<\/b><span class="an-sline">6
 ok(h.includes('<b>Перелёта</b><span class="an-sline">нет данных</span>'),'филиал без данных: «нет данных»');
 const docs=h.slice(h.indexOf('Врачи'));
 ok(docs.indexOf('Аристова')<docs.indexOf('Иванов')&&docs.indexOf('Иванов')<docs.indexOf('Новый'),'врачи по росту среднего чека: +8% выше −3,2%, без данных в конце');
-ok(/Аристова<\/b> — чек 4\s210 ₽ <span class="an-pct up">▲ \+8%/.test(h)&&docs.includes('Иванов &lt;b&gt;')&&!docs.includes('Иванов <b>'),'врач одной строкой «Аристова — чек 4 210 ₽ ▲ +8%», имена через esc');
+ok(/Аристова<\/b> — чек <b>4\s210 ₽<\/b> <span class="an-pct up">▲ \+8%/.test(h)&&docs.includes('Иванов &lt;b&gt;')&&!docs.includes('Иванов <b>'),'врач одной строкой «Аристова — чек 4 210 ₽ ▲ +8%», имена через esc');
 ok(docs.includes('нет данных за прошлый период'),'нет данных для сравнения — серо «нет данных за прошлый период», без процента');
 ok(!/partial|open|alt|block|complete/i.test(h.replace(/class="[^"]*"|data-[a-z]+="[^"]*"/g,'')),'на экране нет технических слов');
 ok(h.includes('Тот же день прошлой недели: 15 ноября')&&h.includes('выручка ▲ +50%'),'мелкая строка: тот же день прошлой недели');
