@@ -47,6 +47,12 @@ o=await run([MOK.slice(0,2).concat([R('cashless','no_data',null,null)])]);ok(S.v
 o=await run([[]],null,{net:true});h=vmwHtml();ok(S.vmw.state==='offline'&&h.includes('Сверка будет после связи')&&JSON.parse(localStorage.getItem('ev_vmq')||'[]').some(x=>x.branch==='marksa'),'офлайн: «Сверка будет после связи», проверка поставлена в очередь');
 // филиал без сверки: возврат на прежний экран
 o=await run([[]],{ok:false,error:'branch'});ok(S.view==='done'&&S.vmw===null,'филиал без сверки (ошибка branch): прежний экран «Отчёт принят»');
+// «Назад»: на ожидании и красном по деньгам блокируется (запись возвращается в историю), на зелёном/красном по фиксациям/жёлтом — нет
+const pushed=[];history.pushState=(st)=>pushed.push(st);
+S.view='vmw';S.vmw={state:'wait'};ok(vmwBlockBack()===true&&pushed.length===1,'Назад блокируется на экране ожидания');
+S.vmw={state:'red_money'};ok(vmwBlockBack()===true&&pushed.length===2,'Назад блокируется на красном по деньгам');
+S.vmw={state:'green'};ok(vmwBlockBack()===false,'на зелёном назад разрешён');S.vmw={state:'red_fix'};ok(vmwBlockBack()===false,'на красном по фиксациям назад разрешён');S.vmw={state:'yellow'};ok(vmwBlockBack()===false,'на жёлтом назад разрешён');
+S.view='ctl';S.vmw={state:'wait'};ok(vmwBlockBack()===false&&pushed.length===2,'на других экранах не мешает');
 // ожидание: нет кнопок выхода
 S.vmw={branch:'marksa',date:'2026-11-23',version:3,t0:Date.now(),state:'wait',rows:[]};h=vmwHtml();ok(h.includes('Ожидайте сверки финансовых данных')&&h.includes('vmw-blink')&&h.includes('id="vmwsec"')&&!/<button/.test(h),'ожидание: мигающая надпись, счётчик секунд, ни одной кнопки');
 document.getElementById('o').textContent='RESULT '+(res.every(r=>r[0])?'PASS':'FAIL')+' '+res.filter(r=>!r[0]).map(r=>r[1]).join(' | ')+' '+res.filter(r=>r[0]).length+'/'+res.length;document.title='DONE';

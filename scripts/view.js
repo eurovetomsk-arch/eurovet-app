@@ -60,6 +60,7 @@ function render(){
   if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an'].includes(S.view))bar.innerHTML=navHtml();
 }
 window.addEventListener('popstate',e=>{
+  if(typeof vmwBlockBack==='function'&&vmwBlockBack())return; /* экран «Ожидайте сверки»: назад не выводит */
   const x=e.state&&e.state.evrovet;if(!x)return;
   evHistoryApplying=true;
   S.view=x.view||homeView();S.branch=x.branch||null;S.date=x.date||omskToday();

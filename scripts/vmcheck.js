@@ -165,3 +165,11 @@ async function vmwStart(branch,date,version){
     if(Date.now()-w.t0>=VMW_TIMEOUT&&S.vmw===w&&w.state==='wait'){vmwSet(w,'yellow');return}
   }
 }
+/* «Назад» браузера/жест не выводит с экрана ожидания и с красного по деньгам: возвращаем запись в историю и остаёмся (ТЗ 23.11) */
+function vmwBlockBack(){
+  if(S.view==='vmw'&&S.vmw&&(S.vmw.state==='wait'||S.vmw.state==='red_money')){
+    try{history.pushState({evrovet:typeof evNavSnapshot==='function'?evNavSnapshot():{view:'vmw'}},'',location.href)}catch(e){}
+    return true;
+  }
+  return false;
+}
