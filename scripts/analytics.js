@@ -84,9 +84,10 @@ async function loadAnalytics(){
 async function showAnalytics(){closeOv();S.view='an';AN.data=null;paint();window.scrollTo(0,0);await loadAnalytics()}
 /* строка показателя: крупная цифра, рядом ▲▼ %, под ней мелко «было …» */
 function anRow(label,val,pct,prev,open){
-  /* «было …» — того же размера и жирности, что главная цифра; зелёная, если стало больше (рост), красная, если меньше; нет данных — не показывается */
-  const was=(prev!=null&&pct!=null&&!open)?'<small class="an-was '+anDir(pct)+'">было '+prev+'</small>':'';
-  return '<div class="an-m"><span class="an-ml">'+label+'</span><span class="an-mv">'+val+was+'</span>'+anPct(pct,open)+'</div>';
+  /* цветом выделена ВЕРХНЯЯ (текущая) сумма: зелёная при росте, красная при падении, серая без данных; «было …» — того же размера и жирности, но нейтральным серым */
+  const was=(prev!=null&&pct!=null&&!open)?'<small class="an-was">было '+prev+'</small>':'';
+  const cur='<span class="an-cur '+(open?'na':anDir(pct))+'">'+val+'</span>';
+  return '<div class="an-m"><span class="an-ml">'+label+'</span><span class="an-mv">'+cur+was+'</span>'+anPct(pct,open)+'</div>';
 }
 function anHasData(b){return b&&(b.days||b.revenue||b.invoices)}
 /* «Итог сети»: три числа */
@@ -113,7 +114,7 @@ function anBranch(b,d){
 const anDocsMain=p=>p==='day'||p==='week';
 function anDocList(list,d){
   const o=!!d.open,rows=list.slice().sort((a,b)=>{const x=a.avg_check_pct==null?-Infinity:Number(a.avg_check_pct),y=b.avg_check_pct==null?-Infinity:Number(b.avg_check_pct);return y-x||Number(b.revenue)-Number(a.revenue)});
-  return '<div class="card an-card an-docs"><h2>Врачи <small>по росту среднего чека</small></h2>'+rows.map(x=>'<div class="an-doc"><div class="an-dl"><b>'+esc(x.name)+'</b> — чек <b>'+anRub(x.avg_check)+'</b> '+anPct(x.avg_check_pct,o)+(x.prev_avg_check!=null&&x.avg_check_pct!=null&&!o?' <span class="an-was an-wasd '+anDir(x.avg_check_pct)+'">было '+anRub(x.prev_avg_check)+'</span>':'')+'</div><div class="an-ds">выручка '+anRub(x.revenue)+' · счетов '+anInt(x.invoices)+'</div></div>').join('')+'</div>';
+  return '<div class="card an-card an-docs"><h2>Врачи <small>по росту среднего чека</small></h2>'+rows.map(x=>'<div class="an-doc"><div class="an-dl"><b>'+esc(x.name)+'</b> — чек <b class="an-cur '+(o?'na':anDir(x.avg_check_pct))+'">'+anRub(x.avg_check)+'</b> '+anPct(x.avg_check_pct,o)+(x.prev_avg_check!=null&&x.avg_check_pct!=null&&!o?' <span class="an-was an-wasd">было '+anRub(x.prev_avg_check)+'</span>':'')+'</div><div class="an-ds">выручка '+anRub(x.revenue)+' · счетов '+anInt(x.invoices)+'</div></div>').join('')+'</div>';
 }
 function anDoctors(list,d){
   if(!list||!list.length)return '';

@@ -25,14 +25,15 @@ ok(anTitle(D('custom',{from:'2026-11-01',to:'2026-11-10',prev_from:'2026-10-22',
 // экран: «Итог сети», филиалы одной строкой, врачи
 _rpc=async()=>D('day');AN.period='day';AN.data=null;calls.length=0;await showAnalytics();await tick();let h=analyticsHtml();
 ok(h.indexOf('Итог сети')<h.indexOf('Филиалы')&&h.indexOf('Филиалы')<h.indexOf('Врачи'),'порядок: Итог сети → Филиалы → Врачи');
-ok(/<small class="an-was up">было 100\s000 ₽<\/small>/.test(h)&&/<small class="an-was down">было 50<\/small>/.test(h),'«было …» крупно и цветом: зелёная при росте (выручка), красная при падении (счетов)');
-ok(/an-wasd up">было 3\s898 ₽/.test(h)&&/an-wasd down">было 3\s100 ₽/.test(h),'у врача: «было …» тем же цветом (рост зелёный, падение красный)');
+ok(/<span class="an-cur up">120\s000 ₽<\/span><small class="an-was">было 100\s000 ₽<\/small>/.test(h),'верхняя сумма цветная (зелёная при росте), «было …» нейтральное серое без цвета-класса');
+ok(/<span class="an-cur down">\d+<\/span><small class="an-was">было 50<\/small>/.test(h),'при падении верхняя сумма красная (счетов), «было» серое');
+ok(/an-cur up">4\s210 ₽<\/b>/.test(h)&&/an-wasd">было 3\s898 ₽/.test(h)&&/an-cur down">3\s000 ₽<\/b>/.test(h),'врачи: текущий чек цветной (рост зелёный, падение красный), «было» без цвета-класса');
 ok(h.includes('Выручка')&&h.includes('Счетов')&&h.includes('Средний чек')&&/120\s000 ₽/.test(h)&&h.includes('▲ +20%')&&h.includes('▼ −20%')&&/было 100\s000 ₽/.test(h),'Итог сети: три числа крупно, ▲▼ % рядом, мелко «было …»');
 ok(/<details class="an-br"><summary><b>Маркса<\/b><span class="an-sline">60\s000 ₽ · чек 3\s000 ₽ · /.test(h)&&!/<details class="an-br" open/.test(h),'филиал одной строкой «выручка · чек · %», свёрнут (раскрывается нажатием)');
 ok(h.includes('<b>Перелёта</b><span class="an-sline">нет данных</span>'),'филиал без данных: «нет данных»');
 const docs=h.slice(h.indexOf('Врачи'));
 ok(docs.indexOf('Аристова')<docs.indexOf('Иванов')&&docs.indexOf('Иванов')<docs.indexOf('Новый'),'врачи по росту среднего чека: +8% выше −3,2%, без данных в конце');
-ok(/Аристова<\/b> — чек <b>4\s210 ₽<\/b> <span class="an-pct up">▲ \+8%/.test(h)&&docs.includes('Иванов &lt;b&gt;')&&!docs.includes('Иванов <b>'),'врач одной строкой «Аристова — чек 4 210 ₽ ▲ +8%», имена через esc');
+ok(/Аристова<\/b> — чек <b class="an-cur up">4\s210 ₽<\/b> <span class="an-pct up">▲ \+8%/.test(h)&&docs.includes('Иванов &lt;b&gt;')&&!docs.includes('Иванов <b>'),'врач одной строкой «Аристова — чек 4 210 ₽ ▲ +8%», имена через esc');
 ok(docs.includes('нет данных за прошлый период'),'нет данных для сравнения — серо «нет данных за прошлый период», без процента');
 ok(!/partial|open|alt|block|complete/i.test(h.replace(/class="[^"]*"|data-[a-z]+="[^"]*"/g,'')),'на экране нет технических слов');
 ok(h.includes('Тот же день прошлой недели: 15 ноября')&&h.includes('выручка ▲ +50%'),'мелкая строка: тот же день прошлой недели');
