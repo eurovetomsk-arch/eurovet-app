@@ -21,8 +21,17 @@ L=anLabels(D('week',{from:'2026-11-16',to:'2026-11-22',prev_from:'2026-11-09',pr
 L=anLabels(D('year',{from:'2026-01-01',to:'2026-11-23',prev_from:'2025-01-01',prev_to:'2025-11-23',partial:true}));ok(L.main==='1 января – 23 ноября 2026'&&L.cmp.includes('к тому же отрезку')&&L.cmp.includes('2025'),'год: с 1 января по сегодня против того же отрезка прошлого года');
 // проценты и правило полноты
 ok(anPct(20,true,false).includes('▲ +20,0%')&&anPct(-5.25,true,false).includes('▼ −5,3%')&&anPct(null,false,false).includes('нет полных данных')&&anPct(null,true,false).includes('нет базы')&&anPct(20,true,true).includes('день не закрыт')&&!anPct(20,true,true).includes('20'),'проценты: ▲▼, «нет полных данных», «нет базы», «день не закрыт» без цифры');
+// помесячно и врачи
+const MON=[{month:1,empty:false,from:'2026-01-01',to:'2026-01-31',partial:false,revenue:900000,invoices:300,avg_check:3000,prev_revenue:800000,prev_days:31,revenue_pct:12.5,invoices_pct:5,avg_check_pct:7.1,clinic_complete:true},{month:11,empty:false,from:'2026-11-01',to:'2026-11-23',partial:true,revenue:700000,invoices:210,avg_check:3333,prev_revenue:720000,prev_days:23,revenue_pct:-2.8,invoices_pct:null,avg_check_pct:null,clinic_complete:false},{month:12,empty:true}];
+_rpc=async()=>D('months',{from:'2026-01-01',to:'2026-11-23',prev_from:'2025-01-01',prev_to:'2025-11-23',partial:true,months:MON});AN.period='months';AN.data=null;await loadAnalytics();let mh=analyticsHtml();
+ok(anLabels(AN.data).main==='Помесячно · 2026'&&mh.includes('По месяцам')&&mh.includes('Январь')&&mh.includes('Ноябрь')&&mh.includes('<small>1–23</small>'),'помесячно: заголовок, январь и текущий ноябрь с датой «1–23»');
+ok(/900\s000 ₽/.test(mh)&&/прошлый год 800\s000 ₽/.test(mh)&&mh.includes('▲ +12,5%')&&mh.includes('▼ −2,8%')&&mh.includes('нет полных данных'),'помесячно: выручка, тот же месяц прошлого года, ▲▼ %, неполные данные без ложного процента');
+ok(/Декабрь<\/b><span class="an-ms">ещё не наступил/.test(mh),'декабрь пустой, пока не наступил');
+ok(!mh.includes('Вся сеть')&&mh.includes('Врачи')&&mh.includes('рост среднего чека'),'в помесячном виде: месяцы и врачи с ростом среднего чека');
+ok(/Средний чек <b>3\s000 ₽<\/b> · рост среднего чека <span class="an-pct down">▼ −3,2%/.test(mh),'врач: средний чек и «рост среднего чека» отдельной строкой со знаком');
+ok(AN_PER.map(x=>x[0]).join()==='day,week,month,months,year,custom','виды: день, неделя, месяц, помесячно, год, свой период');
 // экран
-_rpc=async(n,b)=>D('day');await showAnalytics();await tick();let h=analyticsHtml();
+AN.period='day';AN.data=null;calls.length=0;_rpc=async(n,b)=>D('day');await showAnalytics();await tick();let h=analyticsHtml();
 ok(h.includes('Вся сеть')&&h.includes('Маркса')&&h.includes('Клиника')&&h.includes('Аптека')&&h.includes('из отчётов')&&h.includes('Данных за этот период ещё нет'),'сеть, филиалы, клиника и аптека отдельно, филиал без данных');
 ok(h.includes('▲ +20,0%')&&h.includes('▼ −20,0%')&&h.includes('▲ +50,0%'),'проценты по выручке, счетам и среднему чеку');
 ok(h.includes('к тому же дню прошлой недели, 15.11.2026: выручка ▲ +50,0%'),'мелкая строка: к тому же дню прошлой недели');

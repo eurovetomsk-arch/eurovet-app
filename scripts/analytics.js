@@ -5,7 +5,7 @@
    месяц и год — «с начала по вчера» к тем же датам прошлого периода; произвольный период — к такому же отрезку перед ним. Процент только при полных данных обоих отрезков.
    Здесь только показ. */
 const AN={period:'day',anchor:null,custom:null,showCustom:false,data:null,err:null,loading:false};
-const AN_PER=[['day','День'],['week','Неделя'],['month','Месяц'],['year','Год'],['custom','Свой период']];
+const AN_PER=[['day','День'],['week','Неделя'],['month','Месяц'],['months','Помесячно'],['year','Год'],['custom','Свой период']];
 const AN_MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const AN_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const anOmskToday=()=>{try{return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Omsk'}).format(new Date())}catch(e){return new Date().toISOString().slice(0,10)}};
@@ -33,6 +33,7 @@ function anLabels(d){
     else{main=anDM(d.from)+' – '+anDMY(d.to);cmp='к '+anDM(d.prev_from)+' – '+anDMY(d.prev_to)}
   }
   else if(p==='month'){main=anRange(d.from,d.to);cmp='к '+(part?'тем же дням: ':'')+anRange(d.prev_from,d.prev_to);alt='к тем же дням прошлого года: '+anRange(d.alt_from,d.alt_to)}
+  else if(p==='months'){main='Помесячно · '+(anD(d.from)||{}).y;cmp='каждый месяц к тому же месяцу прошлого года (текущий — на ту же дату)'}
   else if(p==='year'){main=anRange(d.from,d.to);cmp='к '+(part?'тому же отрезку: ':'')+anRange(d.prev_from,d.prev_to)}
   else{main=anDMY(d.from)+' – '+anDMY(d.to);cmp='к такому же отрезку перед ним: '+anDMY(d.prev_from)+' – '+anDMY(d.prev_to)}
   return {main,cmp,alt};
@@ -82,7 +83,19 @@ function anBlock(b,title,d){
 function anDoctors(list,d){
   if(!list||!list.length)return '';
   const ok=d.network&&d.network.clinic_complete;
-  return '<div class="card an-card"><h2>Врачи</h2>'+list.map(x=>'<div class="an-doc"><div class="an-dn">'+esc(x.name)+'</div><div class="an-dr"><b>'+anRub(x.revenue)+'</b> '+anPct(x.revenue_pct,ok,d.open)+'</div><div class="an-ds">счетов '+anInt(x.invoices)+' · чек '+anRub(x.avg_check)+' '+anPct(x.avg_check_pct,ok,d.open)+'</div></div>').join('')+'</div>';
+  return '<div class="card an-card"><h2>Врачи</h2>'+list.map(x=>'<div class="an-doc"><div class="an-dn">'+esc(x.name)+'</div><div class="an-dr"><b>'+anRub(x.revenue)+'</b> '+anPct(x.revenue_pct,ok,d.open)+'</div><div class="an-ds">счетов '+anInt(x.invoices)+'</div><div class="an-dc">Средний чек <b>'+anRub(x.avg_check)+'</b> · рост среднего чека '+anPct(x.avg_check_pct,ok,d.open)+'</div></div>').join('')+'</div>';
+}
+/* вид «Помесячно»: 12 месяцев года, у каждого выручка, счета, чек и тот же месяц прошлого года с %; будущие месяцы пустые */
+function anMonths(list,d){
+  if(!list||!list.length)return '';
+  return '<div class="card an-card"><h2>По месяцам</h2>'+list.map(m=>{
+    const name=AN_MON[(m.month||1)-1];
+    if(m.empty)return '<div class="an-mon off"><b>'+name+'</b><span class="an-ms">ещё не наступил</span></div>';
+    const ok=m.clinic_complete,f=anD(m.from),t=anD(m.to);
+    return '<div class="an-mon"><div class="an-mh"><b>'+name+(m.partial?' <small>1–'+t.d+'</small>':'')+'</b>'+anPct(m.revenue_pct,ok,false)+'</div>'
+      +'<div class="an-mr"><span>'+anRub(m.revenue)+'</span><small>прошлый год '+(m.prev_days?anRub(m.prev_revenue):'—')+'</small></div>'
+      +'<div class="an-ms">счетов '+anInt(m.invoices)+' '+anPct(m.invoices_pct,ok,false)+' · чек '+anRub(m.avg_check)+' '+anPct(m.avg_check_pct,ok,false)+'</div></div>';
+  }).join('')+'</div>';
 }
 function analyticsHtml(){
   let h='<button class="md-back" data-anact="home">‹ На главную</button><h1 class="screen-title">Аналитика</h1>';
@@ -96,6 +109,7 @@ function analyticsHtml(){
   if(!d)return h+'<p class="mute">'+(AN.period==='custom'&&!AN.custom?'Выберите две даты.':'Загрузка…')+'</p>';
   const L=anLabels(d),nav=AN.period!=='custom';
   h+='<div class="an-nav">'+(nav?'<button class="chip" data-anact="prev" aria-label="Назад">‹</button>':'<span></span>')+'<div class="an-pl"><b>'+esc(L.main)+'</b>'+(d.open?'<small>день не закрыт, процентов нет</small>':'<small>'+esc(L.cmp)+'</small>')+'</div>'+(nav?'<button class="chip" data-anact="next" aria-label="Вперёд"'+(d.can_next?'':' disabled')+'>›</button>':'<span></span>')+'</div>';
+  if(d.period==='months'){h+=anMonths(d.months,d);h+=anDoctors(d.doctors,d);return h}
   h+=anBlock(d.network,'Вся сеть',d);
   (d.branches||[]).forEach(b=>{h+=anBlock(b,b.title,d)});
   h+=anDoctors(d.doctors,d);
