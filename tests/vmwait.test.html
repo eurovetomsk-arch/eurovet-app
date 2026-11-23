@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><title>RUNNING</title><body><pre id="o"></pre>
+<!-- Тест экрана «Ожидайте сверки» (node на Mac нет). Запуск: chrome-headless-shell --headless --allow-file-access-from-files --virtual-time-budget=5000 --dump-dom file://<путь>/tests/vmwait.test.html | grep -o '<pre id="o">[^<]*' -->
+<script>
+const S={token:'t',view:'done'};let _rpc=async()=>({ok:true});async function rpc(n,b){return _rpc(n,b)}
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),toast=()=>{},paint=()=>{};const BRANCHES=[{id:'marksa',title:'Маркса'}];
+let T=0;Date.now=()=>T;window.setTimeout=(f,ms)=>{T+=ms;Promise.resolve().then(f)};window.setInterval=()=>1;window.clearInterval=()=>{};
+const renders=[];function render(){renders.push(S.view+':'+(S.vmw&&S.vmw.state))}
+</script>
+<script src="../scripts/vmcheck.js"></script>
+<script>
+(async()=>{
+const res=[];const ok=(c,m)=>res.push([!!c,m]);
+const R=(f,verdict,rep,vm,ver)=>({field:f,verdict,report:rep,vm,version:ver==null?3:ver});
+const MOK=[R('total','ok',100,100),R('cash','ok',60,60),R('cashless','no_clinic_activity',0,0)];
+// чистая функция
+ok(vmwEval([],3).state==='wait'&&vmwEval([R('total','ok',1,1)],3).state==='wait','нет всех трёх денежных строк — ждём');
+ok(vmwEval(MOK.map(x=>Object.assign({},x,{version:2})),3).state==='wait','строки старой версии отчёта не считаются — ждём новую');
+ok(vmwEval(MOK,3).state==='green','деньги ok/no_clinic_activity → green');
+ok(vmwEval(MOK.concat([R('fix_normal','ok',2,2)]),3).state==='green','фиксации ok → green');
+const rm=vmwEval([R('total','ok',100,100),R('cash','mismatch',60,40),R('cashless','ok',40,60)],3);ok(rm.state==='red_money'&&rm.rows.length===1&&rm.rows[0].field==='cash','mismatch по деньгам → red_money (только он)');
+const rf=vmwEval(MOK.concat([R('fix_normal','mismatch',1,2)]),3);ok(rf.state==='red_fix'&&rf.rows[0].field==='fix_normal','расхождение только по фиксациям → red_fix');
+ok(vmwEval(MOK.slice(0,2).concat([R('cashless','no_data',null,null)]),3).state==='yellow','no_data по деньгам (Vetmanager не ответил) → yellow');
+ok(vmwEval([R('total','mismatch',1,2),R('cash','ok',1,1),R('cashless','ok',1,1),R('fix_xray','mismatch',0,1)],3).rows.length===2,'деньги mismatch + фиксация: в красном и деньги, и фиксация');
+// сценарии с опросом
+async function run(rowsSeq,reqRes,reqErr){
+  T=0;renders.length=0;S.view='done';S.vmw=null;let i=0,calls=[];
+  _rpc=async(n,b)=>{calls.push(n);if(n==='ev_vm_check_request'){if(reqErr)throw reqErr;return reqRes||{ok:true,queued:true}}
+    if(n==='ev_vm_check_status'){const rows=rowsSeq[Math.min(i++,rowsSeq.length-1)];return{ok:true,rows}}return{ok:true}};
+  await vmwStart('marksa','2026-11-23',3);await new Promise(r=>setTimeout(r,0));return{calls,t:T};
+}
+// 1. зелёный: сначала пусто, потом ответ
+let o=await run([[],[],MOK]);
+ok(S.vmw.state==='green'&&S.view==='vmw'&&renders[0]==='vmw:wait'&&o.calls.filter(c=>c==='ev_vm_check_status').length===3,'зелёный: экран ожидания → опрос раз в 5 с → green');
+let h=vmwHtml();ok(h.includes('Сверено с Vetmanager. Можно идти домой')&&h.includes('data-act="vmwhome"')&&!h.includes('vmwfix'),'зелёный экран: надпись и кнопка «На главную»');
+// 2. красный по деньгам
+o=await run([[R('total','ok',100,100),R('cash','mismatch',60,40.5),R('cashless','ok',40,59.5)]]);
+h=vmwHtml();ok(S.vmw.state==='red_money'&&h.includes('Наличные клиники')&&/в отчёте 60,00\s₽/i.test(h.replace('В отчёте','в отчёте'))&&/в Vetmanager 40,50\s₽/i.test(h)&&h.includes('Исправить отчёт')&&h.includes('data-act="vmwfix"')&&!h.includes('vmwhome'),'красный по деньгам: поле, «в отчёте X ₽, в Vetmanager Y ₽», «Исправить отчёт», без выхода домой');
+// 3. красный по фиксации
+o=await run([MOK.concat([R('fix_normal','mismatch',1,2)])]);
+h=vmwHtml();ok(S.vmw.state==='red_fix'&&h.includes('Фиксации не сошлись')&&h.includes('1 шт.')&&h.includes('Деньги совпали')&&h.includes('data-act="vmwhome"')&&!h.includes('vmwfix'),'красный по фиксации: красным, но домой отпускает');
+// 4. жёлтый по таймауту 3 минуты
+o=await run([[]]);
+h=vmwHtml();ok(S.vmw.state==='yellow'&&o.t>=180000&&o.t<=200000&&h.includes('Сверка не ответила. Руководитель увидит в Контроле')&&h.includes('data-act="vmwhome"'),'жёлтый: нет ответа 3 минуты → «Сверка не ответила», выход разрешён');
+// ошибка Vetmanager
+o=await run([MOK.slice(0,2).concat([R('cashless','no_data',null,null)])]);ok(S.vmw.state==='yellow','ошибка Vetmanager (no_data) → жёлтый');
+// офлайн
+o=await run([[]],null,{net:true});h=vmwHtml();ok(S.vmw.state==='offline'&&h.includes('Сверка будет после связи')&&JSON.parse(localStorage.getItem('ev_vmq')||'[]').some(x=>x.branch==='marksa'),'офлайн: «Сверка будет после связи», проверка поставлена в очередь');
+// филиал без сверки: возврат на прежний экран
+o=await run([[]],{ok:false,error:'branch'});ok(S.view==='done'&&S.vmw===null,'филиал без сверки (ошибка branch): прежний экран «Отчёт принят»');
+// ожидание: нет кнопок выхода
+S.vmw={branch:'marksa',date:'2026-11-23',version:3,t0:Date.now(),state:'wait',rows:[]};h=vmwHtml();ok(h.includes('Ожидайте сверки финансовых данных')&&h.includes('vmw-blink')&&h.includes('id="vmwsec"')&&!/<button/.test(h),'ожидание: мигающая надпись, счётчик секунд, ни одной кнопки');
+document.getElementById('o').textContent='RESULT '+(res.every(r=>r[0])?'PASS':'FAIL')+' '+res.filter(r=>!r[0]).map(r=>r[1]).join(' | ')+' '+res.filter(r=>r[0]).length+'/'+res.length;document.title='DONE';
+})();
+</script>

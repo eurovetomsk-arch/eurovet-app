@@ -108,3 +108,60 @@ document.addEventListener('click',async ev=>{
     catch(e){toast(e.net?'Нет связи':'Ошибка сервера')}
   }
 });
+
+/* ====== Экран «Ожидайте сверки» после сдачи отчёта (ТЗ 23.11) ======
+   Клиент только читает итог К1 по ТЕКУЩЕЙ версии отчёта (ev_vm_check_status, раз в 5 с, до 3 минут). Расчёт К1, деньги и права не меняются.
+   Исходы: green (деньги ok/no_clinic_activity, фиксации ok) → можно домой; red_money (mismatch по деньгам) → «Исправить отчёт»; red_fix (расхождение только по фиксациям) → красным, домой можно;
+   yellow (нет ответа 3 минуты или Vetmanager не ответил) → «Руководитель увидит в Контроле», выход разрешён; offline (нет связи) → «Сверка будет после связи». Закрыть экран кнопкой нельзя, пока идёт ожидание. */
+const VMW_POLL=5000,VMW_TIMEOUT=180000,VMW_MONEY=['total','cash','cashless'];
+let vmwTick=null;
+function vmwEval(rows,version){
+  const cur=(rows||[]).filter(r=>Number(r.version||0)>=Number(version||0));
+  const by={};cur.forEach(r=>{by[r.field]=r});
+  if(!VMW_MONEY.every(f=>by[f]))return{state:'wait',rows:[]};
+  const money=VMW_MONEY.map(f=>by[f]),fixes=cur.filter(r=>vmcIsFix(r.field));
+  const mm=money.filter(r=>r.verdict==='mismatch');
+  if(mm.length)return{state:'red_money',rows:mm.concat(fixes.filter(r=>r.verdict==='mismatch'))};
+  if(money.some(r=>r.verdict==='no_data'))return{state:'yellow',rows:money.filter(r=>r.verdict==='no_data')};
+  if(!money.every(r=>r.verdict==='ok'||r.verdict==='no_clinic_activity'))return{state:'wait',rows:[]};
+  const fm=fixes.filter(r=>r.verdict==='mismatch');
+  return fm.length?{state:'red_fix',rows:fm}:{state:'green',rows:[]};
+}
+function vmwLine(r){
+  if(vmcIsFix(r.field))return'<b>'+esc(vmcLabel(r.field))+'.</b> В отчёте '+vmcVal(r.field,r.report)+', в Vetmanager '+vmcVal(r.field,r.vm)+' — '+vmcFixNote(r.report,r.vm)+'.';
+  return'<b>'+esc(vmcLabel(r.field))+'.</b> В отчёте '+vmcRub(r.report)+', в Vetmanager '+vmcRub(r.vm)+'.';
+}
+function vmwHtml(){
+  const w=S.vmw;if(!w)return'';
+  const home='<button class="btn" data-act="vmwhome">На главную</button>';
+  if(w.state==='wait')return'<div class="card vmw"><h2 class="vmw-blink">Ожидайте сверки финансовых данных</h2><p class="hint">Прошло <b id="vmwsec">'+Math.floor((Date.now()-w.t0)/1000)+'</b> с. Не закрывайте приложение: сверка с Vetmanager занимает до минуты.</p></div>';
+  if(w.state==='green')return'<div class="card vmw"><div class="chk ok"><i>✓</i><div><b>Сверено с Vetmanager. Можно идти домой</b><br><small>'+esc(vmcBranch(w.branch))+' · '+esc(vmcDate(w.date))+'</small></div></div>'+home+'</div>';
+  if(w.state==='red_money')return'<div class="card vmw"><div class="chk bad"><i>!</i><div><b>Деньги не сошлись с Vetmanager</b><br>'+w.rows.map(vmwLine).join('<br>')+'</div></div>'
+    +'<button class="btn" data-act="vmwfix" data-branch="'+esc(w.branch)+'">Исправить отчёт</button></div>';
+  if(w.state==='red_fix')return'<div class="card vmw"><div class="chk bad"><i>!</i><div><b>Фиксации не сошлись с Vetmanager</b><br>'+w.rows.map(vmwLine).join('<br>')+'<br><small>Деньги совпали. Руководитель увидит это в «Контроле».</small></div></div>'+home+'</div>';
+  if(w.state==='offline')return'<div class="card vmw"><div class="chk warn"><i>…</i><div><b>Сверка будет после связи</b><br><small>Отчёт сохранён. Проверка Vetmanager пройдёт, когда появится интернет.</small></div></div>'+home+'</div>';
+  return'<div class="card vmw"><div class="chk warn"><i>!</i><div><b>Сверка не ответила. Руководитель увидит в Контроле</b></div></div>'+home+'</div>';
+}
+function vmwSet(w,state,rows){if(S.vmw!==w)return;w.state=state;w.rows=rows||[];if(vmwTick){clearInterval(vmwTick);vmwTick=null}if(S.view==='vmw')render()}
+async function vmwStart(branch,date,version){
+  const w=S.vmw={branch,date,version:Number(version)||0,t0:Date.now(),state:'wait',rows:[]};
+  S.view='vmw';render();
+  if(vmwTick)clearInterval(vmwTick);
+  vmwTick=setInterval(()=>{const e=document.getElementById('vmwsec');if(e)e.textContent=String(Math.floor((Date.now()-w.t0)/1000))},1000);
+  let q=false;
+  try{const r=await rpc('ev_vm_check_request',{p_token:S.token,p_branch:branch,p_date:date},10000);
+    if(!r||!r.ok){S.vmw=null;if(vmwTick){clearInterval(vmwTick);vmwTick=null}S.view='done';render();return}   /* филиал без сверки: прежний экран «Отчёт принят» */
+    q=!!r.queued}
+  catch(e){if(e.net){const a=vmcQ();if(!a.some(x=>x.branch===branch&&x.date===date)){a.push({branch,date});vmcQSave(a)}vmwSet(w,'offline');return}
+    vmwSet(w,'yellow');return}
+  if(!q){vmwSet(w,'yellow');return}
+  while(S.vmw===w&&w.state==='wait'){
+    const rows=await vmcStatus(branch,date,w.version);
+    if(S.vmw!==w)return;
+    const ev=vmwEval(rows,w.version);
+    if(ev.state!=='wait'){vmwSet(w,ev.state,ev.rows);return}
+    if(Date.now()-w.t0>=VMW_TIMEOUT){vmwSet(w,'yellow');return}
+    await new Promise(r=>setTimeout(r,VMW_POLL));
+    if(Date.now()-w.t0>=VMW_TIMEOUT&&S.vmw===w&&w.state==='wait'){vmwSet(w,'yellow');return}
+  }
+}

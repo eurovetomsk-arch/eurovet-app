@@ -135,7 +135,8 @@ async function flush(auto){
       if(!S.online){S.online=true;setHeader()}
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
-        try{vmcAfterSubmit(it.branch,it.date,Number(res.version)||0)}catch(e){}
+        if(S.done&&S.done.uid===it.uid&&typeof vmwStart==='function'){vmwStart(it.branch,it.date,Number(res.version)||0)}   /* 2.0: экран «Ожидайте сверки» */
+        else{try{vmcAfterSubmit(it.branch,it.date,Number(res.version)||0)}catch(e){}}
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
       }else if(res.error==='session'){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
@@ -439,6 +440,7 @@ function viewDone(){
   }else{
     h+='<div class="chk warn"><i>!</i><div>Пока не отправлен'+((S.online&&st!=='offline')?' (идёт отправка…)':' — нет связи с сервером. Отправится сам, когда появится интернет (проверка каждые 8 секунд). Не очищайте данные браузера.')+'</div></div>';
   }
+  if(!d.sent&&!needR&&(st==='offline'||!S.online))h+='<div class="chk warn"><i>…</i><div>Сверка будет после связи.</div></div>';
   if(!d.sent&&!needR)h+='<button class="btn" data-act="flush" style="margin:8px 0 0">Отправить сейчас</button>';
   h+='<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button>';
   h+='<button class="btn" data-act="newrep">Готово</button></div>';

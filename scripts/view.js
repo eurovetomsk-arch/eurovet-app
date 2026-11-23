@@ -43,6 +43,7 @@ function render(){
   else if(S.view==='branch')app.innerHTML=viewBranch();
   else if(S.view==='form'){app.innerHTML=viewForm();bar.innerHTML=viewBar();if(!S.nosub)updateChecks();roLock()}
   else if(S.view==='done')app.innerHTML=viewDone();
+  else if(S.view==='vmw')app.innerHTML=vmwHtml();
   else if(S.view==='help')app.innerHTML=viewHelp();
   else if(S.view==='ctl')app.innerHTML=ctlHtml();
   else if(S.view==='rev')app.innerHTML=revHtml()+revDoctorsHtml();
@@ -637,6 +638,8 @@ document.addEventListener('click',async e=>{
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'drophq':{const it=S.handoverQueue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать неотправленную приёмку кассы из очереди?'))break;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==d.id);saveHandoverQueue();showQueue();render();break}
+    case'vmwfix':{S.vmw=null;S.done=null;S.form=null;openBranch(d.branch);break}
+    case'vmwhome':S.vmw=null;
     case'newrep':S.done=null;S.form=null;S.view='branch';S.date=omskToday();S.dateManual=false;if(!isHead()&&!S.queue.length&&!S.handoverQueue.length){logout();break}render();break; // 1.65: после сданного отчёта админ выходит сам
     case'menu':showMenu();break;
     case'schappt':{const s=schEnsure();s.apptDay=d.d;if(apptAllowed()&&apptInWindow(d.d)&&APPT.status==='idle')loadAppointments();else paint();break}
