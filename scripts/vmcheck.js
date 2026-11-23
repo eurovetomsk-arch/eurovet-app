@@ -5,7 +5,11 @@
    Вердикт считает сервер (жёсткое правило, порог 10 ₽). Здесь только показ. Токен Vetmanager в клиент не попадает. */
 const VMC={flags:null,err:null,loading:false,acc:null,info:null};
 const VMC_FIELD={total:'Вал клиники',cash:'Наличные клиники',cashless:'Безнал клиники',fix_normal:'Фиксация животного (обычная)',fix_xray:'Фиксация на R-снимке'};
-const vmcLabel=f=>VMC_FIELD[f]||String(f||'');
+const vmcIsDoc=f=>/^doctor:\d+$/.test(String(f||''));
+/* К3: расхождение по врачу (основа зарплаты). reason = «Фамилия — причина» */
+const vmcDocName=r=>String(r||'').split(' — ')[0]||'врач';
+const vmcDocWhy=r=>String(r||'').split(' — ').slice(1).join(' — ');
+const vmcLabel=f=>vmcIsDoc(f)?'Зарплатная база':(VMC_FIELD[f]||String(f||''));
 const vmcIsFix=f=>String(f||'').startsWith('fix_');
 /* пояснение к расхождению фиксаций: report — в отчёте, vm — в счетах Vetmanager */
 const vmcFixNote=(rep,vm)=>Number(rep)<Number(vm)?(Number(rep)===0?'в счёте есть фиксация, в отчёте её нет':'в счетах фиксаций больше, чем в отчёте'):'в отчёте больше, чем в счетах';
@@ -88,7 +92,7 @@ function vmFlagsHtml(){
 function vmVmHtml(){
   if(VMC.err)return '<div class="card"><p class="hint">'+esc(VMC.err)+'</p></div>';
   const f=VMC.flags;if(!f||!f.length)return '';
-  return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(vmcLabel(x.field))+'</b><br>'
+  return '<div class="card vmc-flags"><h2>Сверка с Vetmanager</h2>'+f.map(x=>vmcIsDoc(x.field)?'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · Зарплатная база</b><br>Врач '+esc(vmcDocName(x.reason))+', разница '+vmcRub(Math.abs(Number(x.diff||0)))+(vmcDocWhy(x.reason)?'<br><small>'+esc(vmcDocWhy(x.reason))+'</small>':'')+'<br><button class="btn sec small" data-vmact="resolve" data-id="'+Number(x.id)+'">Решить с причиной</button></div></div>':'<div class="chk bad"><i>!</i><div><b>'+esc(vmcBranch(x.branch))+' · '+esc(vmcDate(x.date))+' · '+esc(vmcLabel(x.field))+'</b><br>'
     +(x.verdict==='mismatch'?(vmcIsFix(x.field)?'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+' — '+vmcFixNote(x.report,x.vm):'В отчёте '+vmcVal(x.field,x.report)+', в Vetmanager '+vmcVal(x.field,x.vm)+', разница '+vmcVal(x.field,x.diff))+(x.reason?'<br>'+esc(x.reason):''):'Не удалось сверить: '+esc(x.reason||'нет данных'))
     +'<br><button class="btn sec small" data-vmact="resolve" data-id="'+Number(x.id)+'">Решить с причиной</button></div></div>').join('')+'</div>';
 }
@@ -120,14 +124,15 @@ function vmwEval(rows,version){
   const by={};cur.forEach(r=>{by[r.field]=r});
   if(!VMW_MONEY.every(f=>by[f]))return{state:'wait',rows:[]};
   const money=VMW_MONEY.map(f=>by[f]),fixes=cur.filter(r=>vmcIsFix(r.field));
-  const mm=money.filter(r=>r.verdict==='mismatch');
-  if(mm.length)return{state:'red_money',rows:mm.concat(fixes.filter(r=>r.verdict==='mismatch'))};
+  const mm=money.filter(r=>r.verdict==='mismatch'),dm=cur.filter(r=>vmcIsDoc(r.field)&&r.verdict==='mismatch');
+  if(mm.length||dm.length)return{state:'red_money',rows:mm.concat(dm,fixes.filter(r=>r.verdict==='mismatch'))};   /* К3: расхождение по врачу — красное как по деньгам */
   if(money.some(r=>r.verdict==='no_data'))return{state:'yellow',rows:money.filter(r=>r.verdict==='no_data')};
   if(!money.every(r=>r.verdict==='ok'||r.verdict==='no_clinic_activity'))return{state:'wait',rows:[]};
   const fm=fixes.filter(r=>r.verdict==='mismatch');
   return fm.length?{state:'red_fix',rows:fm}:{state:'green',rows:[]};
 }
 function vmwLine(r){
+  if(vmcIsDoc(r.field))return'<b>Врач '+esc(vmcDocName(r.reason))+':</b> в отчёте '+vmcRub(r.report||0)+', в Vetmanager '+vmcRub(r.vm||0)+'.'+(vmcDocWhy(r.reason)?' <small>'+esc(vmcDocWhy(r.reason))+'.</small>':'');
   if(vmcIsFix(r.field))return'<b>'+esc(vmcLabel(r.field))+'.</b> В отчёте '+vmcVal(r.field,r.report)+', в Vetmanager '+vmcVal(r.field,r.vm)+' — '+vmcFixNote(r.report,r.vm)+'.';
   return'<b>'+esc(vmcLabel(r.field))+'.</b> В отчёте '+vmcRub(r.report)+', в Vetmanager '+vmcRub(r.vm)+'.';
 }
@@ -137,6 +142,7 @@ function vmwHtml(){
   if(w.state==='wait')return'<div class="card vmw"><h2 class="vmw-blink">Ожидайте сверки финансовых данных</h2><p class="hint">Прошло <b id="vmwsec">'+Math.floor((Date.now()-w.t0)/1000)+'</b> с. Не закрывайте приложение: сверка с Vetmanager занимает до минуты.</p></div>';
   if(w.state==='green')return'<div class="card vmw"><div class="chk ok"><i>✓</i><div><b>Сверено с Vetmanager. Можно идти домой</b><br><small>'+esc(vmcBranch(w.branch))+' · '+esc(vmcDate(w.date))+'</small></div></div>'+home+'</div>';
   if(w.state==='red_money')return'<div class="card vmw"><div class="chk bad"><i>!</i><div><b>Деньги не сошлись с Vetmanager</b><br>'+w.rows.map(vmwLine).join('<br>')+'</div></div>'
+    +(w.rows.some(r=>vmcIsDoc(r.field))?'<p class="hint">В Vetmanager врач выбирается в шапке счёта — проверь, кто указан.</p>':'')
     +'<button class="btn" data-act="vmwfix" data-branch="'+esc(w.branch)+'">Исправить отчёт</button></div>';
   if(w.state==='red_fix')return'<div class="card vmw"><div class="chk bad"><i>!</i><div><b>Фиксации не сошлись с Vetmanager</b><br>'+w.rows.map(vmwLine).join('<br>')+'<br><small>Деньги совпали. Руководитель увидит это в «Контроле».</small></div></div>'+home+'</div>';
   if(w.state==='offline')return'<div class="card vmw"><div class="chk warn"><i>…</i><div><b>Сверка будет после связи</b><br><small>Отчёт сохранён. Проверка Vetmanager пройдёт, когда появится интернет.</small></div></div>'+home+'</div>';
