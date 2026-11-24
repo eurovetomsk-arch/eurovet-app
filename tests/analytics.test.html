@@ -18,6 +18,7 @@ ok(anTitle(D('week',{from:'2026-11-16',to:'2026-11-22',prev_from:'2026-11-09',pr
 ok(anTitle(D('week',{from:'2026-11-09',to:'2026-11-15',prev_from:'2026-11-02',prev_to:'2026-11-08',closed_through:'2026-11-22'})).startsWith('Неделя 9–15 ноября против'),'другая неделя: «Неделя …»');
 ok(anTitle(D('week',{from:'2026-11-23',to:'2026-11-25',prev_from:'2026-11-16',prev_to:'2026-11-18',partial:true,closed_through:'2026-11-25'})).startsWith('Эта неделя, 23–25 ноября, против тех же дней прошлой недели'),'текущая неделя: «Эта неделя … против тех же дней прошлой недели»');
 ok(anTitle(D('month',{from:'2026-11-01',to:'2026-11-23',prev_from:'2026-10-01',prev_to:'2026-10-23',partial:true}))==='Ноябрь, 1–23 ноября, против тех же дней: 1–23 октября','месяц: «Ноябрь, 1–23 ноября, против тех же дней: 1–23 октября»');
+ok(anCurLab({period:'month',from:'2025-10-01',to:'2025-10-31',closed_through:'2026-11-23'})==='Октябрь'&&anCurLab({period:'month',from:'2026-11-01',to:'2026-11-23',partial:true,closed_through:'2026-11-23'})==='Сейчас'&&anCurLab({period:'year',from:'2025-01-01',to:'2025-12-31',closed_through:'2026-11-23'})==='2025 год','L35: «Сейчас» только у текущего периода, прошлый — по имени');
 ok(anShort('2026-11-01','2026-11-23')==='1–23 нояб 2026'&&anShort('2026-01-01','2026-11-23')==='1 янв – 23 нояб 2026'&&anShort('2025-12-29','2026-01-04')==='29 дек 2025 – 4 янв 2026'&&anShort('2026-11-22','2026-11-22')==='22 нояб 2026','L35: короткие подписи периодов');
 ok(anTitle(D('year',{from:'2026-01-01',to:'2026-11-23',prev_from:'2025-01-01',prev_to:'2025-11-23',partial:true}))==='2026 год, 1 января – 23 ноября, против того же отрезка 2025','год: с 1 января против того же отрезка прошлого года');
 ok(anTitle(D('months',{from:'2026-01-01',to:'2026-11-23'}))==='По месяцам 2026 года против тех же месяцев 2025','помесячно: подпись');
@@ -27,7 +28,7 @@ _rpc=async()=>D('day');AN.period='day';AN.data=null;calls.length=0;await showAna
 ok(h.indexOf('Итог сети')<h.indexOf('Филиалы')&&h.indexOf('Филиалы')<h.indexOf('Врачи'),'порядок: Итог сети → Филиалы → Врачи');
 const NB='[\\s\\u202f\\u00a0]';const R=s=>new RegExp(s.replace(/ /g,NB));
 ok(R('Сейчас <small>\\(22 нояб 2026\\)</small></span><span class="an-lv">120 000 ₽</span>').test(h)&&R('Днём раньше <small>\\(21 нояб 2026\\)</small></span><span class="an-lv">100 000 ₽</span><span class="an-pct up">▲ \\+20%').test(h)&&R('Неделю назад <small>\\(15 нояб 2026\\)</small></span><span class="an-lv">80 000 ₽</span><span class="an-pct up">▲ \\+50%').test(h),'L35 день: «Сейчас / Днём раньше / Неделю назад», у каждой цифры подпись периода, % у строки сравнения');
-ok(!h.includes('an-alt')&&!h.includes('было '+'1')&&!/было 100/.test(h),'L35: серой плашки и «было …» в итоге сети нет');
+ok(!h.includes('an-alt')&&!h.slice(h.indexOf('Итог сети'),h.indexOf('Филиалы')).includes('было'),'L35: серой плашки и «было …» в итоге сети нет');
 ok(/an-cur up">4\s210 ₽<\/b>/.test(h)&&/an-wasd">было 3\s898 ₽/.test(h)&&/an-cur down">3\s000 ₽<\/b>/.test(h),'врачи: текущий чек цветной (рост зелёный, падение красный), «было» без цвета-класса');
 ok(h.includes('Выручка')&&h.includes('Счетов')&&h.includes('Средний чек')&&h.includes('Аптека <small>по отчётам</small>')&&R('Счетов</div><div class="an-l now"><span class="an-lp">Сейчас <small>\\(22 нояб 2026\\)</small></span><span class="an-lv">40</span>').test(h)&&h.includes('▼ −20%'),'Итог сети: выручка, счета, средний чек, аптека — по три строки');
 ok(/Аптека <small>по отчётам<\/small><\/div><div class="an-l now">.*?Днём раньше <small>\(21 нояб 2026\)<\/small><\/span><span class="an-lv"><span class="an-na">нет данных<\/span><\/span><\/div>/.test(h),'нет данных для сравнения (аптека неполная) — «нет данных», без процента');
@@ -40,6 +41,7 @@ ok(/Аптека <small>по отчётам<\/small><\/div><div class="an-l now"
  ok(o.includes('<span class="an-na">день не закрыт</span>')&&!/an-l"><span class="an-lp">Днём раньше[^]*?an-pct (up|down)/.test(o.slice(o.indexOf('Итог сети'),o.indexOf('Филиалы'))),'L35 день не закрыт: сравнения без цифр и процентов');}
 _rpc=async()=>D('day');AN.period='day';AN.data=null;await showAnalytics();await tick();h=analyticsHtml();
 ok(/<details class="an-br"><summary><b>Маркса<\/b><span class="an-sline">60\s000 ₽ · чек 3\s000 ₽ · /.test(h)&&!/<details class="an-br" open/.test(h),'филиал одной строкой «выручка · чек · %», свёрнут (раскрывается нажатием)');
+ok(h.includes('<small class="an-vs">к «Днём раньше»</small>'),'L35: в свёрнутой строке филиала сказано, к чему процент');
 ok(h.includes('<b>Перелёта</b><span class="an-sline">нет данных</span>'),'филиал без данных: «нет данных»');
 const docs=h.slice(h.indexOf('Врачи'));
 ok(docs.indexOf('Аристова')<docs.indexOf('Иванов')&&docs.indexOf('Иванов')<docs.indexOf('Новый'),'врачи по росту среднего чека: +8% выше −3,2%, без данных в конце');

@@ -98,10 +98,16 @@ function anCmpRows(d){
 function anLine(lab,range,val,pctHtml,cls){
   return '<div class="an-l'+(cls?' '+cls:'')+'"><span class="an-lp">'+esc(lab)+(range?' <small>('+esc(range)+')</small>':'')+'</span><span class="an-lv">'+val+'</span>'+(pctHtml||'')+'</div>';
 }
+/* подпись текущего периода: «Сейчас», если он доходит до последнего закрытого дня (или открыт); иначе — имя периода */
+function anCurLab(d){
+  if(d.open||d.partial||!d.closed_through||d.to===d.closed_through)return 'Сейчас';
+  const f=anD(d.from);
+  return d.period==='month'?AN_MON[f.m-1]:d.period==='year'||d.period==='months'?f.y+' год':d.period==='day'?'День':d.period==='week'?'Неделя':'Период';
+}
 /* один показатель: заголовок и строки «Сейчас / прошлый период / год назад» */
 function anMetric(label,key,fmt,b,d){
   const o=!!d.open;
-  let h='<div class="an-k"><div class="an-kh">'+label+'</div>'+anLine('Сейчас',anShort(d.from,d.to),b[key]==null?'нет данных':fmt(b[key]),'','now');
+  let h='<div class="an-k"><div class="an-kh">'+label+'</div>'+anLine(anCurLab(d),anShort(d.from,d.to),b[key]==null?'нет данных':fmt(b[key]),'','now');
   anCmpRows(d).forEach(r=>{
     const src=r.src==='alt'?b.alt:b,pct=src?src[key+'_pct']:null,pv=src?src['prev_'+key]:null;
     if(o)h+=anLine(r.lab,anShort(r.from,r.to),'<span class="an-na">день не закрыт</span>','');
@@ -125,7 +131,7 @@ function anSummary(b,d){
 function anBranch(b,d){
   const o=!!d.open;
   if(!anHasData(b))return '<details class="an-br"><summary><b>'+esc(b.title)+'</b><span class="an-sline">нет данных</span></summary></details>';
-  const line=anRub(b.revenue)+' · чек '+(b.avg_check!=null?anRub(b.avg_check):'—')+' · '+(o?'<span class="an-pct na">день не закрыт</span>':anPct(b.revenue_pct,false));
+  const line=anRub(b.revenue)+' · чек '+(b.avg_check!=null?anRub(b.avg_check):'—')+' · '+(o?'<span class="an-pct na">день не закрыт</span>':'<small class="an-vs">к «'+esc(anCmpRows(d)[0].lab)+'»</small> '+anPct(b.revenue_pct,false));
   return '<details class="an-br"><summary><b>'+esc(b.title)+'</b><span class="an-sline">'+line+'</span></summary><div class="an-brd">'+anMetrics(b,d)+'</div></details>';
 }
 /* врачи: одна строка на каждого «Имя — чек X ▲ +8%», по росту среднего чека; в «Месяц», «Год», «Помесячно» и «Свой период» свёрнуты под «Врачи» */
