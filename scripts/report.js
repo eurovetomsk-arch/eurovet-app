@@ -14,7 +14,8 @@ function headFix(){
   S.roHead=false;S.headFix=true;S.formErrors=[];
   /* черновик правки берём, только если он моложе сданной версии; иначе он сделан по старой версии — выбрасываем */
   let d=LS.get(draftKey());const sub=Date.parse(S.ctx.current.submitted_at||'')||0;
-  if(d&&!(d.ts>sub)){LS.del(draftKey());d=null}
+  if(d&&d.sent)d=null; // L34: копия отправленной правки (ждёт ответа сервера) — запасная, в форму не подставляется
+  else if(d&&!(d.ts>sub)){LS.del(draftKey());d=null}
   if(d&&d.form){S.form=Object.assign(emptyForm(),d.form);S.draftTs=d.ts||Date.now()}
   else{S.form=formFromReport(S.ctx.current.data);S.draftTs=null}
   render();
