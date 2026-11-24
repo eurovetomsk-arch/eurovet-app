@@ -207,7 +207,7 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .sch-grp{font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:12px 0 2px}
 /* c13: просмотр сданного отчёта руководителем — только чтение */
 #app.ro input,#app.ro select,#app.ro textarea{opacity:.85}
-#app.ro button[data-act]:not([data-act="back"]):not([data-act="tochecks"]):not([data-act="flagdet"]){display:none}
+#app.ro button[data-act]:not([data-act="back"]):not([data-act="headfix"]):not([data-act="tochecks"]):not([data-act="flagdet"]){display:none}
 
 /* c20: Контроль — «Принять всё» */
 .ctl-all{width:100%;margin:10px 0 2px}.ctl-done{margin-top:16px}.ctl-done summary{cursor:pointer;font-weight:700;padding:8px 0}

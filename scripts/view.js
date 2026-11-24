@@ -610,7 +610,7 @@ document.addEventListener('click',async e=>{
       break}
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
     case'reloadctx':openBranch(S.branch);break;
-    case'back':closeOv();saveDraftNow();S.view='branch';S.form=null;S.roHead=false;S.nosub=false;S.subAdmin=false;render();break;
+    case'back':closeOv();saveDraftNow();S.view='branch';S.form=null;S.roHead=false;S.headFix=false;S.nosub=false;S.subAdmin=false;render();break;
     case'ccopen':closeOv();showCC();break;
     case'ccper':showCC(d.from,d.to);break;
     case'ccmark':ccMarkAsk(d.dt,d.on==='1');break;
@@ -637,6 +637,7 @@ document.addEventListener('click',async e=>{
     case'assistantnone':S.form.no_assistant=true;saveDraft();closeOv();await submit();break;
     case'assistantadd':closeOv();setTimeout(()=>{const e=document.querySelector('.k-assist');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);break;
     case'copy':if(S.done)clip(S.done.summary);break;
+    case'headfix':headFix();break; /* L34a */
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'drophq':{const it=S.handoverQueue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать неотправленную приёмку кассы из очереди?'))break;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==d.id);saveHandoverQueue();showQueue();render();break}
@@ -667,8 +668,7 @@ document.addEventListener('click',async e=>{
       overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
     case'logout':closeOv();if((S.queue.length||S.handoverQueue.length)&&!confirm('Есть неотправленные данные. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
     case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')&&!S.handoverQueue.length){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});closeOv();kick();break;
-    case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim();if(v.length<3){toast('Напишите причину');break}
-      const it=S.queue.find(x=>x.uid===d.id);if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
+    case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim(),it=S.queue.find(x=>x.uid===d.id),mn=(it&&it.minLen)||3;if(v.length<mn){toast(mn>3?'Причина — не короче '+mn+' знаков':'Напишите причину');break}if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
     case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='vac')showVac();else if(v==='med')showMed();else if(v==='an')showAnalytics();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay()}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay()}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;

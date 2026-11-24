@@ -132,7 +132,7 @@ function handoverCorrectGo(eventId){
 async function openBranch(id,opts){
   closeOv();
   const asAdmin=!!(opts&&opts.asAdmin),headView=isHead()&&!asAdmin;
-  S.roHead=false;S.nosub=false;S.nosubInfo=null;S.subAdmin=asAdmin;
+  S.roHead=false;S.headFix=false;S.nosub=false;S.nosubInfo=null;S.subAdmin=asAdmin;
   if(!isHead()){S.date=omskToday();S.dateManual=false;}
   S.branch=id;S.busy=true;render();
   let ctx=null;S.ctxOffline=false;

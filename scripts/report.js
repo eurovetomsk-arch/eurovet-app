@@ -2,7 +2,20 @@
 /* ====== Форма ====== */
 const emptyForm=()=>({admins:{},doctors:{},others:[],total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
   open:'',expenses:[],close:'',assistants:{},no_assistant:false,note:'',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''});
-const draftKey=()=>'ev_draft2:'+(S.person?S.person.id:0)+':'+S.branch+':'+S.date;
+/* L34a: черновик правки руководителя — отдельный ключ (буква h), не смешивается с черновиком админа на том же телефоне */
+const draftKey=()=>'ev_draft2:'+(S.headFix?'h':'')+(S.person?S.person.id:0)+':'+S.branch+':'+S.date;
+const HEAD_REASON_MIN=15; // сервер: руководитель после окна — причина от 15 знаков
+const corrMin=()=>S.headFix?HEAD_REASON_MIN:3;
+/* L34a: «Исправить отчёт» — руководитель открывает сданную версию в обычной форме */
+function headFix(){
+  if(!isHead()||!S.ctx||!S.ctx.current)return;
+  S.roHead=false;S.headFix=true;S.formErrors=[];
+  const d=LS.get(draftKey());
+  if(d&&d.form){S.form=Object.assign(emptyForm(),d.form);S.draftTs=d.ts||Date.now()}
+  else{S.form=formFromReport(S.ctx.current.data);S.draftTs=null}
+  render();
+  setTimeout(()=>{const e=document.querySelector('[data-p="corr_reason"]');if(e)e.scrollIntoView({behavior:'smooth',block:'center'})},0);
+}
 let draftT;
 function freshForm(){
   const f=emptyForm(),ctx=S.ctx;
@@ -82,7 +95,7 @@ function validate(){
   const calc=compute();
   const red=calc.checks.filter(c=>c.ready&&!c.ok);
   if(red.length&&!f.diff_reason.trim())errs.push('Есть расхождения — напишите причину внизу формы');
-  if(S.ctx.current&&f.corr_reason.trim().length<3)errs.push('Отчёт уже сдан — укажите причину исправления');
+  if(S.ctx.current&&f.corr_reason.trim().length<corrMin())errs.push(S.headFix?'Причина исправления — не короче '+HEAD_REASON_MIN+' знаков (сейчас '+f.corr_reason.trim().length+'): что исправили и почему':'Отчёт уже сдан — укажите причину исправления');
   return{errs,calc,red};
 }
 const aNm=n=>String(n==null?'':n).replace(/\s+[А-ЯЁ]\.(?:\s?[А-ЯЁ]\.)?$/,'');
@@ -140,7 +153,7 @@ async function flush(auto){
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
       }else if(res.error==='session'){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
-      }else if(res.error==='reason_required'){it.status='needs_reason'}
+      }else if(res.error==='reason_required'){it.status='needs_reason';it.minLen=Number(res.min_len)||null} /* L34a: сервер говорит, сколько знаков нужно */
       else if(res.error==='conflict'){it.status='offline'}
       else{it.status='error';it.err=res.error==='date_range'?'дата старше 7 дней, такой отчёт подать нельзя, напишите руководителю':res.error==='window_closed'?'Время правки вышло (до 12:00 следующего дня). Напишите руководителю':res.error==='person_two_branches'?'Один человек не может быть в отчётах двух филиалов в один день: '+((res.people||[]).join(', ')||'проверьте состав смены')+'. Исправьте состав и отправьте снова':res.error}
     }
@@ -272,7 +285,7 @@ function viewForm(){
   const f=S.form,c=S.ctx;let h='';
   if(!(c&&c.current))h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">‹ На главную</button>'; /* c26: видимый выход из формы без нижней панели; черновик сохраняется */
   if(S.subAdmin&&isHead())h+='<div class="chk warn" id="subadm"><i>!</i><div><b>Вы заполняете отчёт за администратора.</b> Сдача пойдёт от вашего имени.</div></div>';
-  if(S.roHead)h+='<div class="chk ok" id="rohead"><i>👁</i><div><b>Просмотр отчёта</b> — только для чтения. Сдан'+(c.current&&c.current.submitted_at?' в '+hmOmsk(c.current.submitted_at):'')+(c.current?', версия '+c.current.version:'')+'. Исправить может администратор филиала.</div></div>';
+  if(S.roHead)h+='<div class="chk ok" id="rohead"><i>👁</i><div><b>Просмотр отчёта</b> — только для чтения. Сдан'+(c.current&&c.current.submitted_at?' в '+hmOmsk(c.current.submitted_at):'')+(c.current?', версия '+c.current.version:'')+'.'+(isHead()&&c.current?'<br><button class="btn small" style="margin-top:8px" data-act="headfix">Исправить отчёт</button>':'')+'</div></div>';
   if(S.formErrors&&S.formErrors.length)h+='<div class="chk bad" id="form-errors"><i>!</i><div><b>Исправьте перед отправкой: '+S.formErrors.map(esc).join('; ')+'</b></div></div>';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
@@ -374,7 +387,7 @@ function viewForm(){
 
   h+='<div class="card k-check" id="chkcard"><h2>Проверка'+hbtn('checks')+'</h2><div id="checks"></div>'+
     '<label class="f"><span>Причина расхождения (обязательно, если есть красные пункты)'+hbtn('diff')+'</span><textarea data-p="diff_reason" rows="2">'+esc(f.diff_reason)+'</textarea></label>';
-  if(c.current)h+='<label class="f"><span>Причина исправления отчёта</span><textarea data-p="corr_reason" rows="2">'+esc(f.corr_reason)+'</textarea></label>';
+  if(c.current)h+='<label class="f"><span>Причина исправления отчёта'+(S.headFix?' (не короче '+HEAD_REASON_MIN+' знаков)':'')+'</span><textarea data-p="corr_reason" rows="2">'+esc(f.corr_reason)+'</textarea></label>';
   h+='</div>';
   return h;
 }
