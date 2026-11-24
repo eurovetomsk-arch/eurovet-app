@@ -196,10 +196,11 @@ async function submit(){
     }
     if(!(await trapGate()))return; /* 2.0: ловушки отчёта (traps.js) */
     const data=Object.assign(buildData(v.calc),trapData());
-    /* L34: черновик НЕ удаляется до ответа сервера: сохраняем его сразу (без задержки) и помним, какой он */
-    const dk=draftKey(),dts=Date.now();clearTimeout(draftT);
-    LS.set(dk,{ts:dts,form:S.form});
-    const it={uid:uid(),branch:S.branch,date:S.date,data,reason:S.ctx.current?S.form.corr_reason.trim():null,
+    /* L34: черновик НЕ удаляется до ответа сервера: сохраняем его сразу (без задержки) с пометкой sent —
+       это запасная копия отправленного, в форму при открытии она не подставляется (login.js), пока не придёт отказ */
+    const dk=draftKey(),dts=Date.now(),u=uid();clearTimeout(draftT);
+    LS.set(dk,{ts:dts,form:S.form,sent:u});
+    const it={uid:u,branch:S.branch,date:S.date,data,reason:S.ctx.current?S.form.corr_reason.trim():null,
       client_time:new Date().toISOString(),status:'new',branchTitle:(BRANCHES.find(b=>b.id===S.branch)||{}).title,
       summary:summaryText(data),dk,dts};
     S.queue.push(it);
@@ -217,7 +218,7 @@ const REP_REJECT={person_two_branches:1,data:1,branch:1,forbidden:1,date_range:1
 function repDraftKey(it){return it.dk||('ev_draft2:'+(S.person?S.person.id:0)+':'+it.branch+':'+it.date)}
 function repDraftDrop(it){ // удалить черновик, только если после сдачи его не меняли (человек мог начать новую правку)
   const k=repDraftKey(it),d=LS.get(k);
-  if(d&&(it.dts==null||d.ts===it.dts))LS.del(k);
+  if(d&&(d.sent?d.sent===it.uid:(it.dts==null||d.ts===it.dts)))LS.del(k);
 }
 function repFormOf(it){ // форма отказанного отчёта: из черновика сдачи, иначе из данных отчёта
   const d=LS.get(repDraftKey(it));
@@ -228,17 +229,16 @@ function repFormOf(it){ // форма отказанного отчёта: из 
   if(it.data&&it.data.pharmacy_closed)f.pharmacy_closed=true;
   return f;
 }
-const repBrTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id||'').replace(/^ЕВРОВЕТ\s*/,'');
 async function repTwoBranchesText(it,res){
   /* филиал другого отчёта: из L34 (ev_report_conflicts), если функция применена; иначе — без филиала */
   let rows=null;
   try{
     const ids=[].concat((it.data.admins||[]).map(x=>x.id),(it.data.doctors||[]).map(x=>x.id),(it.data.assistants||[]).map(x=>x.id)).filter(x=>x!=null);
-    const r=await rpc('ev_report_conflicts',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_ids:ids},8000);
+    const r=await rpc('ev_report_conflicts',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_ids:ids},4000); // коротко: очередь ждёт
     if(r&&r.ok&&Array.isArray(r.people)&&r.people.length)rows=r.people;
   }catch(e){}
   const tail='. Вернитесь к составу смены и исправьте его либо исправьте отчёт другого филиала.';
-  if(rows)return rows.map(p=>(p.name||'Сотрудник')+' уже указан(а) в отчёте филиала '+repBrTitle(p.branch_title||p.branch)+' за '+ruDate(it.date)+tail).join(' ');
+  if(rows)return rows.map(p=>(p.name||'Сотрудник')+' уже указан(а) в отчёте филиала '+brTitle(p.branch)+' за '+ruDate(it.date)+tail).join(' ');
   const names=(res.people||[]).map(x=>typeof x==='string'?x:(x&&x.name)).filter(Boolean);
   return (names.length?names.join(', '):'Сотрудник из состава смены')+' уже указан(а) в отчёте другого филиала за '+ruDate(it.date)+tail;
 }
@@ -255,25 +255,29 @@ async function repRejectText(it,res){
 }
 async function repReject(it,res){
   const text=await repRejectText(it,res);
-  const k=repDraftKey(it);
-  if(!LS.get(k))LS.set(k,{ts:Date.now(),form:repFormOf(it)}); // черновик один: не перезаписываем, если он уже есть
-  const rej={code:res.error,text,branch:it.branch,date:it.date,branchTitle:it.branchTitle,dk:k,form:repFormOf(it)};
+  const k=repDraftKey(it),d=LS.get(k),form=repFormOf(it);
+  /* черновик один: копию отправленного делаем обычным черновиком; новую правку (без пометки sent) не трогаем */
+  if(!d||d.sent===it.uid)LS.set(k,{ts:Date.now(),form});
+  const rej={code:res.error,text,branch:it.branch,date:it.date,branchTitle:it.branchTitle,dk:k,form,summary:it.summary};
   S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue(); // убираем из очереди: повтор того же отчёта бесполезен
   if(S.done&&S.done.uid===it.uid)S.done.rejected=rej;
-  else toast('Отчёт '+repBrTitle(it.branch)+' за '+ruDate(it.date)+' не принят: '+text+' Откройте отчёт — цифры сохранены.',10000);
+  else toast('Отчёт '+brTitle(it.branch)+' за '+ruDate(it.date)+' не принят: '+text+' Откройте отчёт — цифры сохранены.',10000);
 }
 /* «Вернуться к отчёту и исправить»: та же форма, все поля на месте */
-function repBackToForm(){
+async function repBackToForm(){
   const r=S.done&&S.done.rejected;if(!r)return;
-  const form=Object.assign(emptyForm(),r.form);
+  const form=Object.assign(emptyForm(),r.form),keep=S.done;
   S.done=null;S.formErrors=[];
   if(S.ctx&&S.branch===r.branch&&S.date===r.date){
     S.form=form;S.draftTs=Date.now();LS.set(r.dk,{ts:S.draftTs,form});S.view='form';render();
     setTimeout(()=>{const e=document.querySelector('.k-staff');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);
     return;
   }
-  if(!LS.get(r.dk))LS.set(r.dk,{ts:Date.now(),form});
-  S.date=r.date;S.dateManual=true;openBranch(r.branch); // форма откроется из черновика
+  const d=LS.get(r.dk);if(!d||d.sent)LS.set(r.dk,{ts:Date.now(),form});
+  S.date=r.date;S.dateManual=true;await openBranch(r.branch); // форма откроется из черновика
+  if(S.view==='form'&&(S.branch!==r.branch||S.date!==r.date)){ // дата уже другая (сдать за прошедший день нельзя) — назад к экрану отказа
+    S.form=null;S.done=keep;S.view='done';render();toast('Отчёт за '+ruDate(r.date)+' в форме уже не открыть. Скопируйте итоги и напишите руководителю.',8000);
+  }
 }
 
 function summaryText(d){
@@ -523,7 +527,8 @@ function viewDone(){
     return '<div class="card"><h2>Отчёт не принят</h2><div class="chk bad"><i>✗</i><div>'+esc(d.rejected.text)+'</div></div>'
       +'<p class="hint">Все цифры сохранены. Исправьте и отправьте снова.</p>'
       +'<button class="btn" data-act="repback" style="margin:8px 0 0">Вернуться к отчёту и исправить</button>'
-      +'<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button></div>';
+      +'<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button>'
+      +'<button class="btn sec" data-act="newrep">Готово</button></div>';
   }
   let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':needR?'Нужна причина исправления':'Отчёт сохранён на устройстве')+'</h2>';
   if(d.sent){

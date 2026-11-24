@@ -23,7 +23,7 @@ const res=[];const ok=(c,m)=>{res.push([!!c,m]);console.log((c?'PASS ':'FAIL ')+
 function makeDb(){
   return{reports:[],calls:{},mode:'online',lostOnce:false,
     shifts:[{date:DAY,branch:'70let',slot:'admin',name:PEOPLE[16],full:ADMIN.full_name},{date:DAY,branch:'70let',slot:'doctor',name:PEOPLE[4],full:'Орлов Илья Петрович'},
-            {date:DAY,branch:'70let',slot:'assistant',name:PEOPLE[11],full:'Семёнова Алина Романовна'},{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[34],full:FULL[34]}]};
+            {date:DAY,branch:'70let',slot:'assistant',name:'Семёнова',full:'Семёнова'} /* строка без сопоставления: только фамилия */,{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[34],full:FULL[34]}]};
 }
 const ids=d=>[].concat(d.admins||[],d.doctors||[],d.assistants||[]).map(x=>String(x.id));
 function latestOther(db,branch,date){const m=new Map();db.reports.filter(r=>r.date===date&&r.branch!==branch).forEach(r=>{const p=m.get(r.branch);if(!p||p.version<r.version)m.set(r.branch,r)});return[...m.values()]}
@@ -163,6 +163,8 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
     let s=await st(page);
     ok(s.q===1&&!s.done.sent&&db.reports.length===0,'нет связи: отчёт в очереди, не отправлен');
     ok(await page.evaluate(()=>Object.keys(localStorage).some(k=>k.startsWith('ev_draft2:'))),'нет связи: черновик не удалён');
+    await page.evaluate(async()=>{const d=S.done;await openBranch('70let');S.view='done';S.done=d});
+    s=await st(page);ok(s.form&&s.form.total===''&&s.q===1,'отчёт в очереди: при повторном открытии копия отправленного в форму не подставляется');
     db.mode='online';db.lostOnce=true;            // связь есть, но первый ответ теряется после записи
     await page.evaluate(()=>{S.online=true;kick()});await wait(900);
     await page.evaluate(()=>{kick()});await wait(1200);
@@ -176,6 +178,8 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
     const db=makeDb();
     const{page,errs}=await session(browser,db,url);
     await openForm(page,'70let',FORM());
+    const t1=await page.evaluate(()=>{const keep=TRAP_SCHED.rows;TRAP_SCHED.rows=[{name:'Петров П.П.'}];const a=trapSchedMissing();TRAP_SCHED.rows=[{name:'Семёнова'},{name:'Орлов И.П.'}];const b=trapSchedMissing();TRAP_SCHED.rows=keep;TRAP_SCHED.key='';return[a&&a.name,b]});
+    ok(t1[0]==='Петров П.П.'&&t1[1]===null,'ловушка 1: по графику есть, в отчёте нет → вопрос; фамилия без инициалов совпадает с человеком отчёта');
     await page.locator('[data-act="submit"]').first().dblclick();
     await page.evaluate(()=>{submit();submit()});await wait(1500);
     const s=await st(page);

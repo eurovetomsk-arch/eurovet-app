@@ -169,7 +169,7 @@ async function openBranch(id,opts){
   S.handover=S.ctxOffline?null:{branch:id,date:S.date,loading:true,ctx:null,actual:'',error:null,offline:false};
   const draft=LS.get(draftKey());
   S.draftTs=null;
-  if(draft&&draft.form){S.form=Object.assign(emptyForm(),draft.form);S.draftTs=draft.ts||Date.now()}
+  if(draft&&draft.form&&!draft.sent){S.form=Object.assign(emptyForm(),draft.form);S.draftTs=draft.ts||Date.now()}
   else if(ctx.current){S.form=formFromReport(ctx.current.data)}
   else S.form=freshForm();
   S.busy=false;S.view='form';S.flags=null;render();

@@ -4,14 +4,10 @@
    после validate() и «В смене не было ассистента?». Ответы админа сохраняются в данных отчёта и видны руководителю. ====== */
 const TRAP_SCHED={key:'',rows:null,all:null,err:null};
 const trapNorm=s=>String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я]/g,'');
-function trapReportNames(){
-  const f=S.form,c=S.ctx||{},by=(arr,id)=>(arr||[]).find(x=>String(x.id)===String(id))||{};
-  const names=[];
-  Object.keys(f.admins||{}).forEach(id=>names.push(by(c.admins,id).name));
-  Object.keys(f.doctors||{}).forEach(id=>names.push(by(c.doctors,id).name));
-  Object.keys(f.assistants||{}).forEach(k=>{const[role,id]=k.split(':');const a=(c.assistants||[]).find(x=>x.role===role&&String(x.id)===id)||{};names.push(a.name)});
-  return names.filter(Boolean).map(trapNorm);
-}
+/* L34: строка графика ↔ человек отчёта. Строка без сопоставленного человека несёт имя из файла (часто одна фамилия) — тогда по фамилии */
+const trapSur=s=>trapNorm(String(s||'').trim().split(/\s+/)[0]);
+const trapSame=(row,name)=>{const n=trapNorm(name);if(!n)return false;
+  return trapNorm(row.name)===n||trapNorm(row.full)===n||(String(row.name||'').trim().split(/\s+/).length===1&&trapNorm(row.name)===trapSur(name))};
 async function trapLoadSched(){
   const key=S.branch+'|'+S.date;
   if(TRAP_SCHED.key===key&&(TRAP_SCHED.rows||TRAP_SCHED.err))return;
@@ -25,8 +21,8 @@ async function trapLoadSched(){
    (график — отдельный контур, отчёт и деньги от него не зависят). */
 function trapSchedMissing(){
   if(!TRAP_SCHED.rows)return null;
-  const inRep=new Set(trapReportNames()),answered=new Set((S.form.sched_absent||[]).map(trapNorm));
-  return TRAP_SCHED.rows.find(x=>x.name&&!inRep.has(trapNorm(x.name))&&!answered.has(trapNorm(x.name)))||null;
+  const inRep=trapReportPeople().map(p=>p.name),answered=new Set((S.form.sched_absent||[]).map(trapNorm));
+  return TRAP_SCHED.rows.find(x=>x.name&&!inRep.some(n=>trapSame(x,n))&&!answered.has(trapNorm(x.name)))||null;
 }
 /* Ловушка 10 (L34): человек в составе отчёта, а по опубликованному графику в этот день он на другом филиале или не стоит.
    Подсказка, не запрет: «Да, замена» — отчёт уходит с пометкой; «Убрать» — человек убирается из состава.
@@ -45,18 +41,16 @@ function trapSchedForeign(){
   const slots=new Set(all.map(x=>x.slot)),answered=new Set((S.form.sched_subst||[]).map(trapNorm));
   for(const p of trapReportPeople()){
     if(!slots.has(p.slot)||answered.has(trapNorm(p.name)))continue;
-    const n=trapNorm(p.name),mine=all.filter(x=>trapNorm(x.name)===n||trapNorm(x.full)===n);
+    const mine=all.filter(x=>trapSame(x,p.name));
     if(mine.some(x=>String(x.branch)===String(S.branch)))continue;
     const other=mine.map(x=>x.branch).filter((b,i,a)=>a.indexOf(b)===i);
     return Object.assign({},p,{other});
   }
   return null;
 }
-const trapBrTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id||'').replace(/^ЕВРОВЕТ\s*/,'');
-const trapDm=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d||''));return m?m[3]+'.'+m[2]:String(d||'')};
 function trapForeignHtml(x){
-  const where=x.other.length?'работает на '+x.other.map(trapBrTitle).join(', '):'не стоит';
-  return '<h2>Это замена?</h2><p class="hint">По графику <b>'+esc(x.name)+'</b> '+trapDm(S.date)+' '+esc(where)+'. Это замена?</p>'
+  const where=x.other.length?'работает на '+x.other.map(brTitle).join(', '):'не стоит';
+  return '<h2>Это замена?</h2><p class="hint">По графику <b>'+esc(x.name)+'</b> '+ruDate(S.date).slice(0,5)+' '+esc(where)+'. Это замена?</p>'
     +'<button class="btn" data-act="trap-subst-yes" data-name="'+esc(x.name)+'">Да, замена</button>'
     +'<button class="btn sec" style="margin-top:8px" data-act="trap-subst-drop" data-kind="'+esc(x.kind)+'" data-key="'+esc(x.key)+'" data-name="'+esc(x.name)+'">Убрать</button>';
 }
