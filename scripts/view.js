@@ -633,11 +633,12 @@ document.addEventListener('click',async e=>{
     case'addOther':S.form.others.push({title:'',val:''});saveDraft();render();break;
     case'delOther':S.form.others.splice(Number(d.i),1);saveDraft();render();break;
     case'submit':if(!S.busy)submit();break;
-    case'trap-pharm-closed':case'trap-pharm-fill':case'trap-sched-absent':case'trap-sched-add':await trapAct(a,b);break;
+    case'trap-pharm-closed':case'trap-pharm-fill':case'trap-sched-absent':case'trap-sched-add':case'trap-subst-yes':case'trap-subst-drop':await trapAct(a,b);break;
     case'assistantnone':S.form.no_assistant=true;saveDraft();closeOv();await submit();break;
     case'assistantadd':closeOv();setTimeout(()=>{const e=document.querySelector('.k-assist');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);break;
     case'copy':if(S.done)clip(S.done.summary);break;
     case'headfix':headFix();break; /* L34a */
+    case'repback':repBackToForm();break; /* L34 */
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
     case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
     case'drophq':{const it=S.handoverQueue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать неотправленную приёмку кассы из очереди?'))break;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==d.id);saveHandoverQueue();showQueue();render();break}

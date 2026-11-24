@@ -150,8 +150,10 @@ async function flush(auto){
         it.status='error';it.err='HTTP '+e.http;continue;
       }
       if(!S.online){S.online=true;setHeader()}
+      if(!res||typeof res!=='object'){it.status='offline';break} /* L34: неизвестный результат — повторим сами (client_uid не даст дубля) */
       if(res.ok){
         S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue();
+        repDraftDrop(it); /* L34: черновик удаляется только после res.ok */
         if(S.done&&S.done.uid===it.uid&&typeof vmwStart==='function'){vmwStart(it.branch,it.date,Number(res.version)||0,!!(it.data&&Array.isArray(it.data.doctors)&&it.data.doctors.length))}   /* 2.0: экран «Ожидайте сверки» */
         else{try{vmcAfterSubmit(it.branch,it.date,Number(res.version)||0)}catch(e){}}
         if(S.done&&S.done.uid===it.uid){S.done.sent=true;S.done.version=res.version||S.done.version;S.flags=null;loadFlags(it.branch,it.date)}
@@ -159,7 +161,8 @@ async function flush(auto){
         S.token=null;LS.del('ev_token');S.view='login';it.status='need_login';break;
       }else if(res.error==='reason_required'){it.status='needs_reason';it.minLen=Number(res.min_len)||null} /* L34a: сервер говорит, сколько знаков нужно */
       else if(res.error==='conflict'){it.status='offline'}
-      else{it.status='error';it.err=res.error==='date_range'?'дата старше 7 дней, такой отчёт подать нельзя, напишите руководителю':res.error==='window_closed'?'Время правки вышло (до 12:00 следующего дня). Напишите руководителю':res.error==='person_two_branches'?'Один человек не может быть в отчётах двух филиалов в один день: '+((res.people||[]).join(', ')||'проверьте состав смены')+'. Исправьте состав и отправьте снова':res.error}
+      else if(REP_REJECT[res.error]){await repReject(it,res)} /* L34: содержательный отказ — без повтора, назад в форму */
+      else{it.status='error';it.err=String(res.error||'ошибка')}
     }
   }finally{
     flushing=false;saveQueue();
@@ -178,25 +181,99 @@ function kick(){
   kickHandover();
 }
 
+/* L34: защита от двойного нажатия «Отправить» — пока идёт одна сдача, вторая не начинается */
+let submitting=false;
 async function submit(){
-  const v=validate();
-  if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);toast('Проверьте обязательные поля',5000);return}
-  S.formErrors=[];
-  if(!Object.keys(S.form.assistants).length&&S.form.no_assistant!==true){
-    overlay('<h2>В смене не было ассистента?</h2><p class="hint">Подтвердите это отдельно или вернитесь к форме и добавьте ассистента. Без выбора отчёт не отправится.</p><button class="btn" data-act="assistantnone">Да, не было</button><button class="btn sec" style="margin-top:8px" data-act="assistantadd">Добавить ассистента</button>');
+  if(submitting)return;
+  submitting=true;
+  try{
+    const v=validate();
+    if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);toast('Проверьте обязательные поля',5000);return}
+    S.formErrors=[];
+    if(!Object.keys(S.form.assistants).length&&S.form.no_assistant!==true){
+      overlay('<h2>В смене не было ассистента?</h2><p class="hint">Подтвердите это отдельно или вернитесь к форме и добавьте ассистента. Без выбора отчёт не отправится.</p><button class="btn" data-act="assistantnone">Да, не было</button><button class="btn sec" style="margin-top:8px" data-act="assistantadd">Добавить ассистента</button>');
+      return;
+    }
+    if(!(await trapGate()))return; /* 2.0: ловушки отчёта (traps.js) */
+    const data=Object.assign(buildData(v.calc),trapData());
+    /* L34: черновик НЕ удаляется до ответа сервера: сохраняем его сразу (без задержки) и помним, какой он */
+    const dk=draftKey(),dts=Date.now();clearTimeout(draftT);
+    LS.set(dk,{ts:dts,form:S.form});
+    const it={uid:uid(),branch:S.branch,date:S.date,data,reason:S.ctx.current?S.form.corr_reason.trim():null,
+      client_time:new Date().toISOString(),status:'new',branchTitle:(BRANCHES.find(b=>b.id===S.branch)||{}).title,
+      summary:summaryText(data),dk,dts};
+    S.queue.push(it);
+    if(!saveQueue()){toast('Не удалось сохранить на устройстве! Скопируйте итоги вручную.',8000)}
+    S.done={uid:it.uid,sent:false,version:null,summary:it.summary,branch:it.branchTitle,date:S.date};
+    S.view='done';render();
+  }finally{submitting=false}
+  await flush();
+}
+
+/* ====== L34: отказ сервера возвращает в форму ======
+   Состояния: черновик → отправка (очередь) → принят / отказ (назад в форму) / нет связи (ждёт в очереди).
+   Содержательный отказ не повторяется сам: повтор того же отчёта даст тот же отказ. */
+const REP_REJECT={person_two_branches:1,data:1,branch:1,forbidden:1,date_range:1,window_closed:1};
+function repDraftKey(it){return it.dk||('ev_draft2:'+(S.person?S.person.id:0)+':'+it.branch+':'+it.date)}
+function repDraftDrop(it){ // удалить черновик, только если после сдачи его не меняли (человек мог начать новую правку)
+  const k=repDraftKey(it),d=LS.get(k);
+  if(d&&(it.dts==null||d.ts===it.dts))LS.del(k);
+}
+function repFormOf(it){ // форма отказанного отчёта: из черновика сдачи, иначе из данных отчёта
+  const d=LS.get(repDraftKey(it));
+  if(d&&d.form)return Object.assign(emptyForm(),d.form);
+  const f=formFromReport(it.data||{});
+  if(it.reason)f.corr_reason=it.reason;
+  ['sched_absent','sched_subst'].forEach(k=>{if(Array.isArray(it.data&&it.data[k]))f[k]=it.data[k].slice()});
+  if(it.data&&it.data.pharmacy_closed)f.pharmacy_closed=true;
+  return f;
+}
+const repBrTitle=id=>((BRANCHES.find(b=>b.id===id)||{}).title||id||'').replace(/^ЕВРОВЕТ\s*/,'');
+async function repTwoBranchesText(it,res){
+  /* филиал другого отчёта: из L34 (ev_report_conflicts), если функция применена; иначе — без филиала */
+  let rows=null;
+  try{
+    const ids=[].concat((it.data.admins||[]).map(x=>x.id),(it.data.doctors||[]).map(x=>x.id),(it.data.assistants||[]).map(x=>x.id)).filter(x=>x!=null);
+    const r=await rpc('ev_report_conflicts',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_ids:ids},8000);
+    if(r&&r.ok&&Array.isArray(r.people)&&r.people.length)rows=r.people;
+  }catch(e){}
+  const tail='. Вернитесь к составу смены и исправьте его либо исправьте отчёт другого филиала.';
+  if(rows)return rows.map(p=>(p.name||'Сотрудник')+' уже указан(а) в отчёте филиала '+repBrTitle(p.branch_title||p.branch)+' за '+ruDate(it.date)+tail).join(' ');
+  const names=(res.people||[]).map(x=>typeof x==='string'?x:(x&&x.name)).filter(Boolean);
+  return (names.length?names.join(', '):'Сотрудник из состава смены')+' уже указан(а) в отчёте другого филиала за '+ruDate(it.date)+tail;
+}
+async function repRejectText(it,res){
+  switch(res.error){
+    case'person_two_branches':return repTwoBranchesText(it,res);
+    case'date_range':return'Дата старше 7 дней: такой отчёт подать нельзя. Напишите руководителю.';
+    case'window_closed':return'Время правки вышло (до 12:00 следующего дня). Напишите руководителю.';
+    case'forbidden':return'Нет доступа к отчёту этого филиала за эту дату. Войдите заново и выберите филиал.';
+    case'branch':return'Филиал не найден или закрыт. Напишите руководителю.';
+    case'data':return'Сервер не смог прочитать отчёт. Проверьте поля и отправьте снова.';
+  }
+  return 'Сервер не принял отчёт ('+res.error+').';
+}
+async function repReject(it,res){
+  const text=await repRejectText(it,res);
+  const k=repDraftKey(it);
+  if(!LS.get(k))LS.set(k,{ts:Date.now(),form:repFormOf(it)}); // черновик один: не перезаписываем, если он уже есть
+  const rej={code:res.error,text,branch:it.branch,date:it.date,branchTitle:it.branchTitle,dk:k,form:repFormOf(it)};
+  S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue(); // убираем из очереди: повтор того же отчёта бесполезен
+  if(S.done&&S.done.uid===it.uid)S.done.rejected=rej;
+  else toast('Отчёт '+repBrTitle(it.branch)+' за '+ruDate(it.date)+' не принят: '+text+' Откройте отчёт — цифры сохранены.',10000);
+}
+/* «Вернуться к отчёту и исправить»: та же форма, все поля на месте */
+function repBackToForm(){
+  const r=S.done&&S.done.rejected;if(!r)return;
+  const form=Object.assign(emptyForm(),r.form);
+  S.done=null;S.formErrors=[];
+  if(S.ctx&&S.branch===r.branch&&S.date===r.date){
+    S.form=form;S.draftTs=Date.now();LS.set(r.dk,{ts:S.draftTs,form});S.view='form';render();
+    setTimeout(()=>{const e=document.querySelector('.k-staff');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);
     return;
   }
-  if(!(await trapGate()))return; /* 2.0: ловушки отчёта (traps.js) */
-  const data=Object.assign(buildData(v.calc),trapData());
-  const it={uid:uid(),branch:S.branch,date:S.date,data,reason:S.ctx.current?S.form.corr_reason.trim():null,
-    client_time:new Date().toISOString(),status:'new',branchTitle:(BRANCHES.find(b=>b.id===S.branch)||{}).title,
-    summary:summaryText(data)};
-  S.queue.push(it);
-  if(!saveQueue()){toast('Не удалось сохранить на устройстве! Скопируйте итоги вручную.',8000)}
-  LS.del(draftKey());
-  S.done={uid:it.uid,sent:false,version:null,summary:it.summary,branch:it.branchTitle,date:S.date};
-  S.view='done';render();
-  await flush();
+  if(!LS.get(r.dk))LS.set(r.dk,{ts:Date.now(),form});
+  S.date=r.date;S.dateManual=true;openBranch(r.branch); // форма откроется из черновика
 }
 
 function summaryText(d){
@@ -442,6 +519,12 @@ function viewDone(){
   const d=S.done;
   const it=S.queue.find(x=>x.uid===d.uid)||{};const st=it.status||'';
   const needR=!d.sent&&st==='needs_reason';
+  if(d.rejected){ /* L34: отказ — без «Отправить сейчас», только возврат в форму */
+    return '<div class="card"><h2>Отчёт не принят</h2><div class="chk bad"><i>✗</i><div>'+esc(d.rejected.text)+'</div></div>'
+      +'<p class="hint">Все цифры сохранены. Исправьте и отправьте снова.</p>'
+      +'<button class="btn" data-act="repback" style="margin:8px 0 0">Вернуться к отчёту и исправить</button>'
+      +'<button class="btn sec" data-act="copy" style="margin:8px 0">Скопировать итоги (на случай, если нет связи)</button></div>';
+  }
   let h='<div class="card"><h2>'+(d.sent?'Отчёт принят':needR?'Нужна причина исправления':'Отчёт сохранён на устройстве')+'</h2>';
   if(d.sent){
     h+='<div class="chk ok"><i>✓</i><div>'+esc(d.branch)+' · '+ruDate(d.date)+(d.version?' · версия '+d.version:'')+'</div></div>';
