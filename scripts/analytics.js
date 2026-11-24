@@ -42,7 +42,6 @@ function anTitle(d){
     const f=anD(d.from);
     return part?AN_MON[f.m-1]+', '+anRange(d.from,d.to)+', против тех же дней: '+anRange(d.prev_from,d.prev_to):anRange(d.from,d.to)+' против '+anRange(d.prev_from,d.prev_to);
   }
-  if(p==='months'){const f=anD(d.from);return 'По месяцам '+f.y+' года против тех же месяцев '+(f.y-1)}
   if(p==='year'){const f=anD(d.from);return part?f.y+' год, '+anRange(d.from,d.to)+', против того же отрезка '+(f.y-1):f.y+' год против '+(f.y-1)}
   return 'С '+anDay(d.from)+' по '+anDay(d.to)+', против '+anRange(d.prev_from,d.prev_to);
 }
@@ -91,7 +90,7 @@ function anCmpRows(d){
   if(p==='day'){R.push({lab:'Днём раньше',from:d.prev_from,to:d.prev_to,src:'prev'});if(d.alt_from)R.push({lab:'Неделю назад',from:d.alt_from,to:d.alt_to,src:'alt'})}
   else if(p==='week')R.push({lab:'Прошлая неделя',from:d.prev_from,to:d.prev_to,src:'prev'});
   else if(p==='month'){const pm=anD(d.prev_from);R.push({lab:pm?AN_MON[pm.m-1]:'Прошлый месяц',from:d.prev_from,to:d.prev_to,src:'prev'});if(d.alt_from)R.push({lab:'Год назад',from:d.alt_from,to:d.alt_to,src:'alt'})}
-  else if(p==='year'||p==='months')R.push({lab:'Год назад',from:d.prev_from,to:d.prev_to,src:'prev'});
+  else if(p==='year')R.push({lab:'Год назад',from:d.prev_from,to:d.prev_to,src:'prev'});
   else R.push({lab:'Прошлый период',from:d.prev_from,to:d.prev_to,src:'prev'});
   return R;
 }
@@ -102,7 +101,7 @@ function anLine(lab,range,val,pctHtml,cls){
 function anCurLab(d){
   if(d.open||d.partial||!d.closed_through||d.to===d.closed_through)return 'Сейчас';
   const f=anD(d.from);
-  return d.period==='month'?AN_MON[f.m-1]:d.period==='year'||d.period==='months'?f.y+' год':d.period==='day'?'День':d.period==='week'?'Неделя':'Период';
+  return d.period==='month'?AN_MON[f.m-1]:d.period==='year'?f.y+' год':d.period==='day'?'День':d.period==='week'?'Неделя':'Период';
 }
 /* один показатель: заголовок и строки «Сейчас / прошлый период / год назад» */
 function anMetric(label,key,fmt,b,d){
@@ -155,8 +154,8 @@ function anMonths(list){
     const f=anD(m.from),pf=anD(m.prev_from);
     /* L35: две подписанные строки — этот месяц и тот же месяц год назад, в рублях; % у строки года назад */
     return '<div class="an-mon"><div class="an-mh"><b>'+name+'</b></div>'
-      +anLine(name+' '+f.y,anShort(m.from,m.to),anRub(m.revenue),'','now')
-      +(m.revenue_pct!=null&&pf?anLine(name+' '+pf.y,anShort(m.prev_from,m.prev_to),anRub(m.prev_revenue),anPct(m.revenue_pct,false)):anLine('Год назад','','<span class="an-na">нет данных</span>',''))
+      +anLine(String(f.y),anShort(m.from,m.to),anRub(m.revenue),'','now')
+      +(m.revenue_pct!=null&&pf?anLine(String(pf.y),anShort(m.prev_from,m.prev_to),anRub(m.prev_revenue),anPct(m.revenue_pct,false)):anLine('Год назад','','<span class="an-na">нет данных</span>',''))
       +'<div class="an-ms">счетов '+anInt(m.invoices)+(m.invoices_pct!=null?' (год назад '+anInt(m.prev_invoices)+')':'')+' · чек '+anRub(m.avg_check)+(m.avg_check_pct!=null&&m.prev_avg_check!=null?' (год назад '+anRub(m.prev_avg_check)+')':'')+'</div></div>';
   }).join('')+'</div>';
 }

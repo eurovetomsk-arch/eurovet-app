@@ -126,7 +126,7 @@ const st=page=>page.evaluate(()=>({view:S.view,ro:!!S.roHead,q:S.queue.length,do
   await page.setViewportSize({width:375,height:812});
   await page.evaluate(async()=>{AN.period='year';AN.data=null;await loadAnalytics();window.scrollTo(0,0)});await wait(600);
   const ty=await page.locator('#app').innerText();
-  ok(/Год назад \(1 янв – 23 нояб 2025\)/.test(ty)&&/По месяцам/.test(ty)&&/Январь 2026 \(1–31 янв 2026\)/.test(ty)&&/Январь 2025 \(1–31 янв 2025\)/.test(ty)&&!/Помесячно/.test(ty),'«Год»: итог года к прошлому году и 12 месяцев; вкладки «Помесячно» нет');
+  ok(/Год назад \(1 янв – 23 нояб 2025\)/.test(ty)&&/По месяцам/.test(ty)&&/Январь\s+2026 \(1–31 янв 2026\)/.test(ty)&&/2025 \(1–31 янв 2025\)/.test(ty)&&!/Помесячно/.test(ty),'«Год»: итог года к прошлому году и 12 месяцев; вкладки «Помесячно» нет');
   ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),'«Год» 375 px: без горизонтальной прокрутки');
   await shot(page,'l35-3-god-375');
   await page.evaluate(()=>{const e=[...document.querySelectorAll('h2')].find(x=>x.textContent==='По месяцам');if(e)e.scrollIntoView({block:'start'})});
