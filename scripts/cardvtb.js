@@ -81,7 +81,7 @@ function cardHtml(){
   if(q.length)h+='<p class="hint">Ждут отправки: '+q.length+'. Остаток показан с учётом этих операций.</p>';
   h+=(CARD.role==='head'?'<button class="btn card-bigbtn" data-cardact="deposit">Положил</button>':'<button class="btn card-bigbtn" data-cardact="spend">Потратил</button>');
   const weekOld=!st.last_check||(Date.now()-Date.parse(st.last_check))>=7*86400000;
-  h+='<button class="btn'+(weekOld?'':' sec')+'" data-cardact="check">Сверить с банком</button>'+(weekOld?'<p class="hint">Раз в неделю: введите фактический остаток из банка.</p>':'');
+  if(CARD.role==='head')h+='<button class="btn'+(weekOld?'':' sec')+'" data-cardact="check">Сверить с банком</button>'+(weekOld?'<p class="hint">Раз в неделю: введите фактический остаток из банка.</p>':'');   /* сверка с банком — только руководитель */
   if(CARD.role==='head')h+='<button class="chip" data-cardact="thr">Порог «мало денег»: '+cardRub(st.threshold)+'</button>';
   h+='</div><div class="card"><h3 style="margin-top:2px">История</h3>'+((st.ops||[]).length?st.ops.map(cardOpHtml).join(''):'<p class="hint">Операций пока нет.</p>')+'</div>';
   return h;
