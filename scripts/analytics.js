@@ -5,7 +5,7 @@
    Все правила сравнения и полноты данных считает сервер (ev_analytics_overview, L24); здесь только показ.
    Нет данных для сравнения — серо «нет данных за прошлый период», без процентов. */
 const AN={period:'day',anchor:null,custom:null,data:null,err:null,loading:false,docsOpen:false};
-const AN_PER=[['day','День'],['week','Неделя'],['month','Месяц'],['months','Помесячно'],['year','Год'],['custom','Свой период']];
+const AN_PER=[['day','День'],['week','Неделя'],['month','Месяц'],['year','Год'],['custom','Свой период']];
 const AN_MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const AN_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const AN_PRE=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
@@ -67,9 +67,9 @@ function anShift(d,dir){
 }
 async function loadAnalytics(){
   if(!S.token||AN.loading)return;AN.loading=true;AN.err=null;
-  const body={p_token:S.token,p_period:AN.period,p_anchor:AN.period==='custom'?null:AN.anchor,p_from:AN.period==='custom'&&AN.custom?AN.custom.from:null,p_to:AN.period==='custom'&&AN.custom?AN.custom.to:null};
+  const body={p_token:S.token,p_period:AN.period==='year'?'months':AN.period, /* L35: «Год» = итог года + 12 месяцев (ответ 'months' тот же, что 'year', плюс список месяцев) */p_anchor:AN.period==='custom'?null:AN.anchor,p_from:AN.period==='custom'&&AN.custom?AN.custom.from:null,p_to:AN.period==='custom'&&AN.custom?AN.custom.to:null};
   try{const r=await rpc('ev_analytics_overview',body,15000);
-    if(r&&r.ok){AN.data=r}
+    if(r&&r.ok){if(r.period==='months')r.period='year';AN.data=r}
     else AN.err=(r&&r.error==='forbidden')?'Аналитика — только у руководителя.':(r&&r.error==='session')?'Сессия закончилась, войдите заново.':(r&&r.error==='range')?'Проверьте даты: «с» не позже «по».':'Аналитика пока недоступна.'}
   catch(e){AN.err=e.net?'Нет связи.':'Аналитика пока недоступна.'}
   AN.loading=false;if(S.view==='an')paint();
@@ -152,10 +152,12 @@ function anMonths(list){
   return '<div class="card an-card"><h2>По месяцам</h2>'+list.map(m=>{
     const name=AN_MON[(m.month||1)-1];
     if(m.empty)return '<div class="an-mon off"><b>'+name+'</b><span class="an-ms">ещё не наступил</span></div>';
-    const t=anD(m.to),pct=anPct(m.revenue_pct,false);
-    return '<div class="an-mon"><div class="an-mh"><b>'+name+(m.partial?' <small>1–'+t.d+'</small>':'')+'</b>'+pct+'</div>'
-      +'<div class="an-mr"><span>'+anRub(m.revenue)+'</span><small>'+(m.revenue_pct!=null?'было '+anRub(m.prev_revenue)+' год назад':'')+'</small></div>'
-      +'<div class="an-ms">счетов '+anInt(m.invoices)+' '+(m.invoices_pct!=null?anPct(m.invoices_pct,false):'')+' · чек '+anRub(m.avg_check)+' '+(m.avg_check_pct!=null?anPct(m.avg_check_pct,false):'')+'</div></div>';
+    const f=anD(m.from),pf=anD(m.prev_from);
+    /* L35: две подписанные строки — этот месяц и тот же месяц год назад, в рублях; % у строки года назад */
+    return '<div class="an-mon"><div class="an-mh"><b>'+name+'</b></div>'
+      +anLine(name+' '+f.y,anShort(m.from,m.to),anRub(m.revenue),'','now')
+      +(m.revenue_pct!=null&&pf?anLine(name+' '+pf.y,anShort(m.prev_from,m.prev_to),anRub(m.prev_revenue),anPct(m.revenue_pct,false)):anLine('Год назад','','<span class="an-na">нет данных</span>',''))
+      +'<div class="an-ms">счетов '+anInt(m.invoices)+(m.invoices_pct!=null?' (год назад '+anInt(m.prev_invoices)+')':'')+' · чек '+anRub(m.avg_check)+(m.avg_check_pct!=null&&m.prev_avg_check!=null?' (год назад '+anRub(m.prev_avg_check)+')':'')+'</div></div>';
   }).join('')+'</div>';
 }
 function analyticsHtml(){
@@ -170,8 +172,8 @@ function analyticsHtml(){
   if(!d)return h+'<p class="mute">'+(AN.period==='custom'&&!AN.custom?'Выберите две даты.':'Загрузка…')+'</p>';
   const nav=AN.period!=='custom';
   h+='<div class="an-nav">'+(nav?'<button class="chip" data-anact="prev" aria-label="Назад">‹</button>':'<span></span>')+'<div class="an-pl"><b>'+esc(anTitle(d))+'</b>'+'</div>'+(nav?'<button class="chip" data-anact="next" aria-label="Вперёд"'+(d.can_next?'':' disabled')+'>›</button>':'<span></span>')+'</div>';
-  if(d.period==='months'){h+=anMonths(d.months);h+=anDoctors(d.doctors,d);return h}
   h+=anSummary(d.network,d);
+  if(d.period==='year')h+=anMonths(d.months);
   if((d.branches||[]).length)h+='<div class="card an-card an-brs"><h2>Филиалы</h2>'+d.branches.map(b=>anBranch(b,d)).join('')+'</div>';
   h+=anDoctors(d.doctors,d);
   return h;

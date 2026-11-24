@@ -25,6 +25,10 @@ const AN_MONTH={ok:true,period:'month',anchor:'2026-11-23',from:'2026-11-01',to:
             Object.assign({id:'70let',title:'70 лет Октября'},C(1101388,371,1190425,388,121100,120300,{alt:C(1101388,371,745725,290,121100,91100)})),
             Object.assign({id:'pereleta',title:'Перелёта'},C(939000,313,994000,322,111000,107400,{alt:C(939000,313,640000,235,111000,80000)}))],
   doctors:[]};
+const MONS=Array.from({length:12},(_,i)=>{const m=i+1,mm=String(m).padStart(2,'0');if(m===12)return{month:12,empty:true};const last=m===11?23:new Date(Date.UTC(2026,m,0)).getUTCDate();
+  return Object.assign({month:m,empty:false,from:'2026-'+mm+'-01',to:'2026-'+mm+'-'+last,prev_from:'2025-'+mm+'-01',prev_to:'2025-'+mm+'-'+last,partial:m===11},C(3400000+m*37000,1100+m*7,2500000+m*30000,900+m*5,400000,380000))});
+const AN_YEAR={ok:true,period:'months',anchor:'2026-11-23',from:'2026-01-01',to:'2026-11-23',prev_from:'2025-01-01',prev_to:'2025-11-23',alt_from:null,alt_to:null,partial:true,open:false,can_next:false,closed_through:'2026-11-23',
+  network:C(40210000,13100,29050000,10350,4400000,4100000),branches:[],doctors:[],months:MONS};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const res=[];const ok=(c,m)=>{res.push([!!c,m]);console.log((c?'PASS ':'FAIL ')+m)};
 
@@ -65,7 +69,7 @@ function rpc(db,name,a){
       latestOther(db,a.p_branch,a.p_date).forEach(r=>ids(r.data).filter(x=>want.has(x)).forEach(x=>out.push({id:Number(x),name:FULL[x]||PEOPLE[x],branch:r.branch,branch_title:(BR.find(b=>b.id===r.branch)||{}).title})));
       return{ok:true,people:out};
     }
-    case'ev_analytics_overview':return AN_MONTH;
+    case'ev_analytics_overview':return a.p_period==='months'?AN_YEAR:AN_MONTH;
     case'ev_flags_overview':return{ok:true,flags:[],coverage:[]};
     default:return{ok:true,rows:[],items:[],flags:[],shifts:[]};
   }
@@ -119,6 +123,14 @@ const st=page=>page.evaluate(()=>({view:S.view,ro:!!S.roHead,q:S.queue.length,do
   await page.evaluate(()=>{const e=document.querySelector('details.an-br[open]');if(e)e.scrollIntoView({block:'start'})});
   await shot(page,'l35-2-filial-375');
   if(OUT){await page.setViewportSize({width:375,height:2400});await wait(300);await page.screenshot({path:path.join(OUT,'l35-0-mesyac-375-full.png'),fullPage:true})}
+  await page.setViewportSize({width:375,height:812});
+  await page.evaluate(async()=>{AN.period='year';AN.data=null;await loadAnalytics();window.scrollTo(0,0)});await wait(600);
+  const ty=await page.locator('#app').innerText();
+  ok(/Год назад \(1 янв – 23 нояб 2025\)/.test(ty)&&/По месяцам/.test(ty)&&/Январь 2026 \(1–31 янв 2026\)/.test(ty)&&/Январь 2025 \(1–31 янв 2025\)/.test(ty)&&!/Помесячно/.test(ty),'«Год»: итог года к прошлому году и 12 месяцев; вкладки «Помесячно» нет');
+  ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),'«Год» 375 px: без горизонтальной прокрутки');
+  await shot(page,'l35-3-god-375');
+  await page.evaluate(()=>{const e=[...document.querySelectorAll('h2')].find(x=>x.textContent==='По месяцам');if(e)e.scrollIntoView({block:'start'})});
+  await shot(page,'l35-4-god-mesyacy-375');
   ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));ok(escaped.length===0,'наружу запросов нет');
   await browser.close();server.close();
   const fail=res.filter(x=>!x[0]).length;
