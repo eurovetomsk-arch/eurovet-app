@@ -1,7 +1,7 @@
 'use strict';
 /* ====== 2.0 · Экран «Аналитика» (К3, только руководитель) ======
    Открыл — и сразу понятно: сверху одна строка «что с чем сравниваем», «Итог сети» из трёх чисел (выручка, счета, средний чек),
-   филиалы одной строкой (раскрываются), врачи списком по росту среднего чека. Цифра крупно, рядом ▲▼ % цветом, под ней мелко «было …».
+   филиалы одной строкой (раскрываются), врачи списком по росту среднего чека. L35: у каждого показателя три строки с подписями периодов (Сейчас / прошлый период / год назад).
    Все правила сравнения и полноты данных считает сервер (ev_analytics_overview, L24); здесь только показ.
    Нет данных для сравнения — серо «нет данных за прошлый период», без процентов. */
 const AN={period:'day',anchor:null,custom:null,data:null,err:null,loading:false,docsOpen:false};
@@ -46,12 +46,6 @@ function anTitle(d){
   if(p==='year'){const f=anD(d.from);return part?f.y+' год, '+anRange(d.from,d.to)+', против того же отрезка '+(f.y-1):f.y+' год против '+(f.y-1)}
   return 'С '+anDay(d.from)+' по '+anDay(d.to)+', против '+anRange(d.prev_from,d.prev_to);
 }
-/* мелкая вторая строка (если есть второе сравнение) */
-function anAltTitle(d){
-  if(d.period==='day'&&d.alt_from)return 'Тот же день прошлой недели: '+anDay(d.alt_from);
-  if(d.period==='month'&&d.alt_from)return 'Тот же период прошлого года: '+anRange(d.alt_from,d.alt_to)+' '+anD(d.alt_from).y;
-  return '';
-}
 /* процент: рост ▲ зелёный, падение ▼ красный; нет данных для сравнения — серо */
 const anDir=p=>p==null?'na':Number(p)>0?'up':Number(p)<0?'down':'zero';
 const anNoData='<span class="an-pct na">нет данных за прошлый период</span>';
@@ -63,7 +57,6 @@ function anPct(p,open){
   if(n<0)return '<span class="an-pct down">▼ −'+s+'%</span>';
   return '<span class="an-pct zero">0%</span>';
 }
-const anPctTxt=p=>p==null?'нет данных':(Number(p)>0?'▲ +':Number(p)<0?'▼ −':'')+Math.abs(Number(p)).toLocaleString('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:1})+'%';
 function anShift(d,dir){
   const base=d.period==='day'?d.anchor:d.from,x=anD(base)||anD(anOmskToday());const t=new Date(Date.UTC(x.y,x.m-1,x.d));
   if(d.period==='day')t.setUTCDate(t.getUTCDate()+dir);
@@ -82,33 +75,58 @@ async function loadAnalytics(){
   AN.loading=false;if(S.view==='an')paint();
 }
 async function showAnalytics(){closeOv();S.view='an';AN.data=null;paint();window.scrollTo(0,0);await loadAnalytics()}
-/* строка показателя: крупная цифра, рядом ▲▼ %, под ней мелко «было …» */
-function anRow(label,val,pct,prev,open){
-  /* цветом выделена ВЕРХНЯЯ (текущая) сумма: зелёная при росте, красная при падении, серая без данных; «было …» — того же размера и жирности, но нейтральным серым */
-  const was=(prev!=null&&pct!=null&&!open)?'<small class="an-was">было '+prev+'</small>':'';
-  const cur='<span class="an-cur '+(open?'na':anDir(pct))+'">'+val+'</span>';
-  return '<div class="an-m"><span class="an-ml">'+label+'</span><span class="an-mv">'+cur+was+'</span>'+anPct(pct,open)+'</div>';
+/* L35: у каждого показателя три строки с подписями периодов: «Сейчас», прошлый период, год назад (что есть в ответе сервера).
+   Процент стоит у строки сравнения: насколько «Сейчас» больше/меньше той цифры. Нет данных — «нет данных», без процента. */
+const AN_SH=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','нояб','дек'];
+function anShort(from,to){ // «1–23 нояб 2026», «22 нояб 2026», «1 янв – 23 нояб 2026», «29 дек 2025 – 4 янв 2026»
+  const f=anD(from),t=anD(to||from);if(!f||!t)return '';
+  const one=x=>x.d+' '+AN_SH[x.m-1];
+  if(f.y===t.y&&f.m===t.m)return (f.d===t.d?String(f.d):f.d+'–'+t.d)+' '+AN_SH[f.m-1]+' '+f.y;
+  if(f.y===t.y)return one(f)+' – '+one(t)+' '+t.y;
+  return one(f)+' '+f.y+' – '+one(t)+' '+t.y;
+}
+/* строки сравнения для периода: src 'prev' — prev_* ответа, 'alt' — alt.prev_* */
+function anCmpRows(d){
+  const p=d.period,R=[];
+  if(p==='day'){R.push({lab:'Днём раньше',from:d.prev_from,to:d.prev_to,src:'prev'});if(d.alt_from)R.push({lab:'Неделю назад',from:d.alt_from,to:d.alt_to,src:'alt'})}
+  else if(p==='week')R.push({lab:'Прошлая неделя',from:d.prev_from,to:d.prev_to,src:'prev'});
+  else if(p==='month'){const pm=anD(d.prev_from);R.push({lab:pm?AN_MON[pm.m-1]:'Прошлый месяц',from:d.prev_from,to:d.prev_to,src:'prev'});if(d.alt_from)R.push({lab:'Год назад',from:d.alt_from,to:d.alt_to,src:'alt'})}
+  else if(p==='year'||p==='months')R.push({lab:'Год назад',from:d.prev_from,to:d.prev_to,src:'prev'});
+  else R.push({lab:'Прошлый период',from:d.prev_from,to:d.prev_to,src:'prev'});
+  return R;
+}
+function anLine(lab,range,val,pctHtml,cls){
+  return '<div class="an-l'+(cls?' '+cls:'')+'"><span class="an-lp">'+esc(lab)+(range?' <small>('+esc(range)+')</small>':'')+'</span><span class="an-lv">'+val+'</span>'+(pctHtml||'')+'</div>';
+}
+/* один показатель: заголовок и строки «Сейчас / прошлый период / год назад» */
+function anMetric(label,key,fmt,b,d){
+  const o=!!d.open;
+  let h='<div class="an-k"><div class="an-kh">'+label+'</div>'+anLine('Сейчас',anShort(d.from,d.to),b[key]==null?'нет данных':fmt(b[key]),'','now');
+  anCmpRows(d).forEach(r=>{
+    const src=r.src==='alt'?b.alt:b,pct=src?src[key+'_pct']:null,pv=src?src['prev_'+key]:null;
+    if(o)h+=anLine(r.lab,anShort(r.from,r.to),'<span class="an-na">день не закрыт</span>','');
+    else if(pct==null||pv==null)h+=anLine(r.lab,anShort(r.from,r.to),'<span class="an-na">нет данных</span>','');
+    else h+=anLine(r.lab,anShort(r.from,r.to),fmt(pv),anPct(pct,false));
+  });
+  return h+'</div>';
 }
 function anHasData(b){return b&&(b.days||b.revenue||b.invoices)}
-/* «Итог сети»: три числа */
+function anMetrics(b,d){
+  return anMetric('Выручка','revenue',anRub,b,d)+anMetric('Счетов','invoices',anInt,b,d)+anMetric('Средний чек','avg_check',anRub,b,d)
+    +((b.pharmacy!=null||b.prev_pharmacy!=null)?anMetric('Аптека <small>по отчётам</small>','pharmacy',anRub,b,d):'');
+}
+/* «Итог сети» */
 function anSummary(b,d){
   let h='<div class="card an-card"><h2>Итог сети</h2>';
   if(!anHasData(b))return h+'<p class="an-nodata">Данных за этот период ещё нет.</p></div>';
-  const o=!!d.open;
-  h+=anRow('Выручка',anRub(b.revenue),b.revenue_pct,anRub(b.prev_revenue),o)+anRow('Счетов',anInt(b.invoices),b.invoices_pct,anInt(b.prev_invoices),o)+anRow('Средний чек',anRub(b.avg_check),b.avg_check_pct,b.prev_avg_check!=null?anRub(b.prev_avg_check):null,o);
-  const a=b.alt,al=anAltTitle(d);
-  if(a&&al&&!o)h+='<div class="an-alt">'+esc(al)+': выручка '+anPctTxt(a.revenue_pct)+' · счетов '+anPctTxt(a.invoices_pct)+' · чек '+anPctTxt(a.avg_check_pct)+'</div>';
-  h+='<div class="an-ph"><span>Аптека <small>по отчётам</small></span><span class="an-phv">'+anRub(b.pharmacy)+'</span>'+anPct(b.pharmacy_pct,o)+'</div>';
-  return h+'</div>';
+  return h+anMetrics(b,d)+'</div>';
 }
-/* филиал одной строкой «выручка · чек · %», раскрывается нажатием */
+/* филиал одной строкой «выручка · чек · %», раскрывается нажатием — внутри те же три строки */
 function anBranch(b,d){
   const o=!!d.open;
   if(!anHasData(b))return '<details class="an-br"><summary><b>'+esc(b.title)+'</b><span class="an-sline">нет данных</span></summary></details>';
   const line=anRub(b.revenue)+' · чек '+(b.avg_check!=null?anRub(b.avg_check):'—')+' · '+(o?'<span class="an-pct na">день не закрыт</span>':anPct(b.revenue_pct,false));
-  return '<details class="an-br"><summary><b>'+esc(b.title)+'</b><span class="an-sline">'+line+'</span></summary><div class="an-brd">'
-    +anRow('Выручка',anRub(b.revenue),b.revenue_pct,anRub(b.prev_revenue),o)+anRow('Счетов',anInt(b.invoices),b.invoices_pct,anInt(b.prev_invoices),o)+anRow('Средний чек',anRub(b.avg_check),b.avg_check_pct,b.prev_avg_check!=null?anRub(b.prev_avg_check):null,o)
-    +'<div class="an-ph"><span>Аптека <small>по отчётам</small></span><span class="an-phv">'+anRub(b.pharmacy)+'</span>'+anPct(b.pharmacy_pct,o)+'</div></div></details>';
+  return '<details class="an-br"><summary><b>'+esc(b.title)+'</b><span class="an-sline">'+line+'</span></summary><div class="an-brd">'+anMetrics(b,d)+'</div></details>';
 }
 /* врачи: одна строка на каждого «Имя — чек X ▲ +8%», по росту среднего чека; в «Месяц», «Год», «Помесячно» и «Свой период» свёрнуты под «Врачи» */
 const anDocsMain=p=>p==='day'||p==='week';
@@ -145,7 +163,7 @@ function analyticsHtml(){
   if(AN.err)return h+'<p class="mute">'+esc(AN.err)+'</p>';
   if(!d)return h+'<p class="mute">'+(AN.period==='custom'&&!AN.custom?'Выберите две даты.':'Загрузка…')+'</p>';
   const nav=AN.period!=='custom';
-  h+='<div class="an-nav">'+(nav?'<button class="chip" data-anact="prev" aria-label="Назад">‹</button>':'<span></span>')+'<div class="an-pl"><b>'+esc(anTitle(d))+'</b>'+(anAltTitle(d)&&!d.open?'<small>'+esc(anAltTitle(d))+'</small>':'')+'</div>'+(nav?'<button class="chip" data-anact="next" aria-label="Вперёд"'+(d.can_next?'':' disabled')+'>›</button>':'<span></span>')+'</div>';
+  h+='<div class="an-nav">'+(nav?'<button class="chip" data-anact="prev" aria-label="Назад">‹</button>':'<span></span>')+'<div class="an-pl"><b>'+esc(anTitle(d))+'</b>'+'</div>'+(nav?'<button class="chip" data-anact="next" aria-label="Вперёд"'+(d.can_next?'':' disabled')+'>›</button>':'<span></span>')+'</div>';
   if(d.period==='months'){h+=anMonths(d.months);h+=anDoctors(d.doctors,d);return h}
   h+=anSummary(d.network,d);
   if((d.branches||[]).length)h+='<div class="card an-card an-brs"><h2>Филиалы</h2>'+d.branches.map(b=>anBranch(b,d)).join('')+'</div>';

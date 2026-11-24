@@ -268,3 +268,10 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .card-main .btn.card-bigbtn{font-size:22px;padding:18px 16px;margin-top:10px;text-align:center!important;justify-content:center!important;display:block;width:100%}
 
 .card-tile .card-sub{font-weight:800;font-size:15px}.card-tile .card-sub.low,.card-tile .card-warn{color:#ffc3b6!important;font-weight:700}
+/* L35: аналитика — у показателя три строки «Сейчас / прошлый период / год назад», подпись периода у каждой цифры */
+.an-k{padding:8px 0 6px;border-top:1px solid var(--line)}.an-kh{font-size:15px;font-weight:800;color:#1d2b30;margin-bottom:2px}.an-kh small{font-weight:600;color:#587078}
+.an-l{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:baseline;padding:3px 0}
+.an-lp{grid-column:1/-1;font-size:12.5px;color:#587078;line-height:1.25}.an-lp small{font-size:12.5px}
+.an-lv{grid-column:1;grid-row:2;font-size:18px;font-weight:800;color:#1d2b30;white-space:nowrap;min-width:0}
+.an-l.now .an-lv{font-size:21px}.an-l .an-pct{grid-column:2;grid-row:2;align-self:baseline;text-align:right;white-space:nowrap}
+.an-na{font-size:14px;font-weight:600;color:#8aa0a7}
