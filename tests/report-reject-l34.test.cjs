@@ -39,6 +39,7 @@ function rpc(db,name,a){
     case'ev_whos_where':return{ok:true,shifts:db.shifts.filter(s=>s.date>=a.p_from&&s.date<=a.p_to)};
     case'ev_cash_handover_context':return{ok:true,mode:'off'};
     case'ev_submit':{
+      if(db.forbid)return{ok:false,error:'forbidden'};
       const mine=new Set(ids(a.p_data||{}));
       const clash=latestOther(db,a.p_branch,a.p_date).flatMap(r=>ids(r.data).filter(x=>mine.has(x)));
       if(clash.length)return{ok:false,error:'person_two_branches',people:[...new Set(clash)].map(x=>PEOPLE[x])};
@@ -184,6 +185,18 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
     await page.evaluate(()=>{submit();submit()});await wait(1500);
     const s=await st(page);
     ok(db.reports.length===1&&db.calls.ev_submit===1&&s.q===0,'двойное нажатие → один отчёт, один вызов ev_submit');
+    ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
+    await page.context().close();
+  }
+  /* 4b. Неисправимый отказ (forbidden: дата прошла) — отчёт остаётся в очереди с ошибкой, сам не повторяется */
+  {
+    const db=makeDb();db.forbid=true;
+    const{page,errs}=await session(browser,db,url);
+    await openForm(page,'70let',FORM());
+    await page.locator('[data-act="submit"]').first().click();await wait(900);
+    const s=await page.evaluate(()=>({q:S.queue.map(x=>x.status),rej:S.done&&S.done.rejected&&S.done.rejected.text}));
+    const n0=db.calls.ev_submit;await wait(9000);
+    ok(s.q.length===1&&s.q[0]==='error'&&/Нет доступа/.test(s.rej||'')&&db.calls.ev_submit===n0,'forbidden: отчёт в очереди (ошибка, «Копировать итоги»), экран отказа, без автоповтора');
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
     await page.context().close();
   }

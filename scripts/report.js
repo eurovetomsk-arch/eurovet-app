@@ -216,6 +216,8 @@ async function submit(){
    Состояния: черновик → отправка (очередь) → принят / отказ (назад в форму) / нет связи (ждёт в очереди).
    Содержательный отказ не повторяется сам: повтор того же отчёта даст тот же отказ. */
 const REP_REJECT={person_two_branches:1,data:1,branch:1,forbidden:1,date_range:1,window_closed:1};
+const REP_KEEP={forbidden:1,date_range:1,window_closed:1};
+let repNoL34=false; // функции ev_report_conflicts нет (L34 SQL не применён) — больше не спрашиваем
 function repDraftKey(it){return it.dk||('ev_draft2:'+(S.person?S.person.id:0)+':'+it.branch+':'+it.date)}
 function repDraftDrop(it){ // удалить черновик, только если после сдачи его не меняли (человек мог начать новую правку)
   const k=repDraftKey(it),d=LS.get(k);
@@ -233,11 +235,11 @@ function repFormOf(it){ // форма отказанного отчёта: из 
 async function repTwoBranchesText(it,res){
   /* филиал другого отчёта: из L34 (ev_report_conflicts), если функция применена; иначе — без филиала */
   let rows=null;
-  try{
+  if(!repNoL34)try{
     const ids=[].concat((it.data.admins||[]).map(x=>x.id),(it.data.doctors||[]).map(x=>x.id),(it.data.assistants||[]).map(x=>x.id)).filter(x=>x!=null);
     const r=await rpc('ev_report_conflicts',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_ids:ids},4000); // коротко: очередь ждёт
     if(r&&r.ok&&Array.isArray(r.people)&&r.people.length)rows=r.people;
-  }catch(e){}
+  }catch(e){if(e&&e.http===404)repNoL34=true}
   const tail='. Вернитесь к составу смены и исправьте его либо исправьте отчёт другого филиала.';
   if(rows)return rows.map(p=>(p.name||'Сотрудник')+' уже указан(а) в отчёте филиала '+brTitle(p.branch)+' за '+ruDate(it.date)+tail).join(' ');
   const names=(res.people||[]).map(x=>typeof x==='string'?x:(x&&x.name)).filter(Boolean);
@@ -260,7 +262,10 @@ async function repReject(it,res){
   /* черновик один: копию отправленного делаем обычным черновиком; новую правку (без пометки sent) не трогаем */
   if(!d||d.sent===it.uid)LS.set(k,{ts:Date.now(),form});
   const rej={code:res.error,text,branch:it.branch,date:it.date,branchTitle:it.branchTitle,dk:k,form,summary:it.summary};
-  S.queue=S.queue.filter(x=>x.uid!==it.uid);saveQueue(); // убираем из очереди: повтор того же отчёта бесполезен
+  /* исправимое в форме (состав, данные) — убираем из очереди; неисправимое (дата прошла, нет доступа) — оставляем
+     в очереди с ошибкой: там «Копировать итоги» и «Убрать из очереди», сам не повторяется */
+  if(REP_KEEP[res.error]){it.status='error';it.err=text}else S.queue=S.queue.filter(x=>x.uid!==it.uid);
+  saveQueue();
   if(S.done&&S.done.uid===it.uid)S.done.rejected=rej;
   else toast('Отчёт '+brTitle(it.branch)+' за '+ruDate(it.date)+' не принят: '+text+' Откройте отчёт — цифры сохранены.',10000);
 }
@@ -278,7 +283,7 @@ async function repBackToForm(){
   S.date=r.date;S.dateManual=true;await openBranch(r.branch); // форма откроется из черновика
   if(S.view==='form'&&(S.branch!==r.branch||S.date!==r.date)){ // дата уже другая (сдать за прошедший день нельзя) — назад к экрану отказа
     S.form=null;S.done=keep;S.view='done';render();toast('Отчёт за '+ruDate(r.date)+' в форме уже не открыть. Скопируйте итоги и напишите руководителю.',8000);
-  }
+  }else if(S.view==='form'&&S.roHead&&typeof headFix==='function')headFix(); // L34a: правка руководителя — сразу в форму правки
 }
 
 function summaryText(d){
