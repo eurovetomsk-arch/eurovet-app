@@ -136,6 +136,19 @@ const st=page=>page.evaluate(()=>({view:S.view,ro:!!S.roHead,q:S.queue.length,do
     await shot(page,'l34a-1-pravka');
     await page.context().close();
   }
+  /* 2b. Старый черновик руководителя (до новой версии) не подставляется; отчёт старше 7 дней — без кнопки */
+  {
+    const db=makeDb();db.who=HEAD;db.shifts=[];db.reports.push({id:1,branch:'70let',date:DAY,version:1,data:V1,uid:'pre-v1'});
+    const{page}=await session(browser,db,url);
+    await page.evaluate(()=>{localStorage.setItem('ev_draft2:h1:70let:2026-11-24',JSON.stringify({ts:Date.parse('2026-11-24T10:00:00Z'),form:{total:'5'}}))});
+    await page.evaluate(async()=>{S.date='2026-11-24';S.dateManual=true;await openBranch('70let')});await wait(400);
+    await page.locator('[data-act="headfix"]').click();await wait(300);
+    let s=await st(page);ok(s.form.total==='900','черновик старше сданной версии не подставляется — форма из текущей версии');
+    db.reports.push({id:2,branch:'70let',date:'2026-10-01',version:1,data:V1,uid:'pre-old'});
+    await page.evaluate(async()=>{S.date='2026-10-01';S.dateManual=true;await openBranch('70let')});await wait(400);
+    s=await st(page);ok(s.ro&&await page.locator('[data-act="headfix"]').count()===0&&/за последние 7 дней/.test(await page.locator('#rohead').innerText()),'отчёт старше 7 дней: кнопки нет, сказано почему');
+    await page.context().close();
+  }
   /* 3. Админ (не руководитель) после окна — правка не проходит; кнопки «Исправить отчёт» у админа нет */
   {
     const db=makeDb();db.windowClosed=true;db.shifts=[];

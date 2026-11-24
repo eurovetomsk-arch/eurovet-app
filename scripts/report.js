@@ -7,10 +7,14 @@ const draftKey=()=>'ev_draft2:'+(S.headFix?'h':'')+(S.person?S.person.id:0)+':'+
 const HEAD_REASON_MIN=15; // сервер: руководитель после окна — причина от 15 знаков
 const corrMin=()=>S.headFix?HEAD_REASON_MIN:3;
 /* L34a: «Исправить отчёт» — руководитель открывает сданную версию в обычной форме */
+// сервер (ev_submit, date_range) принимает отчёт не старше 7 дней — и от руководителя тоже
+function headFixDateOk(){const t=new Date(omskToday()+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-7);return S.date>=t.toISOString().slice(0,10)}
 function headFix(){
-  if(!isHead()||!S.ctx||!S.ctx.current)return;
+  if(!isHead()||!S.ctx||!S.ctx.current||!headFixDateOk())return;
   S.roHead=false;S.headFix=true;S.formErrors=[];
-  const d=LS.get(draftKey());
+  /* черновик правки берём, только если он моложе сданной версии; иначе он сделан по старой версии — выбрасываем */
+  let d=LS.get(draftKey());const sub=Date.parse(S.ctx.current.submitted_at||'')||0;
+  if(d&&!(d.ts>sub)){LS.del(draftKey());d=null}
   if(d&&d.form){S.form=Object.assign(emptyForm(),d.form);S.draftTs=d.ts||Date.now()}
   else{S.form=formFromReport(S.ctx.current.data);S.draftTs=null}
   render();
@@ -285,7 +289,7 @@ function viewForm(){
   const f=S.form,c=S.ctx;let h='';
   if(!(c&&c.current))h+='<button class="btn sec small" data-act="back" style="margin:0 0 8px">‹ На главную</button>'; /* c26: видимый выход из формы без нижней панели; черновик сохраняется */
   if(S.subAdmin&&isHead())h+='<div class="chk warn" id="subadm"><i>!</i><div><b>Вы заполняете отчёт за администратора.</b> Сдача пойдёт от вашего имени.</div></div>';
-  if(S.roHead)h+='<div class="chk ok" id="rohead"><i>👁</i><div><b>Просмотр отчёта</b> — только для чтения. Сдан'+(c.current&&c.current.submitted_at?' в '+hmOmsk(c.current.submitted_at):'')+(c.current?', версия '+c.current.version:'')+'.'+(isHead()&&c.current?'<br><button class="btn small" style="margin-top:8px" data-act="headfix">Исправить отчёт</button>':'')+'</div></div>';
+  if(S.roHead)h+='<div class="chk ok" id="rohead"><i>👁</i><div><b>Просмотр отчёта</b> — только для чтения. Сдан'+(c.current&&c.current.submitted_at?' в '+hmOmsk(c.current.submitted_at):'')+(c.current?', версия '+c.current.version:'')+'.'+(headFixDateOk()?'<br><button class="btn small" style="margin-top:8px" data-act="headfix">Исправить отчёт</button>':' Исправить можно за последние 7 дней.')+'</div></div>';
   if(S.formErrors&&S.formErrors.length)h+='<div class="chk bad" id="form-errors"><i>!</i><div><b>Исправьте перед отправкой: '+S.formErrors.map(esc).join('; ')+'</b></div></div>';
   if(S.draftTs){const dt=new Date(S.draftTs);const hm=dt.toLocaleString('ru-RU',{timeZone:'Asia/Omsk',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     h+='<div class="chk warn"><i>!</i><div>Восстановлен ваш несохранённый черновик от '+hm+'. Если это не сегодняшние цифры — очистите форму.<br><button class="btn sec small" style="margin-top:8px" data-act="clearDraft">Очистить форму и начать заново</button></div></div>';}
@@ -444,7 +448,7 @@ function viewDone(){
     h+='<div id="flagbox">'+flagsHtml()+'</div>';
   }else if(needR){
     h+='<div class="chk warn"><i>!</i><div>За '+ruDate(d.date)+' ('+esc(d.branch)+') отчёт уже сдан. Этот будет исправлением. Впишите, что исправили и почему, и отправьте.</div></div>'
-      +'<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'" autocomplete="off"></label>'
+      +'<label class="f"><span>Причина исправления'+(it.minLen>3?' (не короче '+it.minLen+' знаков)':'')+'</span><input id="rs-'+it.uid+'" autocomplete="off"></label>'
       +'<button class="btn" data-act="setReason" data-id="'+it.uid+'" style="margin:0 0 8px">Отправить с причиной</button>';
   }else if(st==='error'){
     h+='<div class="chk bad"><i>✗</i><div>Сервер не принял отчёт ('+esc(it.err||'ошибка')+'). Отчёт цел на устройстве. Нажмите «Отправить сейчас»; если не получится, скопируйте итоги и сообщите руководителю.</div></div>';
