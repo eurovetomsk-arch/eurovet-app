@@ -16,15 +16,20 @@ begin
     raise exception 'EV_TEST FAIL: money functions changed';
   end if;
 
-  -- 1. права: таблица закрыта, новая RPC — только anon (+service_role), не authenticated
+  if md5(pg_get_functiondef('public.ev_whos_where(text,date,date)'::regprocedure)) <> '5a195883b0bbec576ab1febfcbb44a75' then
+    raise exception 'EV_TEST FAIL: ev_whos_where is not the migration version'; end if;
+
+  -- 1. права: таблица закрыта, новая RPC — anon, authenticated, service_role (как входные ev_payroll_statement / ev_cash_on_hand), без PUBLIC
   if has_table_privilege('anon', 'public.ev_cash_excluded_people', 'select')
      or has_table_privilege('authenticated', 'public.ev_cash_excluded_people', 'select') then
     raise exception 'EV_TEST FAIL: table readable by anon/authenticated'; end if;
   if not (select relrowsecurity from pg_class where oid = 'public.ev_cash_excluded_people'::regclass) then
     raise exception 'EV_TEST FAIL: RLS off'; end if;
   if not has_function_privilege('anon', 'public.ev_cash_exclusions(text)', 'execute')
-     or has_function_privilege('authenticated', 'public.ev_cash_exclusions(text)', 'execute') then
+     or not has_function_privilege('authenticated', 'public.ev_cash_exclusions(text)', 'execute') then
     raise exception 'EV_TEST FAIL: ev_cash_exclusions grants'; end if;
+  if exists (select 1 from aclexplode((select proacl from pg_proc where oid = 'public.ev_cash_exclusions(text)'::regprocedure)) a where a.grantee = 0) then
+    raise exception 'EV_TEST FAIL: ev_cash_exclusions granted to PUBLIC'; end if;
   if not has_function_privilege('anon', 'public.ev_whos_where(text,date,date)', 'execute') then
     raise exception 'EV_TEST FAIL: ev_whos_where lost anon'; end if;
   select count(*) into v_bad from pg_proc p join pg_namespace n on n.oid = p.pronamespace

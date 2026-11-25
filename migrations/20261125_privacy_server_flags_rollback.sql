@@ -6,7 +6,8 @@ set local ev.allow_ddl = 'on';
 -- (md5 pg_get_functiondef = fbefa0ae697e6cbabc347496ab71a91b), новая RPC и таблица удаляются.
 -- Тело прежней версии хранится в базе с переводами строк CRLF; здесь оно записано с LF
 -- и переводится обратно в CRLF при создании, чтобы версия совпала байт в байт.
--- ВНИМАНИЕ: содержимое ev_cash_excluded_people теряется; наполнение хранится вне репозитория.
+-- ВНИМАНИЕ: содержимое ev_cash_excluded_people теряется; заново его заполняет Штаб на Mac из своего источника.
+-- Права: drop function снимает и гранты anon/authenticated/service_role на ev_cash_exclusions.
 
 drop function if exists public.ev_cash_exclusions(text);
 drop table if exists public.ev_cash_excluded_people;
@@ -34,6 +35,10 @@ end $body$, chr(10), chr(13) || chr(10)));
   if md5(pg_catalog.pg_get_functiondef('public.ev_whos_where(text,date,date)'::regprocedure))
      <> 'fbefa0ae697e6cbabc347496ab71a91b' then
     raise exception 'rollback did not restore ev_whos_where exactly';
+  end if;
+  if pg_catalog.to_regclass('public.ev_cash_excluded_people') is not null
+     or pg_catalog.to_regprocedure('public.ev_cash_exclusions(text)') is not null then
+    raise exception 'rollback did not remove table/RPC';
   end if;
 end $restore$;
 

@@ -10,17 +10,19 @@ set local ev.allow_ddl = 'on';
 --      (RLS, без политик, без прав anon/authenticated) и читается новой входной RPC
 --      ev_cash_exclusions(p_token) — только руководитель.
 -- Функции денег, отчётов и зарплат НЕ меняются.
--- Наполнение таблицы — отдельным файлом вне репозитория (номера людей в публичный код не кладём).
+-- Наполнение таблицы — Штаб на Mac из своего источника (номера людей в публичный код не кладём).
+-- Повторный запуск безопасен: if not exists / or replace, наполнение не трогается.
 
 do $guard$
 begin
+  -- fbefa0ae… — прежняя версия (до миграции); 5a195883… — версия этой миграции (повторный запуск)
   if md5(pg_catalog.pg_get_functiondef('public.ev_whos_where(text,date,date)'::regprocedure))
-     <> 'fbefa0ae697e6cbabc347496ab71a91b' then
+     not in ('fbefa0ae697e6cbabc347496ab71a91b', '5a195883b0bbec576ab1febfcbb44a75') then
     raise exception 'ev_whos_where differs from the expected version; stop';
   end if;
 end $guard$;
 
-create table public.ev_cash_excluded_people (
+create table if not exists public.ev_cash_excluded_people (
   person_id  bigint primary key references public.ev_people(id),
   note       text,
   created_at timestamptz not null default now()
@@ -58,7 +60,7 @@ begin
     where s.shift_date between p_from and p_to), '[]'::jsonb));
 end $function$;
 
-create function public.ev_cash_exclusions(p_token text)
+create or replace function public.ev_cash_exclusions(p_token text)
  returns jsonb
  language plpgsql
  stable security definer
@@ -73,6 +75,7 @@ begin
 end $function$;
 
 revoke all on function public.ev_cash_exclusions(text) from public, anon, authenticated;
-grant execute on function public.ev_cash_exclusions(text) to anon, service_role;
+-- как у входных ev_payroll_statement / ev_cash_on_hand: anon, authenticated, service_role
+grant execute on function public.ev_cash_exclusions(text) to anon, authenticated, service_role;
 
 commit;
