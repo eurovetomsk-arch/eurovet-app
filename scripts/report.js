@@ -189,9 +189,6 @@ async function submit(){
   if(submitting)return;
   submitting=true;
   try{
-    /* Правило Михаила: пустой список врачей означает, что врача на филиале не было.
-       Не создаём фиктивного врача с нулём; сохраняем явный no_doctor. */
-    if(S.form&&!Object.keys(S.form.doctors||{}).length){S.form.no_doctor=true;saveDraft()}
     const v=validate();
     if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);overlay('<h2>Что нужно заполнить</h2><ul>'+v.errs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><button class="btn" data-act="ovclose">Вернуться к отчёту</button>');toast('Не заполнено: '+v.errs[0],6000);return}
     S.formErrors=[];
@@ -200,7 +197,7 @@ async function submit(){
       return;
     }
     if(!Object.keys(S.form.doctors).length&&S.form.no_doctor!==true){
-      overlay('<h2>Врача в смене не было?</h2><p class="hint">Если на филиале сегодня физически не было врача, подтвердите это. Фиктивного врача с нулём выбирать не нужно.</p><button class="btn" data-act="doctornone">Да, врача не было</button><button class="btn sec" style="margin-top:8px" data-act="doctoradd">Вернуться и выбрать врача</button>');
+      overlay('<h2>Врач не выбран</h2><p class="hint">Если врач работал — вернитесь и отметьте его, чтобы выручка попала в отчёт. Только если врача физически не было весь день, подтвердите «День без врача».</p><button class="btn" data-act="doctornone">Подтвердить: день без врача</button><button class="btn sec" style="margin-top:8px" data-act="doctoradd">Вернуться и выбрать врача</button>');
       return;
     }
     if(!(await trapGate()))return; /* 2.0: ловушки отчёта (traps.js) */
@@ -406,7 +403,7 @@ function viewForm(){
 
   h+='<div class="card k-docs"><h2>Вал врачей'+hbtn('docs')+'</h2><p class="hint">Отметьте врачей, которые работали, и введите вал каждого.</p><div class="tiles">'+
     c.doctors.map(d=>'<button class="tile'+(f.doctors[d.id]?' on':'')+'" data-act="tog" data-g="doctors" data-id="'+d.id+'">'+esc(d.name)+(d.note?'<small>'+esc(d.note)+'</small>':'')+'</button>').join('')+'</div>';
-  h+='<button class="btn sec small'+(f.no_doctor?' on':'')+'" style="margin-top:8px" data-act="doctorflag">'+(f.no_doctor?'✓ Врача сегодня не было':'Врача сегодня не было')+'</button>';
+  h+='<button class="btn sec small'+(f.no_doctor?' on':'')+'" style="margin-top:8px" data-act="doctorflag">'+(f.no_doctor?'✓ День без врача':'День без врача')+'</button>';
   Object.keys(f.doctors).forEach(id=>{h+=nfield('doctors.'+id+'.val',esc(docName(id)||id)+' — вал, ₽',f.doctors[id].val)});
   f.others.forEach((o,i)=>{
     h+='<div class="person"><b>Не из списка'+hbtn('others')+'</b><label class="f"><span>Кто или за что (например, врач-замена)</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';
