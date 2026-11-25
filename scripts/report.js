@@ -189,6 +189,9 @@ async function submit(){
   if(submitting)return;
   submitting=true;
   try{
+    /* Правило Михаила: пустой список врачей означает, что врача на филиале не было.
+       Не создаём фиктивного врача с нулём; сохраняем явный no_doctor. */
+    if(S.form&&!Object.keys(S.form.doctors||{}).length){S.form.no_doctor=true;saveDraft()}
     const v=validate();
     if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);overlay('<h2>Что нужно заполнить</h2><ul>'+v.errs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><button class="btn" data-act="ovclose">Вернуться к отчёту</button>');toast('Не заполнено: '+v.errs[0],6000);return}
     S.formErrors=[];

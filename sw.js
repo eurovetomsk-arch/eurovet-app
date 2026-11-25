@@ -5,7 +5,7 @@
    Тот же адрес sw.js, что у 1.92: клиенты со старым sw.js получают этот файл сами, без повторной установки приложения.
    Версия V меняется, только когда меняется список файлов; содержимое файлов обновляется само при каждом удачном запросе.
    Тест tests/offline-c21.test.cjs сверяет список с файлами проекта. Данные (Supabase) не кэшируются: другой домен, запросы POST. */
-const V='ev2-shell-18';
+const V='ev2-shell-19';
 const SHELL=[
  "./",
  "index.html",
@@ -85,7 +85,12 @@ self.addEventListener('install',e=>{
   }).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).then(()=>
+    self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>Promise.all(cs.map(c=>{
+      const u=new URL(c.url);if(u.origin!==location.origin||u.searchParams.get('shell')==='19')return;
+      u.searchParams.set('shell','19');return c.navigate(u.href);
+    })))
+  ));
 });
 /* c24: картинки (иконки плиток, подсказки, шрифты) — «сначала копия, обновление в фоне»: возврат на экран не перезагружает их по сети и не мигает.
    Страница, config.js, скрипты и стили остаются «сеть первой» (иначе после выкладки страница и скрипты могли бы оказаться из разных версий). */

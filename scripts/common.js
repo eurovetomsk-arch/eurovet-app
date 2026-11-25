@@ -4,7 +4,7 @@ const CFG={
   url:window.STAGE1.url,
   key:window.STAGE1?.key||'',
   tol:10,                // допустимая погрешность включительно, ₽
-  appVer:'2.0.3'
+  appVer:'2.0.4'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
