@@ -37,6 +37,7 @@ function rpc(db,name,a){
     case'ev_med_line_set':{let o=db.orders.find(x=>x.branch===a.p_branch&&x.status==='open');if(!o){o={id:++db.seq,branch:a.p_branch,status:'open',lines:{}};db.orders.push(o)}if(a.p_qty)o.lines[a.p_item]=a.p_qty;else delete o.lines[a.p_item];return{ok:true,qty:a.p_qty,order_id:o.id}}
     case'ev_med_wait_list':{if(!a.p_branch&&!isBuyer(db))return{ok:false,error:'forbidden'};const rs=rowsOf(db,a.p_branch);const c={};rs.forEach(w=>{const x=c[w.branch]||(c[w.branch]={wait:0,old:0});x.wait++;if(w.old)x.old++});return{ok:true,today:TODAY,rows:rs,counts:c}}
     case'ev_med_close_order':{if(!isBuyer(db))return{ok:false,error:'forbidden'};const o=db.orders.find(x=>x.branch===a.p_branch&&x.status==='open');if(!o)return{ok:true,closed:0,wait:0,dropped:0};
+      for(const k of Object.keys(o.lines)){const m=(a.p_marks||[]).find(x=>String(x.item)===k);if(!m||m.qty!==o.lines[k])return{ok:false,error:'conflict',item:Number(k)}}
       let nw=0,nd=0;o.marks={};for(const k of Object.keys(o.lines)){const m=(a.p_marks||[]).find(x=>String(x.item)===k)||{};const d=m.delivered||0;if(d<0||d>o.lines[k])return{ok:false,error:'qty'};const left=o.lines[k]-d;const rest=left>0?(m.rest||'wait'):null;
         if(rest==='drop'&&!['extra','no_supplier','other'].includes(m.reason))return{ok:false,error:'reason'};
         o.marks[k]={delivered:d,rest,reason:rest==='drop'?m.reason:null};if(rest==='wait'&&!db.wait.some(w=>w.from===o.id&&w.item==k)){db.wait.push({id:++db.seq,branch:o.branch,item:Number(k),qty:left,since:TODAY,from:o.id,status:'wait'});nw++}if(rest==='drop')nd++}
@@ -95,10 +96,16 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     ok(/Остальные 5 шт\./.test(s.app)&&/Остальные 3 уп\./.test(s.app)&&/Привезли всё/.test(s.app)&&/Привезли полностью: 1 · частично: 2 · не привезли: 0/.test(s.app),'(а2) 5 из 10 → «Остальные 5 шт.», выбор «Ждёт / Не везём», ✓ — «Привезли всё»');
     ok(await noWide(page),'(а2) 375 px без прокрутки');
     await shot(page,'l36-a2-zakupshik-ostatok');
+    db.orders[0].lines[105]=50; /* врач добавил строку, пока закупщик отмечал → сервер: conflict, список обновлён, заявка не закрыта */
+    await page.locator('[data-dact="close"]').click();await wait(1200);
+    s=await st(page);
+    ok(db.orders[0].status==='open'&&s.step==='deliver'&&/Шприц 2 мл/.test(s.app)&&s.dm['101']&&s.dm['101'].d==='5','заявку изменили во время отметок → не закрыта, список обновлён, отметки на месте');
+    await page.locator('[data-dact="dfull"][data-item="105"]').click();await wait(200);
+    db.calls.ev_med_close_order=0;
     await page.locator('[data-dact="close"]').dblclick();await wait(1200);
     ok(db.calls.ev_med_close_order===1,'двойное нажатие «Закрыть заявку» → один вызов');
     const o=db.orders.find(x=>x.id===1),w=db.wait.filter(x=>x.from===1);
-    ok(o.status==='closed'&&w.length===1&&w[0].item===101&&w[0].qty===5&&o.marks[102].rest==='drop'&&o.marks[102].reason==='extra'&&o.marks[103].delivered===3,'закрыто: «ждёт» только на остаток Кетамина 5 шт., Дексаметазон — не везём (лишнее)');
+    ok(o.status==='closed'&&w.length===1&&o.marks[105].delivered===50&&w[0].item===101&&w[0].qty===5&&o.marks[102].rest==='drop'&&o.marks[102].reason==='extra'&&o.marks[103].delivered===3,'закрыто: «ждёт» только на остаток Кетамина 5 шт., Дексаметазон — не везём (лишнее)');
     const r2=await page.evaluate(async()=>await rpc('ev_med_close_order',{p_token:S.token,p_branch:'marksa',p_marks:[]},8000));
     ok(r2.closed===0&&db.wait.filter(x=>x.from===1).length===1,'повторное закрытие → closed 0, без дублей «ждёт»');
     /* 2. «Ждёт доставки»: свёрнуто → раскрыто → «Не везём» с причиной → строка ушла */

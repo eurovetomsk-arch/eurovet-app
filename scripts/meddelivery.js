@@ -95,7 +95,7 @@ function mddMarksOk(list){return list.every(m=>m.rest!=='drop'||(m.reason&&(m.re
 async function mddClose(){
   if(MDD.busy)return;const rows=mddDeliverRows();
   const marks=rows.map(r=>{const m=mddDm0(r.item),d=m.d===''?0:Math.max(0,Math.min(r.qty,Number(m.d)||0));const left=r.qty-d;
-    return {item:r.item,delivered:d,rest:left>0?m.rest:null,reason:left>0&&m.rest==='drop'?m.reason:null,note:left>0&&m.rest==='drop'&&m.reason==='other'?(m.note||'').trim():null}});
+    return {item:r.item,qty:r.qty,delivered:d,rest:left>0?m.rest:null,reason:left>0&&m.rest==='drop'?m.reason:null,note:left>0&&m.rest==='drop'&&m.reason==='other'?(m.note||'').trim():null}});
   if(!mddMarksOk(marks)){toast('У «Не везём» выберите причину (для «Другое» — напишите словами)',6000);return}
   const w=marks.filter(m=>m.rest==='wait').length;
   if(!confirm('Закрыть заявку '+mdBrTitle(MD.sumBranch)+'?'+(w?' В «Ждёт доставки» уйдёт позиций: '+w+'.':'')))return;
@@ -103,6 +103,7 @@ async function mddClose(){
   let r=null;try{r=await rpc('ev_med_close_order',{p_token:S.token,p_branch:MD.sumBranch,p_marks:marks},12000)}catch(e){r=e.net?{error:'net'}:null}
   MDD.busy=false;
   if(r&&r.ok){toast(r.closed?'Заявка закрыта.'+(r.wait?' В «Ждёт доставки»: '+r.wait+'.':''):'Заявка уже была закрыта.',6000);MDD.dm={};MD.step='sum';MD.sum=null;await mdSumLoad();await mddAllLoad();paint();return}
+  if(r&&r.error==='conflict'){toast('Заявку только что изменили — список обновлён. Проверьте отметки и закройте снова.',7000);MD.sum=null;await mdSumLoad();MD.step='deliver';paint();return}
   toast(r&&r.error==='net'?'Нет связи. Заявка не закрыта — повторите.':r&&r.error==='forbidden'?'Закрывает заявку закупщик.':r&&r.error==='qty'?'Привезли больше, чем заказано — проверьте число.':r&&r.error==='reason'?'Выберите причину «Не везём».':'Не удалось закрыть заявку.',6000);paint();
 }
 /* (б1/б2/б3) «Ждёт доставки» по всем филиалам */
