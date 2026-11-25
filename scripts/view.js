@@ -37,6 +37,18 @@ function stableHtml(el,html,keepImages){
   t.content.querySelectorAll('img[src]').forEach(img=>{const a=pool[img.getAttribute('src')];if(a&&a.length&&a[0].outerHTML===img.outerHTML)img.replaceWith(a.shift())});
   el.replaceChildren(t.content);return true;
 }
+/* Активная вкладка меняет только класс кнопки. Не удаляем саму панель и SVG:
+   iOS иначе заново композитит все иконки и они заметно мигают. */
+function stableBottomBar(el,html){
+  if(!el||!html)return stableHtml(el,html);
+  const old=el.firstElementChild;
+  if(!old||el.children.length!==1||!old.matches('nav.ui2-bottom-nav'))return stableHtml(el,html);
+  const t=document.createElement('template');t.innerHTML=html;
+  const fresh=t.content.firstElementChild,ob=[...old.querySelectorAll(':scope > button')],nb=fresh?[...fresh.querySelectorAll(':scope > button')]:[];
+  const same=fresh&&fresh.matches('nav.ui2-bottom-nav')&&ob.length===nb.length&&ob.every((b,i)=>b.innerHTML===nb[i].innerHTML&&b.dataset.act===nb[i].dataset.act&&b.dataset.v===nb[i].dataset.v);
+  if(!same)return stableHtml(el,html);
+  ob.forEach((b,i)=>b.className=nb[i].className);return false;
+}
 function roLock(){
   const a=$('#app');if(!a)return;a.classList.toggle('ro',!!(S.view==='form'&&S.roHead));
   if(!(S.view==='form'&&S.roHead))return;
@@ -72,7 +84,8 @@ function render(){
   stableHtml(app,html,true);
   if(S.view==='form'){if(!S.nosub)updateChecks();roLock()}
   if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an','card'].includes(S.view))barHtml=navHtml();
-  stableHtml(bar,barHtml);
+  stableBottomBar(bar,barHtml);
+  document.body.classList.toggle('has-bottom-bar',!!barHtml);
 }
 window.addEventListener('popstate',e=>{
   if(typeof vmwBlockBack==='function'&&vmwBlockBack())return; /* экран «Ожидайте сверки»: назад не выводит */
@@ -539,11 +552,20 @@ document.addEventListener('change',e=>{
     if(mm){const e=S.form.expenses[Number(mm[1])];if(e){e.method=isRet(e.article)?(e.method==='cash'||e.method==='noncash'?e.method:''):''}saveDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
     saveDraft();updateChecks()}
 });
+let loginPointerUntil=0;
+/* На сенсорном экране принимаем цифру уже на pointerdown. Это убирает
+   задержку/слипание быстрых касаний Safari; последующий click игнорируется. */
+document.addEventListener('pointerdown',e=>{
+  const b=e.target.closest&&e.target.closest('.ui2-pad button[data-act]');if(!b)return;
+  e.preventDefault();loginPointerUntil=performance.now()+900;
+  loginKeyPress(b.dataset.act,b.dataset.n);
+},{capture:true});
 document.addEventListener('click',async e=>{
   const ov=e.target.closest('.ov');
   if(ov&&!e.target.closest('[data-stop]')){closeOv();return}
   const b=e.target.closest('[data-act]');if(!b||b.classList.contains('ov'))return;
   const a=b.dataset.act,d=b.dataset;
+  if(b.closest('.ui2-pad')&&performance.now()<loginPointerUntil)return;
   switch(a){
     case'wkper':showWork(d.from,d.to);break;
     case'wktab':S.wkTab=d.k;paint();break;
@@ -643,19 +665,8 @@ document.addEventListener('click',async e=>{
     case'loginstart':if(!applySavedNumber()){S.loginScreen='keypad';S.loginStep='number';S.loginNumber='';S.loginPin=''}render();break;
     case'loginnotme':try{localStorage.removeItem(LOGIN_NUM_KEY)}catch(e){}S.loginRemembered=false;S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
     case'loginchange':S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
-    case'logindel':if(S.busy)break;if(S.loginStep==='pin'){S.loginPin=S.loginPin.slice(0,-1);if(!S.loginPin.length&&S.loginNumber.length<3)S.loginStep='number'}else S.loginNumber=S.loginNumber.slice(0,-1);refreshLoginKeypad();break;
-    case'logindigit':{
-      if(S.busy)break;
-      const n=String(d.n||'');if(!/^\d$/.test(n))break;
-      if(S.loginStep==='number'){
-        if(S.loginNumber.length<3)S.loginNumber+=n;
-        if(S.loginNumber.length===3)S.loginStep='pin';
-        refreshLoginKeypad();
-      }else if(S.loginPin.length<6){
-        S.loginPin+=n;refreshLoginKeypad();
-        if(S.loginPin.length===6)setTimeout(()=>doLogin(S.loginPin),0);
-      }
-      break}
+    case'logindel':loginKeyPress(a);break;
+    case'logindigit':loginKeyPress(a,d.n);break;
     case'branch':{const dt=$('#dt');if(dt&&dt.value)S.date=dt.value;S.dateManual=S.date!==omskToday();openBranch(d.id);break}
     case'reloadctx':openBranch(S.branch);break;
     case'back':closeOv();saveDraftNow();S.view='branch';S.form=null;S.roHead=false;S.headFix=false;S.nosub=false;S.subAdmin=false;render();break;

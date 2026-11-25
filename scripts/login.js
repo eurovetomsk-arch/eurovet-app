@@ -232,7 +232,34 @@ function refreshLoginKeypad(){
   const shell=document.querySelector('.ui2-key-login'),entry=shell&&shell.querySelector('.ui2-login-entry'),title=shell&&shell.querySelector('h2');
   if(!shell||!entry||!title){render();return}
   title.textContent=S.loginStep==='number'?'Ваш личный номер':'Введите PIN';
-  entry.innerHTML=loginBoxes();
+  /* На одном и том же шаге не перестраиваем даже область индикатора: Safari
+     не тратит кадр на новую разметку между двумя быстрыми касаниями. */
+  if(entry.dataset.step!==S.loginStep){entry.innerHTML=loginBoxes();entry.dataset.step=S.loginStep;return}
+  if(S.loginStep==='number'){
+    const boxes=entry.querySelectorAll('.ui2-digits span');
+    boxes.forEach((box,i)=>{box.textContent=S.loginNumber[i]||'';box.classList.toggle('cur',i===S.loginNumber.length)});
+    const digits=entry.querySelector('.ui2-digits');if(digits)digits.setAttribute('aria-label','Введено цифр: '+S.loginNumber.length);
+  }else{
+    entry.querySelectorAll('.ui2-dots i').forEach((dot,i)=>dot.classList.toggle('on',i<S.loginPin.length));
+    const dots=entry.querySelector('.ui2-dots');if(dots)dots.setAttribute('aria-label','Введено цифр PIN: '+S.loginPin.length);
+  }
+}
+function loginKeyPress(act,n){
+  if(S.view!=='login'||S.loginScreen!=='keypad'||S.busy)return;
+  if(act==='logindel'){
+    if(S.loginStep==='pin'){S.loginPin=S.loginPin.slice(0,-1);if(!S.loginPin.length&&S.loginNumber.length<3)S.loginStep='number'}
+    else S.loginNumber=S.loginNumber.slice(0,-1);
+    refreshLoginKeypad();return;
+  }
+  n=String(n||'');if(act!=='logindigit'||!/^[0-9]$/.test(n))return;
+  if(S.loginStep==='number'){
+    if(S.loginNumber.length<3)S.loginNumber+=n;
+    if(S.loginNumber.length===3)S.loginStep='pin';
+    refreshLoginKeypad();
+  }else if(S.loginPin.length<6){
+    S.loginPin+=n;refreshLoginKeypad();
+    if(S.loginPin.length===6)setTimeout(()=>doLogin(S.loginPin),0);
+  }
 }
 /* c21: без сети войти нельзя (вход проверяет сервер), но данные не потеряны — говорим об этом прямо */
 function loginNetNote(){
@@ -245,5 +272,5 @@ function loginNetNote(){
 }
 function viewLogin(){
   if(S.loginScreen==='start')return '<section class="ui2-login-shell ui2-start"><div class="ui2-login-spacer"></div><div class="ui2-halo">'+evroMark('evro-mark')+'</div>'+loginWordmark('lg')+'<p class="ui2-login-lead">'+esc(loginSlogan())+'</p>'+loginNetNote()+'<div class="ui2-login-spacer"></div><button class="btn ui2-login-btn" data-act="loginstart">Войти</button></section>';
-  return '<section class="ui2-login-shell ui2-key-login">'+loginWordmark('sm')+'<h2>'+(S.loginStep==='number'?'Ваш личный номер':'Введите PIN')+'</h2><div class="ui2-login-entry">'+loginBoxes()+'</div><div class="ui2-login-spacer"></div>'+loginPad()+''+loginNetNote()+'<p class="ui2-login-fine">Номер и PIN — ваша подпись. Никому не передавайте</p>'+(S.busy?'<div class="ui2-login-busy">Входим…</div>':'')+'</section>';
+  return '<section class="ui2-login-shell ui2-key-login">'+loginWordmark('sm')+'<h2>'+(S.loginStep==='number'?'Ваш личный номер':'Введите PIN')+'</h2><div class="ui2-login-entry" data-step="'+S.loginStep+'">'+loginBoxes()+'</div><div class="ui2-login-spacer"></div>'+loginPad()+''+loginNetNote()+'<p class="ui2-login-fine">Номер и PIN — ваша подпись. Никому не передавайте</p>'+(S.busy?'<div class="ui2-login-busy">Входим…</div>':'')+'</section>';
 }

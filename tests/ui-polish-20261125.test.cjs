@@ -1,4 +1,4 @@
-// UI 2.0.9: мобильная/настольная геометрия, быстрый PIN, стабильные иконки и справочник.
+// UI 2.0.10: мобильная/настольная геометрия, быстрый PIN, стабильные иконки и справочник.
 // Только локальный HTTP и подставные RPC; наружу запросы запрещены.
 const fs=require('fs'),http=require('http'),path=require('path');
 const pw=require(process.env.EVROVET_PLAYWRIGHT_MODULE||'playwright-core');
@@ -29,8 +29,9 @@ async function runEngine(kind,browser,url){
     await ctx.route('**/*',async route=>{const u=route.request().url();if(u.startsWith(url))return route.continue();if(!/\/rest\/v1\/rpc\//.test(u)){escaped.push(u);return route.abort()}const n=u.split('/').pop().split('?')[0];return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rpc(n))})});
     await page.goto(url,{waitUntil:'domcontentloaded'});await page.evaluate(()=>localStorage.clear());await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('[data-act="loginstart"]').click();
-    /* Ссылки на кнопки берём один раз: тест ловит прежнюю ошибку, когда render() удалял клавиатуру после первой цифры. */
-    await page.evaluate(()=>{const seq='123123456',buttons={};document.querySelectorAll('[data-act="logindigit"]').forEach(b=>buttons[b.dataset.n]=b);for(const n of seq)buttons[n].dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}))});
+    /* Ссылки на кнопки берём один раз и шлём быстрые pointerdown как реальный
+       телефон: тест ловит потерю касаний и удаление клавиатуры между цифрами. */
+    await page.evaluate(()=>{const seq='123123456',buttons={};document.querySelectorAll('[data-act="logindigit"]').forEach(b=>buttons[b.dataset.n]=b);for(const n of seq)buttons[n].dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',isPrimary:true}))});
     await page.waitForTimeout(250);
     const entered=await page.evaluate(()=>({view:S.view,number:S.loginNumber,pin:S.loginPin,busy:S.busy}));
     ok(entered.view==='branch'&&entered.number==='123',kind+' '+name+': быстрый 3+6-значный ввод принят без потери цифр');
@@ -38,9 +39,13 @@ async function runEngine(kind,browser,url){
     ok(home.overflow<=0,kind+' '+name+': главная без горизонтального выезда');
     const stable=await page.evaluate(()=>{const bar=document.getElementById('barwrap'),head=document.getElementById('hdr'),img=document.querySelector('.ui2-role-tile img');let bm=0,hm=0;const bo=new MutationObserver(x=>bm+=x.length),ho=new MutationObserver(x=>hm+=x.length);bo.observe(bar,{childList:true,subtree:true});ho.observe(head,{childList:true,subtree:true});render();render();render();bo.disconnect();ho.disconnect();return{bm,hm,same:img===document.querySelector('.ui2-role-tile img')}});
     ok(stable.bm===0&&stable.hm===0&&stable.same,kind+' '+name+': повторные фоновые отрисовки не пересоздают навигацию, шапку и иконку');
+    const navStable=await page.evaluate(()=>{const nav=document.querySelector('.ui2-bottom-nav'),icons=[...nav.querySelectorAll('svg')];S.view='med';render();return{nav:nav===document.querySelector('.ui2-bottom-nav'),icons:icons.every((x,i)=>x===document.querySelectorAll('.ui2-bottom-nav svg')[i])}});
+    ok(navStable.nav&&navStable.icons,kind+' '+name+': переход между экранами не пересоздаёт нижнюю панель и SVG');
     await page.evaluate(items=>{S.view='med';MD.step='edit';MD.cat={ok:true,items};MD.etab='med';MD.eq='';render();scrollTo(0,0)},ITEMS);
     const med=await page.evaluate(()=>{const card=document.querySelector('.md-ed2'),sel=card&&card.querySelector('.md-es'),grp=card&&card.querySelector('.md-ef-group');return{overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,select:sel&&sel.options[sel.selectedIndex].text,selectWidth:sel&&sel.getBoundingClientRect().width,groupWidth:grp&&grp.getBoundingClientRect().width,cardWidth:card&&card.getBoundingClientRect().width,labels:[...card.querySelectorAll('.md-ef>span')].map(x=>x.textContent)}});
     ok(med.overflow<=0&&med.select==='Медицинские'&&med.selectWidth>=120&&med.groupWidth>med.selectWidth*1.8&&['Название','Раздел','Единица','Группа'].every(x=>med.labels.includes(x)),kind+' '+name+': справочник ровный, «Медицинские» помещается, поля подписаны');
+    const bottom=await page.evaluate(()=>{scrollTo(0,document.documentElement.scrollHeight);const card=[...document.querySelectorAll('.md-ed2')].at(-1),nav=document.querySelector('.ui2-bottom-nav'),cr=card.getBoundingClientRect(),nr=nav.getBoundingClientRect();return{cardBottom:cr.bottom,navTop:nr.top,scrollY,scrollMax:document.documentElement.scrollHeight-innerHeight}});
+    ok(bottom.scrollY>=bottom.scrollMax-2&&bottom.cardBottom<=bottom.navTop-8,kind+' '+name+': последняя карточка полностью прокручивается выше нижней панели');
     if((kind==='chromium'||kind==='webkit')&&(name==='phone-390'||name==='desktop')){await page.evaluate(()=>document.querySelector('.md-ed2')?.scrollIntoView({block:'center'}));await page.screenshot({path:path.join(OUT,kind+'-'+name+'-med.png'),fullPage:false})}
     ok(errors.length===0,kind+' '+name+': нет ошибок JavaScript'+(errors.length?' — '+errors.join('; '):''));
     ok(escaped.length===0,kind+' '+name+': нет внешних запросов');
