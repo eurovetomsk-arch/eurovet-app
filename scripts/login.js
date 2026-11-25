@@ -184,7 +184,17 @@ async function openBranch(id,opts){
   if(!S.ctxOffline)loadHandover();
   if(opts&&opts.rescue2511&&id==='70let'&&S.date==='2026-11-25'&&!ctx.current&&draft&&draft.form&&!draft.sent){
     S.form.no_doctor=true;S.form.no_assistant=true;saveDraft();
-    setTimeout(()=>{if(S.view==='form'&&S.branch==='70let'&&S.date==='2026-11-25'&&S.form&&!S.ctx.current)submit()},1200);
+    setTimeout(async()=>{
+      if(S.view!=='form'||S.branch!=='70let'||S.date!=='2026-11-25'||!S.form||S.ctx.current)return;
+      /* Владелец подтвердил замену администратора: Таслицкая работала вместо
+         сотрудника из графика. Сохраняем штатные ответы ловушек из графика,
+         не меняя ни одного денежного поля локального черновика. */
+      await trapLoadSched();
+      const here=trapReportPeople().filter(x=>x.slot==='admin'),abs=S.form.sched_absent=S.form.sched_absent||[],sub=S.form.sched_subst=S.form.sched_subst||[];
+      (TRAP_SCHED.rows||[]).filter(x=>x.slot==='admin'&&x.name&&!here.some(p=>trapSame(x,p.name))).forEach(x=>{if(!abs.some(n=>trapNorm(n)===trapNorm(x.name)))abs.push(x.name)});
+      here.filter(p=>!(TRAP_SCHED.rows||[]).some(x=>x.slot==='admin'&&trapSame(x,p.name))).forEach(p=>{if(!sub.some(n=>trapNorm(n)===trapNorm(p.name)))sub.push(p.name)});
+      saveDraft();await submit();
+    },1200);
   }
 }
 
