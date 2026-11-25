@@ -73,7 +73,7 @@ function mddDeliverRows(){const b=MD.sumBranch;return ((MD.sum&&MD.sum.rows)||[]
 const mddDm0=item=>MDD.dm[item]||(MDD.dm[item]={d:'',rest:'wait',reason:'',note:''});
 /* выбор одним нажатием: opts — [[код, подпись]], cur — выбранный код; «Другое» открывает поле текста */
 function mddOpts(opts,cur,act,attr,note){
-  return '<div class="mdd-opts">'+opts.map(o=>'<button class="mdd-op'+(cur===o[0]?(o[0]==='wait'?' on':' on no'):'')+'" data-dact="'+act+'" '+attr+' data-v="'+o[0]+'">'+o[1]+'</button>').join('')+'</div>'
+  return '<div class="mdd-opts'+(opts.length===3?' n3':'')+'">'+opts.map(o=>'<button class="mdd-op'+(cur===o[0]?(o[0]==='wait'?' on':' on no'):'')+'" data-dact="'+act+'" '+attr+' data-v="'+o[0]+'">'+o[1]+'</button>').join('')+'</div>'
     +(cur==='other'?'<input class="mdd-note" '+attr+' maxlength="200" placeholder="Причина словами" value="'+esc(note||'')+'">':'');
 }
 const MDD_OPTS_REST=[['wait','Ждём на склад'],['no_supplier','Нет на складе'],['extra','Заказали лишнее'],['other','Другое']];
@@ -90,7 +90,7 @@ function mddDeliverHtml(){
       +'<div class="mdd-ctl"><input class="mdd-qty'+(d!=null&&!all?' v':'')+'" inputmode="numeric" '+a+' data-max="'+r.qty+'" value="'+(d!=null&&!all?d:'')+'" placeholder="—" aria-label="Сколько привезли"><span class="mdd-of">из '+r.qty+'</span>'
       +'<button class="mdd-chk'+(all?' on':'')+'" data-dact="dfull" '+a+' data-max="'+r.qty+'" aria-label="Привезли всё">'+(all?'✓':'')+'</button></div>';
     if(all)h+='<div class="mdd-st ok">Привезли всё</div>';
-    else h+='<div class="mdd-rest"><div class="mdd-rl">'+(d>0?'Остальные '+left:'Не привезли: '+left)+mddUnit(r)+':</div>'
+    else h+='<div class="mdd-rest"><div class="mdd-rl">'+(d>0?'Остальные ':'Не привезли ')+left+mddUnit(r)+':</div>'
       +mddOpts(MDD_OPTS_REST,m.rest==='drop'?m.reason:'wait','opt',a,m.note)+'</div>';
     h+='</div>';
   });
