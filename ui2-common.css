@@ -479,7 +479,7 @@ body.ui2 .ui2-key-login .ui2-shared{display:flex;align-items:flex-start;justify-
 body.ui2 .ui2-key-login .ui2-shared input{flex:none;width:20px;height:20px;min-height:0;margin:1px 0 0;accent-color:var(--ev-accent-light)}
 body.ui2 .ui2-key-login .ui2-shared small{color:rgba(234,246,248,.62)}
 body.ui2 .ui2-pad{display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:10px;width:100%;max-width:360px;margin:0 auto}
-body.ui2 .ui2-pad button{min-width:72px;height:58px;border-radius:18px;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);font-size:24px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+body.ui2 .ui2-pad button{min-width:72px;height:58px;border-radius:18px;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);font-size:24px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);touch-action:manipulation;user-select:none;-webkit-user-select:none}
 body.ui2 .ui2-pad button:active{transform:scale(.97);background:rgba(159,216,227,.18)}
 body.ui2 .ui2-pad .blank{visibility:hidden}
 body.ui2 .ui2-pad .del{color:rgba(234,246,248,.72);background:transparent;border-color:transparent}

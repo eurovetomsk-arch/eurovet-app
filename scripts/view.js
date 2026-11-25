@@ -3,11 +3,11 @@
 function setHeader(){
   const h=$('#hdr');
   document.body.classList.toggle('login-mode',S.view==='login');
-  if(S.view==='login'){h.className='login-head';h.innerHTML='';return}
+  if(S.view==='login'){h.className='login-head';stableHtml(h,'');return}
   h.className=S.view==='form'?'form-head':'';
-  if(S.view==='help'&&!S.person){h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>Мой ЕВРОВЕТ</b><small>Всё о вашей работе — в одном месте</small></div></div>'+netBadge();return}
-  h.innerHTML='<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?(S.person.short_name||S.person.name):'')+'</b><small>'+esc(stageRole(S.person))+'</small></div></div><div class="hb">'+netBadge()+
-    (S.view==='form'?'<button class="pill" data-act="back" aria-label="Назад на главную">‹ Назад</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'</div>'; /* 2.0: «Меню» только внизу */
+  if(S.view==='help'&&!S.person){stableHtml(h,'<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>Мой ЕВРОВЕТ</b><small>Всё о вашей работе — в одном месте</small></div></div>'+netBadge(),true);return}
+  stableHtml(h,'<div class="hl"><img class="logo" src="mark.svg" alt=""><div><b>'+esc(S.person?(S.person.short_name||S.person.name):'')+'</b><small>'+esc(stageRole(S.person))+'</small></div></div><div class="hb">'+netBadge()+
+    (S.view==='form'?'<button class="pill" data-act="back" aria-label="Назад на главную">‹ Назад</button>':'')+(S.view==='cc'&&canReport()&&!isHead()?'<button class="pill" data-act="back">Отчёт</button>':'')+'</div>',true); /* 2.0: «Меню» только внизу */
 }
 function netBadge(){
   const q=S.queue.length+S.handoverQueue.length;
@@ -26,6 +26,17 @@ function evSyncHistory(){
   evHistoryView=snap.view;
 }
 let _renderedView=null;
+/* Не трогаем уже нарисованный узел, если разметка не изменилась. При изменении
+   переносим совпадающие картинки в новую разметку: декодированные иконки не
+   исчезают между несколькими фоновыми обновлениями одного экрана. */
+function stableHtml(el,html,keepImages){
+  if(!el||el.innerHTML===html)return false;
+  if(!keepImages){el.innerHTML=html;return true}
+  const t=document.createElement('template');t.innerHTML=html;
+  const pool={};el.querySelectorAll('img[src]').forEach(img=>{const k=img.getAttribute('src');(pool[k]||(pool[k]=[])).push(img)});
+  t.content.querySelectorAll('img[src]').forEach(img=>{const a=pool[img.getAttribute('src')];if(a&&a.length&&a[0].outerHTML===img.outerHTML)img.replaceWith(a.shift())});
+  el.replaceChildren(t.content);return true;
+}
 function roLock(){
   const a=$('#app');if(!a)return;a.classList.toggle('ro',!!(S.view==='form'&&S.roHead));
   if(!(S.view==='form'&&S.roHead))return;
@@ -37,28 +48,31 @@ function render(){
   _renderedView=S.view;
   evSyncHistory();
   setHeader();
-  const app=$('#app'),bar=$('#barwrap');bar.innerHTML='';
+  const app=$('#app'),bar=$('#barwrap');let html='',barHtml='';
   app.classList.toggle('ro',S.view==='form'&&!!S.roHead); /* c32: «только чтение» держится только на экране просмотра, на других экранах не прячет кнопки */
-  if(S.view==='login')app.innerHTML=viewLogin();
-  else if(S.view==='branch')app.innerHTML=viewBranch();
-  else if(S.view==='form'){app.innerHTML=viewForm();bar.innerHTML=viewBar();if(!S.nosub)updateChecks();roLock()}
-  else if(S.view==='done')app.innerHTML=viewDone();
-  else if(S.view==='vmw')app.innerHTML=vmwHtml();
-  else if(S.view==='help')app.innerHTML=viewHelp();
-  else if(S.view==='ctl')app.innerHTML=ctlHtml();
-  else if(S.view==='rev')app.innerHTML=revHtml()+revDoctorsHtml();
-  else if(S.view==='sal')app.innerHTML=salHtml();
-  else if(S.view==='cc')app.innerHTML=ccHtml();
-  else if(S.view==='work')app.innerHTML=workHtml();
-  else if(S.view==='pay')app.innerHTML=payHtml();
-  else if(S.view==='mu')app.innerHTML=muHtml();
-  else if(S.view==='sched')app.innerHTML=schedHtml();
-  else if(S.view==='prepare')app.innerHTML=prepareHtml();
-  else if(S.view==='vac')app.innerHTML=vacHtml();
-  else if(S.view==='med')app.innerHTML=medHtml();
-  else if(S.view==='an')app.innerHTML=analyticsHtml();
-  else if(S.view==='card')app.innerHTML=cardHtml();
-  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an','card'].includes(S.view))bar.innerHTML=navHtml();
+  if(S.view==='login')html=viewLogin();
+  else if(S.view==='branch')html=viewBranch();
+  else if(S.view==='form'){html=viewForm();barHtml=viewBar()}
+  else if(S.view==='done')html=viewDone();
+  else if(S.view==='vmw')html=vmwHtml();
+  else if(S.view==='help')html=viewHelp();
+  else if(S.view==='ctl')html=ctlHtml();
+  else if(S.view==='rev')html=revHtml()+revDoctorsHtml();
+  else if(S.view==='sal')html=salHtml();
+  else if(S.view==='cc')html=ccHtml();
+  else if(S.view==='work')html=workHtml();
+  else if(S.view==='pay')html=payHtml();
+  else if(S.view==='mu')html=muHtml();
+  else if(S.view==='sched')html=schedHtml();
+  else if(S.view==='prepare')html=prepareHtml();
+  else if(S.view==='vac')html=vacHtml();
+  else if(S.view==='med')html=medHtml();
+  else if(S.view==='an')html=analyticsHtml();
+  else if(S.view==='card')html=cardHtml();
+  stableHtml(app,html,true);
+  if(S.view==='form'){if(!S.nosub)updateChecks();roLock()}
+  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an','card'].includes(S.view))barHtml=navHtml();
+  stableHtml(bar,barHtml);
 }
 window.addEventListener('popstate',e=>{
   if(typeof vmwBlockBack==='function'&&vmwBlockBack())return; /* экран «Ожидайте сверки»: назад не выводит */
@@ -629,16 +643,16 @@ document.addEventListener('click',async e=>{
     case'loginstart':if(!applySavedNumber()){S.loginScreen='keypad';S.loginStep='number';S.loginNumber='';S.loginPin=''}render();break;
     case'loginnotme':try{localStorage.removeItem(LOGIN_NUM_KEY)}catch(e){}S.loginRemembered=false;S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
     case'loginchange':S.loginStep='number';S.loginNumber='';S.loginPin='';render();break;
-    case'logindel':if(S.busy)break;if(S.loginStep==='pin'){S.loginPin=S.loginPin.slice(0,-1);if(!S.loginPin.length&&S.loginNumber.length<3)S.loginStep='number'}else S.loginNumber=S.loginNumber.slice(0,-1);render();break;
+    case'logindel':if(S.busy)break;if(S.loginStep==='pin'){S.loginPin=S.loginPin.slice(0,-1);if(!S.loginPin.length&&S.loginNumber.length<3)S.loginStep='number'}else S.loginNumber=S.loginNumber.slice(0,-1);refreshLoginKeypad();break;
     case'logindigit':{
       if(S.busy)break;
       const n=String(d.n||'');if(!/^\d$/.test(n))break;
       if(S.loginStep==='number'){
         if(S.loginNumber.length<3)S.loginNumber+=n;
         if(S.loginNumber.length===3)S.loginStep='pin';
-        render();
+        refreshLoginKeypad();
       }else if(S.loginPin.length<6){
-        S.loginPin+=n;render();
+        S.loginPin+=n;refreshLoginKeypad();
         if(S.loginPin.length===6)setTimeout(()=>doLogin(S.loginPin),0);
       }
       break}

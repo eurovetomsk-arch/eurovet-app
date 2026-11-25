@@ -225,6 +225,15 @@ function loginBoxes(){
     +'<div class="ui2-field-label" style="margin-top:10px;opacity:.7;font-weight:600">Автоматический выход через 30 минут без действий (кроме руководителя).</div>';
 }
 function loginPad(){return '<div class="ui2-pad">'+['1','2','3','4','5','6','7','8','9'].map(n=>'<button data-act="logindigit" data-n="'+n+'">'+n+'</button>').join('')+'<button class="blank" tabindex="-1" aria-hidden="true"></button><button data-act="logindigit" data-n="0">0</button><button class="del" data-act="logindel" aria-label="Стереть">⌫</button></div>'}
+/* Цифровая клавиатура остаётся тем же DOM-узлом между нажатиями.
+   Раньше полный render() после каждой цифры удалял кнопки прямо под пальцем,
+   поэтому быстрые касания на телефоне терялись. */
+function refreshLoginKeypad(){
+  const shell=document.querySelector('.ui2-key-login'),entry=shell&&shell.querySelector('.ui2-login-entry'),title=shell&&shell.querySelector('h2');
+  if(!shell||!entry||!title){render();return}
+  title.textContent=S.loginStep==='number'?'Ваш личный номер':'Введите PIN';
+  entry.innerHTML=loginBoxes();
+}
 /* c21: без сети войти нельзя (вход проверяет сервер), но данные не потеряны — говорим об этом прямо */
 function loginNetNote(){
   const q=(S.queue||[]).length,hq=(S.handoverQueue||[]).length;

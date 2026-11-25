@@ -116,6 +116,7 @@ const st=page=>page.evaluate(()=>({view:S.view,ro:!!S.roHead,q:S.queue.length,do
     ok(s.view==='form'&&(db.calls.ev_submit||0)===0&&/не короче 15 знаков \(сейчас 8\)/.test(await page.locator('#form-errors').innerText()),'причина короче 15 знаков — понятная ошибка, отчёт не уходит');
     const keys=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('ev_draft2:')));
     ok(keys.length===1&&keys[0].startsWith('ev_draft2:h1:70let:'),'черновик правки руководителя под отдельным ключом (ev_draft2:h…)');
+    await page.getByRole('button',{name:'Вернуться к отчёту'}).click();
     await page.evaluate(()=>{S.form.corr_reason='исправил вал врача по кассе';render()});
     await page.locator('[data-act="submit"]').first().click();await wait(1200);
     s=await st(page);const v2=db.reports.find(r=>r.version===2);

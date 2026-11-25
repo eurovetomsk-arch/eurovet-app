@@ -5,7 +5,7 @@
    Тот же адрес sw.js, что у 1.92: клиенты со старым sw.js получают этот файл сами, без повторной установки приложения.
    Версия V меняется, только когда меняется список файлов; содержимое файлов обновляется само при каждом удачном запросе.
    Тест tests/offline-c21.test.cjs сверяет список с файлами проекта. Данные (Supabase) не кэшируются: другой домен, запросы POST. */
-const V='ev2-shell-23';
+const V='ev2-shell-24';
 const SHELL=[
  "./",
  "index.html",
@@ -87,8 +87,8 @@ self.addEventListener('install',e=>{
 self.addEventListener('activate',e=>{
   e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).then(()=>
     self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>Promise.all(cs.map(c=>{
-      const u=new URL(c.url);if(u.origin!==location.origin||u.searchParams.get('shell')==='23')return;
-      u.searchParams.set('shell','23');return c.navigate(u.href);
+      const u=new URL(c.url);if(u.origin!==location.origin||u.searchParams.get('shell')==='24')return;
+      u.searchParams.set('shell','24');return c.navigate(u.href);
     })))
   ));
 });
