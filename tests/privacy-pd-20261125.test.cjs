@@ -55,7 +55,7 @@ ok(!h.includes('не загрузился')&&/Остаток к выплате<\
   const S4={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true,token:'t'};await mk(S4,async()=>{throw{net:true}}).retrySafeExcl();
   ok(S4.cashExcl===null,'«Повторить» без связи → снова «не загрузился», остаток не показан');
   ok(/case'safeexclretry':retrySafeExcl\(\)/.test(rd('scripts/view.js')),'кнопка подключена в обработчике data-act');
-  ok(/const V='ev2-shell-14'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-14');
+  ok(/const V='ev2-shell-15'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-15');
   rest();
 })().catch(e=>{console.error(e);process.exit(1)});
 function rest(){
