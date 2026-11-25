@@ -134,6 +134,20 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));ok(escaped.length===0,'наружу запросов нет');
     await page.context().close();
   }
+  /* 4. L36c: открытых заявок нет — «Открытых заявок нет», без пустой шапки, без «Копировать/Excel» и подсказки */
+  {
+    const db=makeDb();db.who=HEAD;db.orders.forEach(o=>o.status='closed');
+    const{page,errs}=await session(browser,db,url);
+    await page.evaluate(async()=>{await showMed()});await wait(700);
+    const html=await page.locator('#app').innerHTML(),txt=await page.locator('#app').innerText();
+    ok(/Открытые \(0\)/.test(txt)&&/Открытых заявок нет/.test(txt)&&!/<table class="md-t"/.test(html)&&!/data-mact="copy"|data-mact="xls"/.test(html)&&!/Чтобы закрыть заявку/.test(txt),'L36c: 0 открытых — строка «Открытых заявок нет», нет пустой шапки таблицы, «Копировать/Excel» и подсказки');
+    ok(await noWide(page),'L36c: 375 px без прокрутки');
+    await shot(page,'l36c-otkrytyh-net');
+    await page.locator('[data-mact="sumbr"][data-id="marksa"]').click();await wait(500);
+    ok(/Открытых заявок нет/.test(await page.locator('#app').innerText()),'L36c: в филиале без заявки — то же');
+    ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
+    await page.context().close();
+  }
   /* 3. Врач: плашка свёрнута/раскрыта, повтор, история; отмечать не может */
   {
     const db=makeDb();db.who=DOC;

@@ -288,3 +288,4 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .mdd-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px}.mdd-op{border:1px solid var(--line);border-radius:10px;background:#fff;color:#1d2b30;padding:9px 4px;font:inherit;font-size:13.5px;font-weight:600}.mdd-op.on{background:var(--acc);color:#fff;border-color:var(--acc)}.mdd-op.on.no{background:#64748b;border-color:#64748b}
 .mdd-opts.n3{grid-template-columns:1fr 1fr 1fr}
 .mdd-out{color:#bfe6ef;padding:0 4px}
+.md-empty p{margin:4px 0;font-weight:600;color:#1d2b30}
