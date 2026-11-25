@@ -14,7 +14,7 @@ const form={admins:{1:{left:'',came:''}},doctors:{},no_doctor:true,others:[],tot
   note:'',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''};
 const sandbox={result:null,Intl,Math,Number,String,Object,Array,JSON,isNaN,isFinite};
 vm.runInNewContext(`
-  const CFG={appVer:'2.0.2',tol:10},S={form:${JSON.stringify(form)},ctx:{admins:[{id:1,name:'Администратор'}],doctors:[],assistants:[],prev:null},branch:'70let',date:'2026-11-25'};
+  const CFG={appVer:'2.0.3',tol:10},S={form:${JSON.stringify(form)},ctx:{admins:[{id:1,name:'Администратор'}],doctors:[],assistants:[],prev:null},branch:'70let',date:'2026-11-25'};
   const r2=x=>Math.round(x*100)/100,num=s=>{if(s==null)return null;const t=String(s).replace(/[\\s ]/g,'').replace(',','.');if(t==='')return null;return /^-?\\d+(\\.\\d{0,2})?$/.test(t)?Number(t):NaN},N=s=>{const v=num(s);return v==null||isNaN(v)?0:v};
   const money=x=>String(x)+' ₽',ruDate=x=>x,isRet=a=>a==='Возврат клиника'||a==='Возврат аптека',isNcRet=e=>isRet(e.article)&&e.method==='noncash',aNm=x=>String(x||'');
   ${fn(report,'compute')}
@@ -29,6 +29,7 @@ ok(/data-act="doctornone"/.test(report)&&/Фиктивного врача с н�
 ok(/case'doctornone'/.test(view)&&/case'doctorflag'/.test(view),'обработчики сохраняют подтверждение');
 ok(/g==='doctors'&&f\[g\]\[id\]\)f\.no_doctor=false/.test(view),'выбор реального врача снимает признак');
 ok(/x\.slot==='doctor'&&S\.form\.no_doctor===true/.test(traps),'график не заставляет добавлять отсутствующего врача');
-ok(/appVer:'2\.0\.2'/.test(rd('scripts/common.js'))&&/content="2\.0\.2"/.test(rd('index.html')),'версия приложения обновлена');
-ok(/const V='ev2-shell-17'/.test(rd('sw.js')),'телефон получит новый service worker');
+ok(/appVer:'2\.0\.3'/.test(rd('scripts/common.js'))&&/content="2\.0\.3"/.test(rd('index.html')),'версия приложения обновлена');
+ok(/scripts\/report\.js\?v=203/.test(rd('index.html'))&&/scripts\/view\.js\?v=203/.test(rd('index.html')),'изменённые файлы имеют принудительно новый URL');
+ok(/const V='ev2-shell-18'/.test(rd('sw.js')),'телефон получит новый service worker');
 console.log('ALL PASS '+n);
