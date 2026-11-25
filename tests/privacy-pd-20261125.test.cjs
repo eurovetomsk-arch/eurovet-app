@@ -35,18 +35,20 @@ const t=safeTotals(ROWS,EX,{balance:20000});
 ok(Math.abs(t.need-(8400+1999.99))<1e-9&&Math.abs(t.skip-(12000.5+5000))<1e-9&&Math.abs(t.short-(8400+1999.99-20000))<1e-9,'контрольные суммы на вымышленных данных');
 // 3. если список не загрузился (null) — остаток к выплате и «хватает/не хватает» НЕ считаются (ТЗ-2, п.3)
 const f=safeTotals(ROWS,null,{balance:20000});
-ok(f.failed===true&&f.need===null&&f.short===null&&f.skipRows.length===0&&f.bal===20000,'список не загрузился → остаток к выплате и нехватка не считаются, остаток в сейфе виден');
-ok(safeTotals(ROWS,[],{balance:1}).failed===false&&safeTotals(ROWS,[],{balance:1}).need===oldFormula(ROWS,[],{balance:1}).need,'пустой список с сервера ≠ ошибка: считаем как обычно');
+ok(f.failed==='load'&&f.need===null&&f.short===null&&f.skipRows.length===0&&f.bal===20000,'список не загрузился → остаток к выплате и нехватка не считаются, остаток в сейфе виден');
+{const e=safeTotals(ROWS,[],{balance:1});ok(e.failed==='empty'&&e.need===null&&e.short===null,'пустой список с сервера = ошибка: остаток и нехватка не считаются');}
 // 3a. экран сейфа целиком (safeBody) с подставными зависимостями
 function grab(name){const i=acc.indexOf((name.startsWith('async ')?'':'function ')+name+'(');assert.ok(i>=0,name);let d=0,j=acc.indexOf('{',i);for(let k=j;k<acc.length;k++){if(acc[k]==='{')d++;else if(acc[k]==='}'){d--;if(!d)return acc.slice(i,k+1)}}}
 const env='const money=v=>String(Math.round(Number(v)*100)/100)+" ₽",esc=v=>String(v),ruDate=v=>String(v),omskToday=()=>"2026-11-25",uid=()=>"u1";let painted=0;const paint=()=>{painted++};';
-const mk=(S,rpc)=>new Function('S','rpc',env+src+grab('safeBody')+grab('async function retrySafeExcl')+';return{safeBody,retrySafeExcl,get painted(){return painted}}')(S,rpc);
+const mk=(S,rpc)=>new Function('S','rpc',env+'const LS={del(){}},toast=()=>{};'+src+grab('safeBody')+grab('async function retrySafeExcl')+grab('async function loadSafe')+';return{safeBody,retrySafeExcl,loadSafe,get painted(){return painted}}')(S,rpc);
 const PAY={rows:ROWS,total:{accrued:100,paid:50}},CASH={ok:true,balance:20000,on_hand:30000,taken:10000,from:'2026-11-01'};
 const S1={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true};
 let h=mk(S1,null).safeBody();
 ok(h.includes('Список исключений не загрузился — остаток не показан')&&h.includes('data-act="safeexclretry"')&&h.includes('>Повторить<'),'экран: сообщение «Список исключений не загрузился — остаток не показан» и кнопка «Повторить»');
 ok(!h.includes('Кэша хватает')&&!h.includes('Не хватает кэша')&&!h.includes(String(8400+1999.99+12000.5+5000)),'экран: ни «хватает/не хватает», ни остатка по всем людям');
 const S2={pay:PAY,cash:CASH,cashExcl:EX,view:'pay',paySafe:true};h=mk(S2,null).safeBody();
+{const S5={pay:PAY,cash:CASH,cashExcl:[],view:'pay',paySafe:true};const h5=mk(S5,null).safeBody();
+ok(h5.includes('Список исключений пуст — остаток не показан')&&h5.includes('data-act="safeexclretry"')&&/Остаток к выплате<\/span><b>—/.test(h5)&&!h5.includes('Кэша хватает')&&!h5.includes('Не хватает кэша'),'экран: пустой список → «—», «Список исключений пуст — остаток не показан», «Повторить», без «хватает/не хватает»');}
 ok(!h.includes('не загрузился')&&/Остаток к выплате<\/span><b>10399\.99 ₽/.test(h)&&h.includes('Не хватает кэша')===false&&h.includes('Кэша хватает'),'экран: список есть → остаток 10399.99 и вердикт как раньше');
 (async()=>{
   const calls=[];const S3={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true,token:'t'};
@@ -54,6 +56,15 @@ ok(!h.includes('не загрузился')&&/Остаток к выплате<\
   ok(calls.join()==='ev_cash_exclusions'&&JSON.stringify(S3.cashExcl)===JSON.stringify(EX)&&m.painted===2,'«Повторить» запрашивает только ev_cash_exclusions и перерисовывает');
   const S4={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true,token:'t'};await mk(S4,async()=>{throw{net:true}}).retrySafeExcl();
   ok(S4.cashExcl===null,'«Повторить» без связи → снова «не загрузился», остаток не показан');
+  const S6={pay:PAY,cash:CASH,cashExcl:EX.slice(),view:'pay',paySafe:true,token:'t'};
+  await mk(S6,async(n)=>{if(n==='ev_cash_exclusions')throw{net:true};return{ok:true}}).loadSafe();
+  ok(S6.cashExcl===null,'загрузка сейфа: список не пришёл (нет связи) → прежний список НЕ используется, «не загрузился»');
+  const S7={pay:PAY,cash:CASH,cashExcl:EX.slice(),view:'pay',paySafe:true,token:'t'};
+  await mk(S7,async()=>{throw{net:true}}).loadSafe();
+  ok(S7.cashExcl===null,'загрузка сейфа: нет связи совсем → прежний список НЕ используется');
+  const S8={pay:PAY,cash:CASH,cashExcl:EX.slice(),view:'pay',paySafe:true,token:'t'};
+  await mk(S8,async(n)=>n==='ev_cash_exclusions'?{ok:false,error:'forbidden'}:{ok:true}).loadSafe();
+  ok(S8.cashExcl===null,'загрузка сейфа: сервер отказал → прежний список НЕ используется');
   ok(/case'safeexclretry':retrySafeExcl\(\)/.test(rd('scripts/view.js')),'кнопка подключена в обработчике data-act');
   ok(/const V='ev2-shell-15'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-15');
   rest();

@@ -397,8 +397,9 @@ async function showPay(from,to){
 
 /* ====== Сейф (1.56): начислено, выплачено, остаток к выплате, остаток в сейфе, нехватка ====== */
 /* Кто не входит в «Остаток к выплате» сейфа (свод §14): список приходит с сервера (ev_cash_exclusions), в коде номеров нет.
-   excl: массив номеров; null — список не загрузился: остаток к выплате и нехватку НЕ считаем (failed), показываем «Повторить». */
-function safeTotals(rows,excl,c){const N=v=>Number(v||0),E=(excl||[]).map(Number),skipRows=rows.filter(x=>E.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!E.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null;if(excl===null)return{skipRows:[],skip:0,need:null,bal,short:null,failed:true};const short=bal==null?null:need-bal;return{skipRows,skip,need,bal,short,failed:false}}
+   excl: массив номеров; null — не загрузился (failed='load'), [] — пустой (failed='empty', считаем ошибкой):
+   в обоих случаях остаток к выплате и «хватает/не хватает» НЕ показываем, есть «Повторить». Старый список не держим: при каждой загрузке он сбрасывается. */
+function safeTotals(rows,excl,c){const N=v=>Number(v||0),E=(excl||[]).map(Number),skipRows=rows.filter(x=>E.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!E.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null;if(excl==null||!Array.isArray(excl)||!excl.length)return{skipRows:[],skip:0,need:null,bal,short:null,failed:Array.isArray(excl)?'empty':'load'};const short=bal==null?null:need-bal;return{skipRows,skip,need,bal,short,failed:false}}
 async function retrySafeExcl(){ // кнопка «Повторить»: запросить только список исключений
   S.cashExcl=undefined;if(S.view==='pay'&&S.paySafe)paint();let x=null;
   try{x=await rpc('ev_cash_exclusions',{p_token:S.token},8000)}catch(e){}
@@ -406,8 +407,9 @@ async function retrySafeExcl(){ // кнопка «Повторить»: запр
   if(S.view==='pay'&&S.paySafe)paint();
 }
 async function loadSafe(){
+  S.cashExcl=undefined; // не держим прежний список: только свежий ответ сервера
   try{const [r,m,x]=await Promise.all([rpc('ev_cash_on_hand',{p_token:S.token},8000),rpc('ev_my_cash_today',{p_token:S.token},8000),rpc('ev_cash_exclusions',{p_token:S.token},8000).catch(()=>null)]);S.cashExcl=(x&&x.ok&&Array.isArray(x.person_ids))?x.person_ids.map(Number):null;S.cash=(r&&r.ok)?r:null;S.myCash=(m&&m.ok)?m:null;S.safeErr=(r&&r.ok)?null:(r&&r.error==='forbidden'?'Нет доступа':'Не удалось загрузить сейф')}
-  catch(e){if(S.cashExcl===undefined)S.cashExcl=null;S.safeErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  catch(e){S.cashExcl=null;S.safeErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='pay'&&S.paySafe)paint();
 }
 function safeBody(){
@@ -420,7 +422,7 @@ function safeBody(){
   h+='<div class="card"><h3 style="margin-top:2px">Зарплата за период</h3>'
     +'<div class="srow"><span>Начислено</span><b>'+money(N(tot.accrued))+'</b></div>'
     +'<div class="srow"><span>Выплачено</span><b>'+money(N(tot.paid))+'</b></div>'
-    +'<div class="srow big"><span>Остаток к выплате</span><b>'+(exclWait?'…':exclFail?'—':money(need))+'</b></div>'+(exclFail?'<p class="hint" data-safe-excl-fail>Список исключений не загрузился — остаток не показан</p><div class="chips"><button class="btn" data-act="safeexclretry">Повторить</button></div>':'')+(skipRows.length?'<div class="srow sub"><span>не входит в общую выдачу: '+skipRows.map(x=>esc(x.name)).join(', ')+' (расчёт ведётся отдельно)</span><b>'+money(skip)+'</b></div>':'')
+    +'<div class="srow big"><span>Остаток к выплате</span><b>'+(exclWait?'…':exclFail?'—':money(need))+'</b></div>'+(exclFail?'<p class="hint" data-safe-excl-fail>'+(exclFail==='empty'?'Список исключений пуст — остаток не показан':'Список исключений не загрузился — остаток не показан')+'</p><div class="chips"><button class="btn" data-act="safeexclretry">Повторить</button></div>':'')+(skipRows.length?'<div class="srow sub"><span>не входит в общую выдачу: '+skipRows.map(x=>esc(x.name)).join(', ')+' (расчёт ведётся отдельно)</span><b>'+money(skip)+'</b></div>':'')
     +((r.warnings||[]).length?'<p class="hint" style="margin-top:8px">'+r.warnings.map(esc).join('<br>')+'</p>':'')+'</div>';
   h+='<div class="card"><h3 style="margin-top:2px">Сейф</h3>';
   if(!c||exclWait)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
