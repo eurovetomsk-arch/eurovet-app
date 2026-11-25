@@ -22,7 +22,7 @@ async function trapLoadSched(){
 function trapSchedMissing(){
   if(!TRAP_SCHED.rows)return null;
   const inRep=trapReportPeople().map(p=>p.name),answered=new Set((S.form.sched_absent||[]).map(trapNorm));
-  return TRAP_SCHED.rows.find(x=>x.name&&!(x.slot==='doctor'&&S.form.no_doctor===true)&&!inRep.some(n=>trapSame(x,n))&&!answered.has(trapNorm(x.name)))||null;
+  return TRAP_SCHED.rows.find(x=>x.name&&!(x.slot==='doctor'&&S.form.no_doctor===true)&&!(x.slot==='assistant'&&S.form.no_assistant===true)&&!inRep.some(n=>trapSame(x,n))&&!answered.has(trapNorm(x.name)))||null;
 }
 /* Ловушка 10 (L34): человек в составе отчёта, а по опубликованному графику в этот день он на другом филиале или не стоит.
    Подсказка, не запрет: «Да, замена» — отчёт уходит с пометкой; «Убрать» — человек убирается из состава.

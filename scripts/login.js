@@ -17,7 +17,13 @@ async function doLogin(pin){
     // The former showCC/showWork redirects hid the new main screen from those roles.
     /* c20: роль без экрана (например, аутсорс; screen_access/список ролей экрана пуст) — приложение для неё не строится */
     if(r.ok&&personRoles(r.person).length===0){rpc('ev_logout',{p_token:r.token}).catch(()=>{});S.loginPin='';S.busy=false;toast('Для вашей роли экран в приложении не предусмотрен.',7000);render();return}
-    if(r.ok){try{localStorage.setItem(LOGIN_NUM_KEY,number)}catch(e){}S.loginRemembered=true;S.token=r.token;S.person=r.person;S.shared=shared;touchAct();S.busy=false;S.view='branch';render();flush();birthdayCheck();return}
+    if(r.ok){try{localStorage.setItem(LOGIN_NUM_KEY,number)}catch(e){}S.loginRemembered=true;S.token=r.token;S.person=r.person;S.shared=shared;touchAct();S.busy=false;S.view='branch';render();flush();birthdayCheck();
+      /* Разовое восстановление 25.11: владелец подтвердил, что черновик 70let заполнен,
+         врача и ассистента в смене не было. После обычного входа открываем только этот
+         локальный черновик; суммы не меняем и не создаём отчёт без клиентской валидации. */
+      const rk='ev_draft2:'+String(r.person&&r.person.id)+':70let:2026-11-25',rd=LS.get(rk);
+      if(String(r.person&&r.person.id)==='17'&&rd&&rd.form&&!rd.sent)setTimeout(()=>openBranch('70let',{rescue2511:true}),0);
+      return}
     const m={bad_pin:'Неверный PIN'+(r.attempts_left!=null?'. Осталось попыток: '+r.attempts_left:''),locked:'Слишком много ошибок. Вход закрыт на 15 минут.',expired:'Срок PIN истёк — обратитесь к руководителю.',no_access:'Нет доступа. Обратитесь к руководителю.'};
     toast(m[r.error]||'Ошибка входа',6000);
   }catch(e){toast(e.net?'Нет связи с сервером. Проверьте интернет.':'Ошибка сервера ('+e.http+')',6000)}
@@ -176,6 +182,10 @@ async function openBranch(id,opts){
   if(!S.ctxOffline)loadTransit(id,S.date);
   if(ctx.current&&!S.ctxOffline)loadFlags(id,S.date);
   if(!S.ctxOffline)loadHandover();
+  if(opts&&opts.rescue2511&&id==='70let'&&S.date==='2026-11-25'&&!ctx.current&&draft&&draft.form&&!draft.sent){
+    S.form.no_doctor=true;S.form.no_assistant=true;saveDraft();
+    setTimeout(()=>{if(S.view==='form'&&S.branch==='70let'&&S.date==='2026-11-25'&&S.form&&!S.ctx.current)submit()},1200);
+  }
 }
 
 async function loadNoSubAdmins(id,date){
