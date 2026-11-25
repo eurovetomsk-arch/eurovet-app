@@ -86,16 +86,18 @@ const mdCounts=rows=>{const c={};MD_BR.forEach(b=>{c[b.id]=(rows||[]).filter(r=>
 async function mdPickBranch(id){
   const shift=mdShiftBranch();
   if(shift&&shift!==id&&!confirm('Сегодня у вас смена на '+mdBrTitle(shift)+'. Заполнить заявку '+mdBrTitle(id)+'?'))return;
-  MD.branch=id;MD.step='list';MD.q='';MD.tab='med';MD.ok={};await mdLoadOrder();paint();window.scrollTo(0,0);
+  MD.branch=id;MD.step='list';MD.q='';MD.tab='med';MD.ok={};if(typeof MDD!=='undefined'){MDD.waitOpen=false;MDD.repOk={};MDD.wait=null}await mdLoadOrder();paint();window.scrollTo(0,0);
 }
 async function mdLoadOrder(){
   try{const r=await rpc('ev_med_order_get',{p_token:S.token,p_branch:MD.branch},8000);
-    if(r&&r.ok){MD.lines={};MD.meta={};(r.lines||[]).forEach(l=>{MD.lines[l.item]=l.qty;MD.meta[l.item]={by:l.by,at:l.at}});MD.prev=r.prev||{};mdQHere().forEach(e=>mdApply(e.item,e.qty));MD.err=null}
+    if(r&&r.ok){MD.lines={};MD.meta={};(r.lines||[]).forEach(l=>{MD.lines[l.item]=l.qty;MD.meta[l.item]={by:l.by,at:l.at}});MD.prev=r.prev||{};mdQHere().forEach(e=>mdApply(e.item,e.qty));MD.err=null;
+      if(typeof mddWaitLoad==='function')await mddWaitLoad(MD.branch)} /* L36: «Ждёт доставки» своего филиала */
     else MD.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Заявка не загрузилась.'}
   catch(e){MD.err=e.net?'Нет связи: заявка не загрузилась.':'Заявка не загрузилась.'}
 }
 async function mdSet(id,q){
   q=Math.max(0,Math.min(999,Number(q)||0));const was=MD.lines[id]||0;if(q===was||MD.busy)return;
+  if(was===0&&q>0&&typeof mddRepeatAsk==='function'&&!mddRepeatAsk(id,q)){paint();return} /* L36: уже ждёт доставки — спросить «Заказать ещё?» */
   const pend=mdQHere().find(x=>x.item===Number(id));
   if(pend){mdQPut(MD.branch,id,q,pend.exp);mdApply(id,q);paint();mdFlush();return}
   MD.busy=true;
@@ -132,8 +134,8 @@ function mdListHtml(){
   if(q){const hit=items.filter(i=>i.active!==false&&i.name.toLowerCase().startsWith(q));rows='<div class="mute">Найдено '+hit.length+' во всех разделах</div>'+hit.map(i=>mdRow(i,true)).join('')}
   else{let cur='';rows=items.filter(i=>i.section===MD.tab&&i.active!==false).map(i=>{const l=i.name[0].toUpperCase();const h=l!==cur?'<div class="md-lt">'+esc(l)+'</div>':'';cur=l;return h+mdRow(i)}).join('')}
   const tabs=Object.keys(MD_SEC).map(s=>'<button class="chip'+(MD.tab===s&&!q?' on':'')+'" data-mact="tab" data-id="'+s+'">'+MD_SEC[s]+' '+items.filter(i=>i.section===s&&i.active!==false).length+'</button>').join('');
-  return '<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебная заявка</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · заявка открыта</div>'
-    +mdConflictHtml()+(mdQForeign()?'<div class="mute md-pendtxt">Есть неотправленные числа другого входа: '+mdQForeign()+'</div>':'')+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
+  return '<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебная заявка</h1><div class="mute">'+esc(mdBrTitle(MD.branch))+' · заявка открыта'+(typeof MDD!=='undefined'&&MDD.wait?' · <button class="mdd-link" data-mact="hist">Закрытые заявки ›</button>':'')+'</div>'
+    +(typeof mddPlashka==='function'?mddPlashka():'')+mdConflictHtml()+(mdQForeign()?'<div class="mute md-pendtxt">Есть неотправленные числа другого входа: '+mdQForeign()+'</div>':'')+'<input class="md-search" id="mdsearch" placeholder="Найти: первые буквы названия" value="'+esc(MD.q)+'">'+'<div class="chips">'+tabs+'</div>'+rows
     +(mdUndo?'<div class="md-undo"><button class="chip" data-mact="undo">Отменить: вернуть «'+esc(mdName(mdUndo.id))+'»</button></div>':'')
     +'<div class="md-bar"><div><b>В заявке: '+n+' поз.</b>'+(np?'<small class="md-pendtxt">Не отправлено: '+np+'. Появится связь — уйдёт само.</small>':'')+'</div><button class="go" data-mact="review"'+(n&&!np?'':' disabled')+'>Проверить</button></div>';
 }
@@ -149,19 +151,24 @@ async function mdSumLoad(){
   try{const r=await rpc('ev_med_summary',{p_token:S.token,p_branch:MD.sumBranch},10000);MD.sum=(r&&r.ok)?Object.assign(r,{rows:mdSorted(r.rows)}):{err:(r&&r.error==='forbidden')?'Сводная — только у руководителя.':'Сводная пока недоступна.'}}
   catch(e){MD.sum={err:e.net?'Нет связи.':'Сводная пока недоступна.'}}
   if(MD.sum&&!MD.sum.err&&!MD.sumBranch)MD.sumCounts=mdCounts(MD.sum.rows);
+  if(typeof mddAllLoad==='function')await mddAllLoad(); /* L36: «Ждёт доставки (N)» */
   paint();
 }
 function mdSumHtml(){
   const s=MD.sum;let h='<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Врачебные заявки</h1>';
   if(!s)return h+'<p class="mute">Загрузка…</p>';if(s.err)return h+'<p class="mute">'+esc(s.err)+'</p>';
   const f=['','marksa','pereleta','70let'],fl=['Все филиалы','Маркса','Перелёта','70 лет'],cn=MD.sumCounts||mdCounts(s.rows),open=MD_BR.filter(b=>cn[b.id]>0);
+  const l36=typeof MDD!=='undefined'&&!!MDD.all;
+  if(l36){h+=mddTabs(open.length);if(MDD.tab==='wait')return h+mddWaitAllHtml()}
   h+='<div class="md-open"><b>Открытых заявок: '+open.length+'</b>'+(open.length?' · '+open.map(b=>esc(b.title)+' '+cn[b.id]).join(', '):'')+'</div>';
   h+='<div class="chips">'+f.map((b,i)=>'<button class="chip'+((MD.sumBranch||'')===b?' on':'')+'" data-mact="sumbr" data-id="'+b+'">'+fl[i]+(b&&cn[b]?' '+cn[b]:'')+'</button>').join('')+(mdHead()?'<button class="chip" data-mact="edit">Справочник</button>':'')+'</div>';
   let t='<table class="md-t"><thead><tr><th>Позиция</th>'+MD_BR.map(b=>'<th>'+esc(b.title)+'</th>').join('')+'<th class="tot">Итого</th></tr></thead><tbody>';
   Object.keys(MD_SEC).forEach(sec=>{const rs=(s.rows||[]).filter(r=>r.section===sec);if(!rs.length)return;
     t+='<tr class="sh"><td colspan="5">'+MD_SEC[sec]+' · '+rs.length+'</td></tr>'+rs.map(r=>{ /* история «было → стало» в сводной не показывается (слово Михаила 22.11); в базе журнал остаётся */
       return '<tr><td>'+esc(r.name)+(r.unit?' · '+esc(r.unit):'')+'</td>'+MD_BR.map(b=>'<td>'+((r.qty||{})[b.id]||'—')+'</td>').join('')+'<td class="tot">'+r.total+'</td></tr>'}).join('')});
-  return h+t+'</tbody></table><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button><div class="md-bar"><button class="chip" data-mact="copy">Копировать</button><button class="chip" data-mact="xls">Excel</button><button class="go" data-mact="close">Закрыть заявки</button></div>';
+  return h+t+'</tbody></table><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button><div class="md-bar"><button class="chip" data-mact="copy">Копировать</button><button class="chip" data-mact="xls">Excel</button>'
+    /* L36: закрытие — по филиалу, с отметками привоза; без L36 на сервере — прежняя кнопка */
+    +(!l36?'<button class="go" data-mact="close">Закрыть заявки</button>':MD.sumBranch&&cn[MD.sumBranch]?'<button class="go" data-mact="deliver">Отметить привоз и закрыть</button>':'<small class="mdd-hint">Чтобы закрыть заявку, выберите филиал</small>')+'</div>';
 }
 function mdSumRows(){const rows=[['Раздел','Позиция','Ед.','Маркса','Перелёта','70 лет','Итого']];(MD.sum.rows||[]).forEach(r=>rows.push([MD_SEC[r.section],r.name,r.unit||'',...MD_BR.map(b=>(r.qty||{})[b.id]||0),r.total]));return rows}
 function mdSecSel(cur,cls,id){return '<select class="'+cls+'"'+(id!=null?' data-id="'+id+'"':'')+'>'+Object.keys(MD_SEC).map(k=>'<option value="'+k+'"'+(k===cur?' selected':'')+'>'+MD_SEC[k]+'</option>').join('')+'</select>'}
@@ -178,6 +185,7 @@ function mdEditHtml(){
 function medHtml(){
   if(MD.err&&!MD.cat)return '<button class="md-back" data-mact="back">‹ На главную</button><h1 class="screen-title">Врачебная заявка</h1><p class="mute">'+esc(MD.err)+'</p>';
   if(!MD.cat)return '<h1 class="screen-title">Врачебная заявка</h1><p class="mute">Загрузка…</p>';
+  if(MD.step==='deliver')return mddDeliverHtml();if(MD.step==='hist')return mddHistHtml(); /* L36 */
   return MD.step==='list'?mdListHtml():MD.step==='review'?mdReviewHtml():MD.step==='sum'?mdSumHtml():MD.step==='edit'?mdEditHtml():mdBranchHtml();
 }
 async function mdUpsert(id,section,name,active,unit,grp){
@@ -209,6 +217,10 @@ document.addEventListener('click',async ev=>{
   else if(a==='fix'){MD.step='list';MD.q=mdName(id).slice(0,3);paint()}
   else if(a==='done'){toast('Заявка отправлена. Её можно менять, пока закупщик не закрыл.');MD.step='branch';paint();window.scrollTo(0,0)}
   else if(a==='mkorder'){MD.step='branch';MD.fromSum=true;paint();window.scrollTo(0,0)}
+  else if(a==='deliver'){MD.step='deliver';MDD.dm={};paint();window.scrollTo(0,0)}
+  else if(a==='hist')await mddHistOpen();
+  else if(a==='back'&&MD.step==='deliver'){MD.step='sum';paint();window.scrollTo(0,0)}
+  else if(a==='back'&&MD.step==='hist'){MD.step='list';paint();window.scrollTo(0,0)}
   else if(a==='back'){
     if(MD.step==='branch'){if(MD.fromSum){MD.fromSum=false;MD.step='sum';paint()}else goHome()}
     else if(MD.step==='sum')goHome();

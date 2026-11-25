@@ -276,3 +276,25 @@ button.sch-d.sel{outline:3px solid var(--acc);outline-offset:1px}
 .an-l.now .an-lv{font-size:21px}.an-l .an-pct{grid-column:2;grid-row:2;align-self:baseline;text-align:right;white-space:nowrap}
 .an-na{font-size:14px;font-weight:600;color:#8aa0a7}
 .an-vs{font-size:12px;color:#587078;font-weight:600}
+/* L36: врачебная заявка — частичная доставка */
+.mdd-pl,.mdd-brr{display:flex;width:100%;justify-content:space-between;align-items:center;font:inherit;font-weight:700;color:#1d2b30;text-align:left;cursor:pointer}
+.mdd-pl{background:#fff;border:1px solid var(--line);border-radius:14px;margin:8px 0;padding:12px 14px}
+.mdd-brr{background:none;border:0;border-top:1px solid var(--line);padding:12px 0}.mdd-card .mdd-brr:first-child{border-top:0}.mdd-r{color:var(--acc);font-size:20px}.mdd-brr.open .mdd-r{transform:rotate(90deg)}
+.mdd-old{color:#b45309;font-weight:700;font-size:13px;white-space:nowrap}.mdd-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#f59e0b;margin:0 4px 1px 6px}
+.mdd-card{background:#fff;color:#1d2b30;border:1px solid var(--line);border-radius:14px;margin:8px 0;padding:10px 12px}.mdd-card h2{font-size:16px;margin:0 0 6px}.mdd-card h2 small{color:#587078;font-weight:600;font-size:12.5px}
+.mdd-wait{background:#e6f0f3}.mdd-hint{color:#587078;font-size:12.5px;margin:0 0 6px}.mdd-ro{font-size:12px;color:#587078;white-space:nowrap}
+.mdd-it{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #d1e3e8}.mdd-badge{display:inline-block;font-size:11.5px;font-weight:700;color:#b45309;background:#fde7c2;border-radius:6px;padding:1px 6px}
+.mdd-it2{padding:9px 0;border-top:1px solid var(--line)}.mdd-it2:first-of-type{border-top:0}.mdd-gm{font-size:12.5px;color:#8aa0a7;margin-top:2px}.mdd-gm.ok{color:#15803d}
+.mdd-link{background:none;border:0;padding:0;font:inherit;color:#bfe6ef;text-decoration:underline;cursor:pointer}
+.mdd-tabs{display:flex;gap:6px;margin:8px 0}.mdd-tab{flex:1;border:1px solid var(--line);background:#fff;color:#1d2b30;border-radius:10px;padding:9px 4px;font:inherit;font-size:13.5px;font-weight:600}.mdd-tab.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.mdd-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.mdd-row .nm{font-weight:600}.mdd-row.old{background:#fff4e0;border-radius:10px;margin:0 -6px;padding:8px 6px;border-top:0}
+.mdd-mt{font-size:12.5px;color:#587078}.mdd-ctl{display:flex;align-items:center;gap:6px}
+.mdd-qty,.mdd-wq{width:54px!important;height:36px;border:1px solid var(--line);border-radius:9px;text-align:center;font-size:16px;padding:0}.mdd-qty.v,.mdd-wq.v{border-color:#b45309;background:#fff4e0;font-weight:700}
+.mdd-of{font-size:12.5px;color:#587078;white-space:nowrap}.mdd-chk{width:36px;height:36px;border-radius:9px;border:2px solid var(--line);background:#fff;color:#fff;font-size:20px;line-height:1;padding:0}.mdd-chk.on{background:#15803d;border-color:#15803d}
+.mdd-st{grid-column:1/-1;font-size:12.5px;font-weight:600}.mdd-st.ok{color:#15803d}.mdd-st.part{color:#b45309}
+.mdd-rest{grid-column:1/-1;margin-top:4px}.mdd-rl{font-size:12.5px;color:#587078;margin-bottom:4px}
+.mdd-seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.mdd-sg{flex:1;border:0;background:#fff;color:#587078;padding:8px 4px;font:inherit;font-size:13.5px;font-weight:600}.mdd-sg.on{background:var(--acc);color:#fff}.mdd-sg.on.no{background:#64748b}
+.mdd-rsn{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.mdd-rb{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font:inherit;font-size:12.5px;font-weight:600;color:#1d2b30;background:#fff}.mdd-rb.on{background:#64748b;color:#fff;border-color:#64748b}
+.mdd-nob{border:1px solid var(--line);border-radius:9px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;color:#475569;background:#fff}.mdd-nob.on{background:#64748b;color:#fff;border-color:#64748b}
+.mdd-note{width:100%;margin-top:6px;height:38px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font-size:15px}
+.mdd-sum{margin:4px 0 0;padding:8px 10px;border-radius:10px;background:#e6f0f3;color:#1d2b30;font-size:13px}.mdd-go{display:block;width:100%;margin:10px 0}
