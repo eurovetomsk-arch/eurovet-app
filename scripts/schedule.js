@@ -4,8 +4,8 @@ const SCH_B={marksa:['Маркса, 45','Маркса','Марк.'], '70let':['7
 const SCH_BO=['marksa','70let','pereleta','cc'];
 const SCH_R={admin:'Администратор',doctor:'Врач',assistant:'Ассистент',callcenter:'Колл-центр'};
 const SCH_RO={admin:0,doctor:1,assistant:2,callcenter:3};
-const SCH_AT={'Борисов':'клинический','Медюкова':'клинический','Шпакова':'клинический','Юнгман':'технический','Салыкова':'технический','Кривогузова':'технический'}; // по справочнику ролей ev_person_roles (assistant_clinical / assistant_tech), как в расчёте зарплаты; новый ассистент — добавить сюда
-const schRole=r=>{let t=SCH_R[r.slot]||'';if(r.slot==='assistant'&&SCH_AT[r.name])t+=' '+SCH_AT[r.name];return t};
+const SCH_AT={clinical:'клинический',tech:'технический'}; // тип ассистента приходит с сервера: ev_whos_where → atype (из справочника ролей ev_person_roles на дату смены)
+const schRole=r=>{let t=SCH_R[r.slot]||'';if(r.slot==='assistant'&&SCH_AT[r.atype])t+=' '+SCH_AT[r.atype];return t};
 const schBranchColor=k=>({marksa:'var(--ev-marksa)', '70let':'var(--ev-70let)',pereleta:'var(--ev-pereleta)',cc:'var(--ev-role-callcenter)'}[k]||'var(--ev-role-callcenter)');
 const schRoleColor=k=>({admin:'var(--ev-role-admin)',doctor:'var(--ev-role-doctor)',assistant:'var(--ev-role-assistant)',callcenter:'var(--ev-role-callcenter)'}[k]||'var(--ev-role-callcenter)');
 const schShort=v=>{const a=String(v||'').trim().split(/\s+/).filter(Boolean);if(a.length<2)return String(v||'');const ini=a.slice(1).map(x=>(x.replace(/[^А-ЯЁA-Z]/gi,'')[0]||'').toUpperCase()).filter(Boolean).slice(0,2);return a[0]+(ini.length?' '+ini.map(x=>x+'.').join(' '):'')};

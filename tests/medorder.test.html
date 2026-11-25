@@ -112,7 +112,7 @@ HEAD=false;MD.buyer=false;_rpc=async(n)=>n==='ev_med_catalog'?{ok:true,items:[]}
 HEAD=false;MD.buyer=undefined;_rpc=async(n)=>n==='ev_med_summary'?SUMR:n==='ev_med_catalog'?{ok:true,items:[]}:{ok:true};await showMed();await tick();await tick();ok(MD.step==='sum'&&MD.buyer===true,'закупщик, ещё не опознанный: после проверки сервера открывается сводная');
 HEAD=true;MD.buyer=undefined;MD.step='branch';MD.fromSum=false;S.view='med';
 // 4м сводная: без истории «было → стало», разделы заметными заголовками
-MD.sum={ok:true,rows:[{item:1,section:'med',name:'А',unit:'ампула',qty:{marksa:3},total:3,last:{old:1,new:3,by:'Герман',at:'2026-11-22T14:38:00Z'}},{item:2,section:'vet',name:'Б',unit:null,qty:{pereleta:1},total:1,last:{old:1,new:0,by:'Герман',at:'2026-11-22T14:33:00Z'}}]};MD.step='sum';
+MD.sum={ok:true,rows:[{item:1,section:'med',name:'А',unit:'ампула',qty:{marksa:3},total:3,last:{old:1,new:3,by:'Пётр',at:'2026-11-22T14:38:00Z'}},{item:2,section:'vet',name:'Б',unit:null,qty:{pereleta:1},total:1,last:{old:1,new:0,by:'Пётр',at:'2026-11-22T14:33:00Z'}}]};MD.step='sum';
 const sm=mdSumHtml();ok(!sm.includes('изменено')&&!sm.includes('было')&&!sm.includes('md-chg')&&!sm.includes('class="hl"')&&sm.includes('class="sh"')&&sm.includes('Медицинские · 1')&&sm.includes('Ветеринарные · 1'),'сводная: нет «изменено, было → стало» и подсветки; разделы остаются отдельными заголовками');
 MD.step='list';
 // 5 границы

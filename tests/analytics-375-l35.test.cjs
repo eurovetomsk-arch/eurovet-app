@@ -8,10 +8,10 @@ const pw=require(process.env.EVROVET_PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(__dirname,'..'),OUT=process.env.OUT||'';
 if(OUT)fs.mkdirSync(OUT,{recursive:true});
 const DAY='2026-11-24';
-const PEOPLE={16:'Фёдорова Т.В.',4:'Орлов И.П.',11:'Семёнова А.Р.',34:'Кривогузова А.А.'};
-const FULL={34:'Кривогузова Анна Андреевна'};
-const HEAD={id:1,full_name:'Таслицкий Тест',short_name:'Таслицкий Т.',head:true,roles:['head']};
-const ADMIN={id:16,full_name:'Фёдорова Татьяна Владимировна',short_name:'Фёдорова Т.В.',admin:true,roles:['admin']};
+const PEOPLE={916:'Фролова Т.С.',904:'Орлов И.П.',911:'Семёнова А.Р.',934:'Лесникова А.О.'};
+const FULL={934:'Лесникова Анна Олеговна'};
+const HEAD={id:1,full_name:'Главный Тест',short_name:'Главный Т.',head:true,roles:['head']};
+const ADMIN={id:916,full_name:'Фролова Тамара Сергеевна',short_name:'Фролова Т.С.',admin:true,roles:['admin']};
 const BR=[{id:'marksa',title:'Маркса, 45'},{id:'70let',title:'70 лет Октября, 20'},{id:'pereleta',title:'Перелёта, 19'}];
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.json':'application/json','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/,'')||'index.html';const f=path.resolve(root,rel);
@@ -35,8 +35,8 @@ const res=[];const ok=(c,m)=>{res.push([!!c,m]);console.log((c?'PASS ':'FAIL ')+
 /* ---- подставная база ---- */
 function makeDb(){
   return{reports:[],calls:{},mode:'online',lostOnce:false,
-    shifts:[{date:DAY,branch:'70let',slot:'admin',name:PEOPLE[16],full:ADMIN.full_name},{date:DAY,branch:'70let',slot:'doctor',name:PEOPLE[4],full:'Орлов Илья Петрович'},
-            {date:DAY,branch:'70let',slot:'assistant',name:'Семёнова',full:'Семёнова'} /* строка без сопоставления: только фамилия */,{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[34],full:FULL[34]}]};
+    shifts:[{date:DAY,branch:'70let',slot:'admin',name:PEOPLE[916],full:ADMIN.full_name},{date:DAY,branch:'70let',slot:'doctor',name:PEOPLE[904],full:'Орлов Илья Петрович'},
+            {date:DAY,branch:'70let',slot:'assistant',name:'Семёнова',full:'Семёнова'} /* строка без сопоставления: только фамилия */,{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[934],full:FULL[934]}]};
 }
 const ids=d=>[].concat(d.admins||[],d.doctors||[],d.assistants||[]).map(x=>String(x.id));
 function latestOther(db,branch,date){const m=new Map();db.reports.filter(r=>r.date===date&&r.branch!==branch).forEach(r=>{const p=m.get(r.branch);if(!p||p.version<r.version)m.set(r.branch,r)});return[...m.values()]}
@@ -46,9 +46,9 @@ function rpc(db,name,a){
     case'ev_login_number':return{ok:true,token:'qa-token',person:db.who||ADMIN};
     case'ev_select_branch':return{ok:true,date:DAY};
     case'ev_context':{const cur=db.reports.filter(r=>r.branch===a.p_branch&&r.date===a.p_date).sort((x,y)=>y.version-x.version)[0];
-      return{ok:true,branches:BR,admins:[{id:16,name:PEOPLE[16]}],doctors:[{id:4,name:PEOPLE[4],vm_id:104}],
-        assistants:[{id:11,role:'assistant_clinical',name:PEOPLE[11]},{id:34,role:'assistant_clinical',name:PEOPLE[34]}],
-        prev:null,current:cur?{version:cur.version,data:cur.data,submitted_at:'2026-11-24T14:00:00Z',by:PEOPLE[16]}:null,articles:['Хозтовары','Другое','Инкассация МР','Возврат клиника','Возврат аптека']}}
+      return{ok:true,branches:BR,admins:[{id:916,name:PEOPLE[916]}],doctors:[{id:904,name:PEOPLE[904],vm_id:104}],
+        assistants:[{id:911,role:'assistant_clinical',name:PEOPLE[911]},{id:934,role:'assistant_clinical',name:PEOPLE[934]}],
+        prev:null,current:cur?{version:cur.version,data:cur.data,submitted_at:'2026-11-24T14:00:00Z',by:PEOPLE[916]}:null,articles:['Хозтовары','Другое','Инкассация МР','Возврат клиника','Возврат аптека']}}
     case'ev_whos_where':return{ok:true,shifts:db.shifts.filter(s=>s.date>=a.p_from&&s.date<=a.p_to)};
     case'ev_cash_handover_context':return{ok:true,mode:'off'};
     case'ev_submit':{
@@ -97,8 +97,8 @@ async function session(browser,db,url){
   await wait(800);
   return{page,ctx,errs,escaped};
 }
-const FORM=(extra)=>Object.assign({admins:{16:{left:'',came:''}},doctors:{4:{val:'1000'}},others:[],total:'1000',cash:'600',cashless:'400',ph_val:'100',ph_cash:'100',ph_cashless:'0',
-  open:'0',expenses:[],close:'700',assistants:{'assistant_clinical:11':{fn:2,fx:1,left:'',came:''}},no_assistant:false,note:'тест L34',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''},extra||{});
+const FORM=(extra)=>Object.assign({admins:{916:{left:'',came:''}},doctors:{904:{val:'1000'}},others:[],total:'1000',cash:'600',cashless:'400',ph_val:'100',ph_cash:'100',ph_cashless:'0',
+  open:'0',expenses:[],close:'700',assistants:{'assistant_clinical:911':{fn:2,fx:1,left:'',came:''}},no_assistant:false,note:'тест L34',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''},extra||{});
 async function openForm(page,branch,form){
   await page.evaluate(async([b,f])=>{S.date='2026-11-24';S.dateManual=true;await openBranch(b);Object.assign(S.form,f);saveDraftNow();render()},[branch,form]);
   await wait(400);

@@ -23,7 +23,7 @@ Vetmanager всегда остаётся красной и не может бы�
 
 1. Убедиться, что ветка основана на актуальном GitHub `main`.
 2. Выполнить свежую зашифрованную резервную копию.
-3. Выполнить изолированный restore-test: `bash tests/db-shadow-drill.sh`.
+3. Выполнить изолированный restore-test скриптом db-shadow-drill.sh (хранится только на Mac, не в репозитории).
 4. Применить `migrations/20261113_cash_handover_shadow.sql`,
    `migrations/20261113_cash_handover_fk_indexes.sql` и
    `migrations/20261113_vetmanager_coverage_gate.sql`, затем совместимый
@@ -45,7 +45,7 @@ Vetmanager всегда остаётся красной и не может бы�
 
 - `node tests/release-v182.test.cjs`
 - компиляция встроенного JS через `new Function(...)`
-- `bash tests/db-shadow-drill.sh`
+- restore-test скриптом db-shadow-drill.sh (хранится только на Mac, не в репозитории)
 
 Локальный DB drill восстанавливает свежий read-only dump в одноразовый PostgreSQL и проверяет: RLS/grants, feature-off, admin+doctor multi-role, запрет doctor/assistant, head correction, idempotency, duplicate root, порог 0,01 ₽ и неизменяемость истории.
 

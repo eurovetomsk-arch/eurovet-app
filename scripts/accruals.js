@@ -396,9 +396,12 @@ async function showPay(from,to){
 }
 
 /* ====== Сейф (1.56): начислено, выплачено, остаток к выплате, остаток в сейфе, нехватка ====== */
+/* Кто не входит в «Остаток к выплате» сейфа (свод §14): список приходит с сервера (ev_cash_exclusions), в коде номеров нет.
+   excl: массив номеров; null — список не загрузился (тогда в остаток входят все — сумма не занижается). */
+function safeTotals(rows,excl,c){const N=v=>Number(v||0),E=(excl||[]).map(Number),skipRows=rows.filter(x=>E.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!E.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null,short=bal==null?null:need-bal;return{skipRows,skip,need,bal,short}}
 async function loadSafe(){
-  try{const [r,m]=await Promise.all([rpc('ev_cash_on_hand',{p_token:S.token},8000),rpc('ev_my_cash_today',{p_token:S.token},8000)]);S.cash=(r&&r.ok)?r:null;S.myCash=(m&&m.ok)?m:null;S.safeErr=(r&&r.ok)?null:(r&&r.error==='forbidden'?'Нет доступа':'Не удалось загрузить сейф')}
-  catch(e){S.safeErr=e.net?'Нет связи.':'Ошибка сервера.'}
+  try{const [r,m,x]=await Promise.all([rpc('ev_cash_on_hand',{p_token:S.token},8000),rpc('ev_my_cash_today',{p_token:S.token},8000),rpc('ev_cash_exclusions',{p_token:S.token},8000).catch(()=>null)]);S.cashExcl=(x&&x.ok&&Array.isArray(x.person_ids))?x.person_ids.map(Number):null;S.cash=(r&&r.ok)?r:null;S.myCash=(m&&m.ok)?m:null;S.safeErr=(r&&r.ok)?null:(r&&r.error==='forbidden'?'Нет доступа':'Не удалось загрузить сейф')}
+  catch(e){if(S.cashExcl===undefined)S.cashExcl=null;S.safeErr=e.net?'Нет связи.':'Ошибка сервера.'}
   if(S.view==='pay'&&S.paySafe)paint();
 }
 function safeBody(){
@@ -406,15 +409,15 @@ function safeBody(){
   if(S.payErr)return '<div class="card"><p>'+esc(S.payErr)+'</p></div>';
   if(!r)return '<div class="card"><p class="hint">Загружаю…</p></div>';
   const rows=r.rows||[],tot=r.total||{};
-  const CASH_SKIP=((window.EVROVET_UI2_CONFIG||{}).cashExcludePersonIds||[]).map(Number),skipRows=rows.filter(x=>CASH_SKIP.includes(Number(x.id))),skip=skipRows.reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),need=rows.filter(x=>!CASH_SKIP.includes(Number(x.id))).reduce((q,x)=>q+Math.max(0,N(x.to_pay)),0),bal=c?(c.balance!=null?N(c.balance):N(c.on_hand)):null,short=bal==null?null:need-bal;
+  const {skipRows,skip,need,bal,short}=safeTotals(rows,S.cashExcl,c),exclWait=S.cashExcl===undefined;
   const prov=!!r.provisional||(r.warnings||[]).some(w=>/не закрыт|не загружен/i.test(String(w)));
   h+='<div class="card"><h3 style="margin-top:2px">Зарплата за период</h3>'
     +'<div class="srow"><span>Начислено</span><b>'+money(N(tot.accrued))+'</b></div>'
     +'<div class="srow"><span>Выплачено</span><b>'+money(N(tot.paid))+'</b></div>'
-    +'<div class="srow big"><span>Остаток к выплате</span><b>'+money(need)+'</b></div>'+(skipRows.length?'<div class="srow sub"><span>не входит в общую выдачу: '+skipRows.map(x=>esc(x.name)).join(', ')+' (расчёт ведётся отдельно)</span><b>'+money(skip)+'</b></div>':'')
+    +'<div class="srow big"><span>Остаток к выплате</span><b>'+(exclWait?'…':money(need))+'</b></div>'+(S.cashExcl===null?'<p class="hint">Список «не входит в общую выдачу» не загрузился — в остаток включены все.</p>':'')+(skipRows.length?'<div class="srow sub"><span>не входит в общую выдачу: '+skipRows.map(x=>esc(x.name)).join(', ')+' (расчёт ведётся отдельно)</span><b>'+money(skip)+'</b></div>':'')
     +((r.warnings||[]).length?'<p class="hint" style="margin-top:8px">'+r.warnings.map(esc).join('<br>')+'</p>':'')+'</div>';
   h+='<div class="card"><h3 style="margin-top:2px">Сейф</h3>';
-  if(!c)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
+  if(!c||exclWait)h+='<p class="hint">'+esc(S.safeErr||'Загружаю…')+'</p>';
   else{
     const lack=short>0.005;
     h+='<div class="srow"><span>Подтверждённые инкассации с '+ruDate(c.from)+'</span><b>'+money(N(c.on_hand))+'</b></div>'

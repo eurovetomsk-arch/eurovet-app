@@ -23,9 +23,9 @@ ok(vmcMessage([{field:'fix_normal',verdict:'mismatch',report:0,vm:1}]).includes(
 ok(vmcMessage([{field:'cashless',verdict:'mismatch',report:1234.56,vm:1000}]).includes('Безнал клиники')&&/1\s234,56\s₽/.test(vmcMessage([{field:'cashless',verdict:'mismatch',report:1234.56,vm:1000}])),'деньги: «1 234,56 ₽», поле по-русски');
 VMC.flags=[{id:5,branch:'marksa',date:'2026-11-19',field:'fix_xray',verdict:'mismatch',report:0,vm:1,diff:-1}];ok(vmFlagsHtml().includes('Фиксация на R-снимке')&&vmFlagsHtml().includes('1 шт.')&&vmFlagsHtml().includes('в счёте есть фиксация')&&!vmFlagsHtml().includes('₽')&&!vmFlagsHtml().includes('fix_xray'),'Контроль: русское название, штуки, пояснение');
 VMC.flags=[];VMC.acc=null;ok(vmFlagsHtml()==='','флагов нет — блока нет');
-VMC.acc=[{kind:'night',key:'night:9',person_id:1,who:'Таслицкий <b>',at:'2026-11-16T18:34:00Z',detail:{after:[{action:'safe_out_add'}],money:true}},{kind:'pin',key:'pin:3:2026-11-19',person_id:3,who:'Х',at:'2026-11-19T10:00:00Z',detail:{count:3,date:'2026-11-19'}},{kind:'device',key:'device:37:ab',person_id:37,who:'Y',at:'2026-11-22T11:03:00Z',detail:{}}];
+VMC.acc=[{kind:'night',key:'night:9',person_id:1,who:'Главный <b>',at:'2026-11-16T18:34:00Z',detail:{after:[{action:'safe_out_add'}],money:true}},{kind:'pin',key:'pin:3:2026-11-19',person_id:3,who:'Х',at:'2026-11-19T10:00:00Z',detail:{count:3,date:'2026-11-19'}},{kind:'device',key:'device:37:ab',person_id:37,who:'Y',at:'2026-11-22T11:03:00Z',detail:{}}];
 const ah=vmFlagsHtml();
-ok(!ah.includes('<b>Таслицкий <b>')&&ah.includes('&lt;b&gt;'),'имена через esc');
+ok(!ah.includes('<b>Главный <b>')&&ah.includes('&lt;b&gt;'),'имена через esc');
 VMC.acc=null;
 // без сети: проверка откладывается, отчёт не блокируется
 localStorage.removeItem('ev_vmq');_rpc=async()=>{throw {net:true}};await vmcAfterSubmit('70let','2026-11-20',2);

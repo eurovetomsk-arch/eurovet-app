@@ -8,9 +8,9 @@ const pw=require(process.env.EVROVET_PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(__dirname,'..'),OUT=process.env.OUT||'';
 if(OUT)fs.mkdirSync(OUT,{recursive:true});
 const DAY='2026-11-24';
-const PEOPLE={16:'Фёдорова Т.В.',4:'Орлов И.П.',11:'Семёнова А.Р.',34:'Кривогузова А.А.'};
-const FULL={34:'Кривогузова Анна Андреевна'};
-const ADMIN={id:16,full_name:'Фёдорова Татьяна Владимировна',short_name:'Фёдорова Т.В.',admin:true,roles:['admin']};
+const PEOPLE={916:'Фролова Т.С.',904:'Орлов И.П.',911:'Семёнова А.Р.',934:'Лесникова А.О.'};
+const FULL={934:'Лесникова Анна Олеговна'};
+const ADMIN={id:916,full_name:'Фролова Тамара Сергеевна',short_name:'Фролова Т.С.',admin:true,roles:['admin']};
 const BR=[{id:'marksa',title:'Маркса, 45'},{id:'70let',title:'70 лет Октября, 20'},{id:'pereleta',title:'Перелёта, 19'}];
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.json':'application/json','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/,'')||'index.html';const f=path.resolve(root,rel);
@@ -22,8 +22,8 @@ const res=[];const ok=(c,m)=>{res.push([!!c,m]);console.log((c?'PASS ':'FAIL ')+
 /* ---- подставная база ---- */
 function makeDb(){
   return{reports:[],calls:{},mode:'online',lostOnce:false,
-    shifts:[{date:DAY,branch:'70let',slot:'admin',name:PEOPLE[16],full:ADMIN.full_name},{date:DAY,branch:'70let',slot:'doctor',name:PEOPLE[4],full:'Орлов Илья Петрович'},
-            {date:DAY,branch:'70let',slot:'assistant',name:'Семёнова',full:'Семёнова'} /* строка без сопоставления: только фамилия */,{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[34],full:FULL[34]}]};
+    shifts:[{date:DAY,branch:'70let',slot:'admin',name:PEOPLE[916],full:ADMIN.full_name},{date:DAY,branch:'70let',slot:'doctor',name:PEOPLE[904],full:'Орлов Илья Петрович'},
+            {date:DAY,branch:'70let',slot:'assistant',name:'Семёнова',full:'Семёнова'} /* строка без сопоставления: только фамилия */,{date:DAY,branch:'marksa',slot:'assistant',name:PEOPLE[934],full:FULL[934]}]};
 }
 const ids=d=>[].concat(d.admins||[],d.doctors||[],d.assistants||[]).map(x=>String(x.id));
 function latestOther(db,branch,date){const m=new Map();db.reports.filter(r=>r.date===date&&r.branch!==branch).forEach(r=>{const p=m.get(r.branch);if(!p||p.version<r.version)m.set(r.branch,r)});return[...m.values()]}
@@ -33,9 +33,9 @@ function rpc(db,name,a){
     case'ev_login_number':return{ok:true,token:'qa-token',person:ADMIN};
     case'ev_select_branch':return{ok:true,date:DAY};
     case'ev_context':{const cur=db.reports.filter(r=>r.branch===a.p_branch&&r.date===a.p_date).sort((x,y)=>y.version-x.version)[0];
-      return{ok:true,branches:BR,admins:[{id:16,name:PEOPLE[16]}],doctors:[{id:4,name:PEOPLE[4],vm_id:104}],
-        assistants:[{id:11,role:'assistant_clinical',name:PEOPLE[11]},{id:34,role:'assistant_clinical',name:PEOPLE[34]}],
-        prev:null,current:cur?{version:cur.version,data:cur.data,submitted_at:'2026-11-24T14:00:00Z',by:PEOPLE[16]}:null,articles:['Хозтовары','Другое','Инкассация МР','Возврат клиника','Возврат аптека']}}
+      return{ok:true,branches:BR,admins:[{id:916,name:PEOPLE[916]}],doctors:[{id:904,name:PEOPLE[904],vm_id:104}],
+        assistants:[{id:911,role:'assistant_clinical',name:PEOPLE[911]},{id:934,role:'assistant_clinical',name:PEOPLE[934]}],
+        prev:null,current:cur?{version:cur.version,data:cur.data,submitted_at:'2026-11-24T14:00:00Z',by:PEOPLE[916]}:null,articles:['Хозтовары','Другое','Инкассация МР','Возврат клиника','Возврат аптека']}}
     case'ev_whos_where':return{ok:true,shifts:db.shifts.filter(s=>s.date>=a.p_from&&s.date<=a.p_to)};
     case'ev_cash_handover_context':return{ok:true,mode:'off'};
     case'ev_submit':{
@@ -82,8 +82,8 @@ async function session(browser,db,url){
   await wait(800);
   return{page,ctx,errs,escaped};
 }
-const FORM=(extra)=>Object.assign({admins:{16:{left:'',came:''}},doctors:{4:{val:'1000'}},others:[],total:'1000',cash:'600',cashless:'400',ph_val:'100',ph_cash:'100',ph_cashless:'0',
-  open:'0',expenses:[],close:'700',assistants:{'assistant_clinical:11':{fn:2,fx:1,left:'',came:''}},no_assistant:false,note:'тест L34',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''},extra||{});
+const FORM=(extra)=>Object.assign({admins:{916:{left:'',came:''}},doctors:{904:{val:'1000'}},others:[],total:'1000',cash:'600',cashless:'400',ph_val:'100',ph_cash:'100',ph_cashless:'0',
+  open:'0',expenses:[],close:'700',assistants:{'assistant_clinical:911':{fn:2,fx:1,left:'',came:''}},no_assistant:false,note:'тест L34',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''},extra||{});
 async function openForm(page,branch,form){
   await page.evaluate(async([b,f])=>{S.date='2026-11-24';S.dateManual=true;await openBranch(b);Object.assign(S.form,f);saveDraftNow();render()},[branch,form]);
   await wait(400);
@@ -97,18 +97,18 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
   /* 1. Сверка с графиком + отказ person_two_branches → назад в форму → убрали → ровно один отчёт */
   {
     const db=makeDb();
-    db.reports.push({id:1,branch:'marksa',date:DAY,version:1,data:{admins:[{id:99}],assistants:[{id:34,role:'assistant_clinical'}]},uid:'pre-1'});
+    db.reports.push({id:1,branch:'marksa',date:DAY,version:1,data:{admins:[{id:99}],assistants:[{id:934,role:'assistant_clinical'}]},uid:'pre-1'});
     const{page,errs,escaped}=await session(browser,db,url);
-    const f=FORM({assistants:{'assistant_clinical:11':{fn:2,fx:1,left:'',came:''},'assistant_clinical:34':{fn:1,fx:0,left:'',came:''}},expenses:[{article:'Хозтовары',amount:'0',comment:'перчатки',method:'cash'}]});
+    const f=FORM({assistants:{'assistant_clinical:911':{fn:2,fx:1,left:'',came:''},'assistant_clinical:934':{fn:1,fx:0,left:'',came:''}},expenses:[{article:'Хозтовары',amount:'0',comment:'перчатки',method:'cash'}]});
     await openForm(page,'70let',f);
     await page.locator('[data-act="submit"]').first().click();await wait(600);
     let s=await st(page);
-    ok(/По графику Кривогузова А\.А\. 24\.11 работает на Маркса, 45\. Это замена\?/.test(s.ov)&&/Да, замена/.test(s.ov)&&/Убрать/.test(s.ov),'график: человек на другом филиале → вопрос «Это замена?» с «Да, замена» / «Убрать»');
+    ok(/По графику Лесникова А\.О\. 24\.11 работает на Маркса, 45\. Это замена\?/.test(s.ov)&&/Да, замена/.test(s.ov)&&/Убрать/.test(s.ov),'график: человек на другом филиале → вопрос «Это замена?» с «Да, замена» / «Убрать»');
     ok((db.calls.ev_submit||0)===0,'до ответа на вопрос отчёт не уходит');
     await shot(page,'l34-1-zamena');
     await page.locator('[data-act="trap-subst-yes"]').click();await wait(900);
     s=await st(page);
-    ok(s.view==='done'&&s.done&&s.done.rej&&s.done.rej.includes('Кривогузова Анна Андреевна уже указан(а) в отчёте филиала Маркса, 45 за 24.11.2026')&&s.done.rej.includes('Вернитесь к составу смены и исправьте его либо исправьте отчёт другого филиала'),'отказ person_two_branches: текст с ФИО, филиалом и датой (L34)');
+    ok(s.view==='done'&&s.done&&s.done.rej&&s.done.rej.includes('Лесникова Анна Олеговна уже указан(а) в отчёте филиала Маркса, 45 за 24.11.2026')&&s.done.rej.includes('Вернитесь к составу смены и исправьте его либо исправьте отчёт другого филиала'),'отказ person_two_branches: текст с ФИО, филиалом и датой (L34)');
     ok(!/администратор/i.test(s.done.rej||''),'в тексте отказа не сказано, что это администратор');
     const html=await page.locator('#app').innerHTML();
     ok(html.includes('Вернуться к отчёту и исправить')&&!html.includes('data-act="flush"'),'на экране отказа есть «Вернуться к отчёту и исправить», нет «Отправить сейчас»');
@@ -119,13 +119,13 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
     await shot(page,'l34-2-otkaz');
     await page.locator('[data-act="repback"]').click();await wait(600);
     s=await st(page);
-    ok(s.view==='form'&&s.form.total==='1000'&&s.form.cash==='600'&&s.form.cashless==='400'&&s.form.close==='700'&&s.form.ph_val==='100'&&s.form.doctors['4'].val==='1000'&&s.form.expenses.length===1&&s.form.expenses[0].comment==='перчатки'&&s.form.note==='тест L34'&&!!s.form.assistants['assistant_clinical:34']&&(s.form.sched_subst||[]).includes('Кривогузова А.А.'),'«Вернуться к отчёту»: все поля на месте');
+    ok(s.view==='form'&&s.form.total==='1000'&&s.form.cash==='600'&&s.form.cashless==='400'&&s.form.close==='700'&&s.form.ph_val==='100'&&s.form.doctors['904'].val==='1000'&&s.form.expenses.length===1&&s.form.expenses[0].comment==='перчатки'&&s.form.note==='тест L34'&&!!s.form.assistants['assistant_clinical:934']&&(s.form.sched_subst||[]).includes('Лесникова А.О.'),'«Вернуться к отчёту»: все поля на месте');
     await shot(page,'l34-3-forma');
-    await page.evaluate(()=>{delete S.form.assistants['assistant_clinical:34'];S.form.sched_subst=[];saveDraftNow();render()});
+    await page.evaluate(()=>{delete S.form.assistants['assistant_clinical:934'];S.form.sched_subst=[];saveDraftNow();render()});
     await page.locator('[data-act="submit"]').first().click();await wait(1200);
     s=await st(page);
     const mine=db.reports.filter(r=>r.branch==='70let');
-    ok(s.done&&s.done.sent&&mine.length===1&&mine[0].version===1&&!ids(mine[0].data).includes('34')&&s.q===0,'убрали человека → отправили → ровно один отчёт, очередь пуста');
+    ok(s.done&&s.done.sent&&mine.length===1&&mine[0].version===1&&!ids(mine[0].data).includes('934')&&s.q===0,'убрали человека → отправили → ровно один отчёт, очередь пуста');
     const dr2=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('ev_draft2:')).length);
     ok(dr2===0,'после принятия черновик удалён');
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));ok(escaped.length===0,'наружу запросов нет');
@@ -134,22 +134,22 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
   /* 2. «Убрать» из вопроса по графику; без L34 текст отказа без филиала */
   {
     const db=makeDb();db.noL34=true;
-    db.reports.push({id:1,branch:'marksa',date:DAY,version:1,data:{assistants:[{id:34}]},uid:'pre-1'});
+    db.reports.push({id:1,branch:'marksa',date:DAY,version:1,data:{assistants:[{id:934}]},uid:'pre-1'});
     const{page,errs}=await session(browser,db,url);
-    await openForm(page,'70let',FORM({assistants:{'assistant_clinical:11':{fn:2,fx:1,left:'',came:''},'assistant_clinical:34':{fn:1,fx:0,left:'',came:''}}}));
+    await openForm(page,'70let',FORM({assistants:{'assistant_clinical:911':{fn:2,fx:1,left:'',came:''},'assistant_clinical:934':{fn:1,fx:0,left:'',came:''}}}));
     await page.locator('[data-act="submit"]').first().click();await wait(600);
     await page.locator('[data-act="trap-subst-drop"]').click();await wait(400);
     let s=await st(page);
-    ok(s.view==='form'&&!s.form.assistants['assistant_clinical:34']&&!!s.form.assistants['assistant_clinical:11']&&(db.calls.ev_submit||0)===0,'«Убрать»: человек убран из состава, отчёт не ушёл, остальное на месте');
+    ok(s.view==='form'&&!s.form.assistants['assistant_clinical:934']&&!!s.form.assistants['assistant_clinical:911']&&(db.calls.ev_submit||0)===0,'«Убрать»: человек убран из состава, отчёт не ушёл, остальное на месте');
     // без L34: вернём человека и ответим «Да, замена» → отказ без филиала
-    await page.evaluate(()=>{S.form.assistants['assistant_clinical:34']={fn:1,fx:0,left:'',came:''};render()});
+    await page.evaluate(()=>{S.form.assistants['assistant_clinical:934']={fn:1,fx:0,left:'',came:''};render()});
     await page.locator('[data-act="submit"]').first().click();await wait(600);
     await page.locator('[data-act="trap-subst-yes"]').click();await wait(900);
     s=await st(page);
-    ok(s.done&&s.done.rej&&s.done.rej.startsWith('Кривогузова А.А. уже указан(а) в отчёте другого филиала за 24.11.2026'),'без L34 (функции нет) — текст отказа без филиала');
+    ok(s.done&&s.done.rej&&s.done.rej.startsWith('Лесникова А.О. уже указан(а) в отчёте другого филиала за 24.11.2026'),'без L34 (функции нет) — текст отказа без филиала');
     // графика нет → молчим
     db.shifts=[];await page.locator('[data-act="repback"]').click();await wait(400);
-    await page.evaluate(()=>{TRAP_SCHED.key='';delete S.form.assistants['assistant_clinical:34'];S.form.sched_subst=[];render()});
+    await page.evaluate(()=>{TRAP_SCHED.key='';delete S.form.assistants['assistant_clinical:934'];S.form.sched_subst=[];render()});
     await page.locator('[data-act="submit"]').first().click();await wait(900);
     s=await st(page);ok(s.done&&s.done.sent,'графика нет — вопроса нет, отчёт принят');
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
@@ -203,9 +203,9 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
   /* 5. Исправление уже сданного → версия 2 с причиной */
   {
     const db=makeDb();
-    db.reports.push({id:1,branch:'70let',date:DAY,version:1,data:{schema:1,admins:[{id:16}],doctors:[{id:4,val:900}],assistants:[{id:11,role:'assistant_clinical',fix_normal:2,fix_xray:1}],total:900,cash:500,cashless:400,pharmacy:{val:100,cash:100,cashless:0},cashbox:{opening:0,expenses:[],closing:600}},uid:'pre-v1'});
+    db.reports.push({id:1,branch:'70let',date:DAY,version:1,data:{schema:1,admins:[{id:916}],doctors:[{id:904,val:900}],assistants:[{id:911,role:'assistant_clinical',fix_normal:2,fix_xray:1}],total:900,cash:500,cashless:400,pharmacy:{val:100,cash:100,cashless:0},cashbox:{opening:0,expenses:[],closing:600}},uid:'pre-v1'});
     const{page,errs}=await session(browser,db,url);
-    await openForm(page,'70let',{total:'1000',cash:'600',doctors:{4:{val:'1000'}},close:'700',corr_reason:'исправила вал врача'});
+    await openForm(page,'70let',{total:'1000',cash:'600',doctors:{904:{val:'1000'}},close:'700',corr_reason:'исправила вал врача'});
     await page.locator('[data-act="submit"]').first().click();await wait(1200);
     const s=await st(page);const v2=db.reports.find(r=>r.version===2);
     ok(v2&&v2.reason==='исправила вал врача'&&db.reports.length===2&&s.done.sent&&s.q===0,'исправление: версия 2 с причиной');

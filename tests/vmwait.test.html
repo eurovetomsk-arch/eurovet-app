@@ -23,13 +23,13 @@ ok(vmwEval(MOK.slice(0,2).concat([R('cashless','no_data',null,null)]),3).state==
 ok(vmwEval([R('total','mismatch',1,2),R('cash','ok',1,1),R('cashless','ok',1,1),R('fix_xray','mismatch',0,1)],3).rows.length===2,'деньги mismatch + фиксация: в красном и деньги, и фиксация');
 // К3: врачи
 const DR=(pid,verdict,rep,vm,reason)=>({field:'doctor:'+pid,verdict,report:rep,vm,reason,version:3});
-const rd=vmwEval(MOK.concat([DR(7,'mismatch',60000,64005,'Аристова — сумма врача в отчёте и в Vetmanager разная')]),3);
+const rd=vmwEval(MOK.concat([DR(7,'mismatch',60000,64005,'Ветрова — сумма врача в отчёте и в Vetmanager разная')]),3);
 ok(rd.state==='red_money'&&rd.rows[0].field==='doctor:7','расхождение по врачу → красный (как деньги), домой нельзя');
 ok(vmwEval(MOK.concat([DR(7,'ok',100,100,null)]),3).state==='green','врач ok → green');
 S.vmw={branch:'marksa',date:'2026-11-23',version:3,t0:0,state:'red_money',rows:rd.rows};let hd=vmwHtml();
-ok(hd.includes('Врач Аристова:')&&/в отчёте 60[\s\u00a0]000,00[\s\u00a0]₽/.test(hd)&&/в Vetmanager 64[\s\u00a0]005,00[\s\u00a0]₽/.test(hd)&&hd.includes('В Vetmanager врач выбирается в шапке счёта — проверь, кто указан.')&&hd.includes('Исправить отчёт')&&!hd.includes('vmwhome'),'экран: «Врач Х: в отчёте A ₽, в Vetmanager B ₽», подсказка про шапку счёта, «Исправить отчёт»');
-VMC.flags=[{id:9,branch:'pereleta',date:'2026-11-22',field:'doctor:7',verdict:'mismatch',report:0,vm:64005,diff:-64005,reason:'Аристова — в отчёте нет врача'}];
-const fh=vmFlagsHtml();ok(fh.includes('Зарплатная база')&&fh.includes('Врач Аристова, разница')&&/64[\s\u00a0]005,00/.test(fh)&&fh.includes('в отчёте нет врача')&&fh.includes('data-vmact="resolve"'),'«Контроль»: «Зарплатная база: Врач Х, разница N ₽» и «Решить с причиной»');VMC.flags=[];
+ok(hd.includes('Врач Ветрова:')&&/в отчёте 60[\s\u00a0]000,00[\s\u00a0]₽/.test(hd)&&/в Vetmanager 64[\s\u00a0]005,00[\s\u00a0]₽/.test(hd)&&hd.includes('В Vetmanager врач выбирается в шапке счёта — проверь, кто указан.')&&hd.includes('Исправить отчёт')&&!hd.includes('vmwhome'),'экран: «Врач Х: в отчёте A ₽, в Vetmanager B ₽», подсказка про шапку счёта, «Исправить отчёт»');
+VMC.flags=[{id:9,branch:'pereleta',date:'2026-11-22',field:'doctor:7',verdict:'mismatch',report:0,vm:64005,diff:-64005,reason:'Ветрова — в отчёте нет врача'}];
+const fh=vmFlagsHtml();ok(fh.includes('Зарплатная база')&&fh.includes('Врач Ветрова, разница')&&/64[\s\u00a0]005,00/.test(fh)&&fh.includes('в отчёте нет врача')&&fh.includes('data-vmact="resolve"'),'«Контроль»: «Зарплатная база: Врач Х, разница N ₽» и «Решить с причиной»');VMC.flags=[];
 // гонка: деньги ok, врачей ещё нет → не зелёный; врачи пришли → зелёный; mismatch по деньгам красный сразу
 ok(vmwEval(MOK,3,true).state==='wait'&&vmwEval(MOK.concat([R('fix_normal','mismatch',1,2)]),3,true).state==='wait','деньги ok, врачей ещё нет → ждём (ни зелёного, ни красного по фиксациям)');
 ok(vmwEval(MOK.concat([DR(7,'ok',100,100,null)]),3,true).state==='green'&&vmwEval(MOK.concat([DR(7,'ok',100,100,null)]).map(x=>Object.assign({},x,{version:2})),3,true).state==='wait','врачи пришли ok → зелёный; врачи старой версии не считаются');

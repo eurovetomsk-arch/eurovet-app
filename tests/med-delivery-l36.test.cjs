@@ -8,9 +8,9 @@ const pw=require(process.env.EVROVET_PLAYWRIGHT_MODULE||'playwright-core');
 const root=path.resolve(__dirname,'..'),OUT=process.env.OUT||'';
 if(OUT)fs.mkdirSync(OUT,{recursive:true});
 const DAY='2026-11-24';
-const PEOPLE={16:'Фёдорова Т.В.',4:'Орлов И.П.',11:'Семёнова А.Р.',34:'Кривогузова А.А.'};
-const FULL={34:'Кривогузова Анна Андреевна'};
-const ADMIN={id:16,full_name:'Фёдорова Татьяна Владимировна',short_name:'Фёдорова Т.В.',admin:true,roles:['admin']};
+const PEOPLE={916:'Фролова Т.С.',904:'Орлов И.П.',911:'Семёнова А.Р.',934:'Лесникова А.О.'};
+const FULL={934:'Лесникова Анна Олеговна'};
+const ADMIN={id:916,full_name:'Фролова Тамара Сергеевна',short_name:'Фролова Т.С.',admin:true,roles:['admin']};
 const BR=[{id:'marksa',title:'Маркса, 45'},{id:'70let',title:'70 лет Октября, 20'},{id:'pereleta',title:'Перелёта, 19'}];
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.json':'application/json','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/,'')||'index.html';const f=path.resolve(root,rel);
@@ -48,8 +48,8 @@ function rpc(db,name,a){
     default:return{ok:true,rows:[],items:[],flags:[],shifts:[]};
   }
 }
-const HEAD={id:1,full_name:'Белова Елена',short_name:'Белова Е.',head:true,roles:['head']};
-const DOC={id:16,full_name:'Аристова Анна',short_name:'Аристова А.',admin:true,roles:['admin','doctor']};
+const HEAD={id:1,full_name:'Белова Ева',short_name:'Белова Е.',head:true,roles:['head']};
+const DOC={id:916,full_name:'Ветрова Анна',short_name:'Ветрова А.',admin:true,roles:['admin','doctor']};
 async function session(browser,db,url){
   const ctx=await browser.newContext({viewport:{width:375,height:812},deviceScaleFactor:2,serviceWorkers:'block'});
   const page=await ctx.newPage();const errs=[];page.on('pageerror',e=>errs.push(e.message));
