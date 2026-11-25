@@ -1,6 +1,6 @@
 'use strict';
 /* ====== Форма ====== */
-const emptyForm=()=>({admins:{},doctors:{},others:[],total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
+const emptyForm=()=>({admins:{},doctors:{},no_doctor:false,others:[],total:'',cash:'',cashless:'',ph_val:'',ph_cash:'',ph_cashless:'',
   open:'',expenses:[],close:'',assistants:{},no_assistant:false,note:'',adv_cash:'',adv_cashless:'',adv_out:'',comp:'',cert:'',nc_comment:'',debt:'',debt_comment:'',repaid:'',diff_reason:'',corr_reason:''});
 /* L34a: черновик правки руководителя — отдельный ключ (буква h), не смешивается с черновиком админа на том же телефоне */
 const draftKey=()=>'ev_draft2:'+(S.headFix?'h':'')+(S.person?S.person.id:0)+':'+S.branch+':'+S.date;
@@ -34,6 +34,7 @@ function formFromReport(d){ // загрузка ранее сданной вер
   const f=emptyForm(),s=v=>(v==null?'':String(v));
   (d.admins||[]).forEach(a=>f.admins[a.id]={left:a.left||'',came:a.came||''});
   (d.doctors||[]).forEach(x=>f.doctors[x.id]={val:s(x.val)});
+  f.no_doctor=!!d.no_doctor&&!Object.keys(f.doctors).length;
   f.others=(d.others||[]).map(o=>({title:o.title||'',val:s(o.val)}));
   f.total=s(d.total);f.cash=s(d.cash);f.cashless=s(d.cashless);
   f.ph_val=s(d.pharmacy&&d.pharmacy.val);f.ph_cash=s(d.pharmacy&&d.pharmacy.cash);f.ph_cashless=s(d.pharmacy&&d.pharmacy.cashless);
@@ -66,8 +67,8 @@ function compute(){
   const checks=[];
   const add=(id,label,diff,ready,detail,miss='')=>checks.push({id,label,ready,diff:r2(diff),ok:ready&&Math.abs(diff)<=CFG.tol,detail,miss});
   const ms=a=>a.filter(Boolean).join(', ');
-  add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0),'врачи '+money(sumDocs)+' vs общая '+money(total),
-    ms([f.total===''&&'«Клиника общая»',!(Object.keys(f.doctors).length>0||f.others.length>0)&&'отметьте врачей и введите их вал']));
+  add('docs','Сумма врачей = Клиника общая',sumDocs-total,f.total!==''&&(Object.keys(f.doctors).length>0||f.others.length>0||f.no_doctor===true),(f.no_doctor?'врачей в смене не было; ':'врачи ')+money(sumDocs)+' vs общая '+money(total),
+    ms([f.total===''&&'«Клиника общая»',!(Object.keys(f.doctors).length>0||f.others.length>0||f.no_doctor===true)&&'отметьте врачей или подтвердите «Врача сегодня не было»']));
   const repaid=N(f.repaid);
   add('pay','Нал + безнал'+(advNew?' − аванс принят + аванс списан':'')+(repaid>0?' − погашенный долг':'')+' = Клиника общая',cash+cashless-repaid-advAdj-total,f.total!==''&&(f.cash!==''||f.cashless!==''),'нал '+money(cash)+' + безнал '+money(cashless)+(advNew?' − аванс принят '+money(N(f.adv_cash)+N(f.adv_cashless))+' + списан '+money(N(f.adv_out)):'')+(repaid>0?' − погашение долга '+money(repaid):'')+' vs общая '+money(total),
     ms([f.total===''&&'«Клиника общая»',(f.cash===''&&f.cashless==='')&&'«Нал» и «Безнал»']));
@@ -115,7 +116,7 @@ function buildData(calc){
     return{id:Number(id),name:aNm(a.name),role,fix_normal:v.fn|0,fix_xray:v.fx|0,left:v.left||null,came:v.came||null}});
   return{
     schema:1,app:CFG.appVer,branch:S.branch,date:S.date,
-    admins,doctors,
+    admins,doctors,no_doctor:doctors.length===0&&f.no_doctor===true,
     others:f.others.map(o=>({title:o.title.trim(),val:N(o.val)})),
     total:N(f.total),cash:N(f.cash),cashless:N(f.cashless),
     pharmacy:{val:N(f.ph_val),cash:N(f.ph_cash),cashless:N(f.ph_cashless)},
@@ -193,6 +194,10 @@ async function submit(){
     S.formErrors=[];
     if(!Object.keys(S.form.assistants).length&&S.form.no_assistant!==true){
       overlay('<h2>В смене не было ассистента?</h2><p class="hint">Подтвердите это отдельно или вернитесь к форме и добавьте ассистента. Без выбора отчёт не отправится.</p><button class="btn" data-act="assistantnone">Да, не было</button><button class="btn sec" style="margin-top:8px" data-act="assistantadd">Добавить ассистента</button>');
+      return;
+    }
+    if(!Object.keys(S.form.doctors).length&&S.form.no_doctor!==true){
+      overlay('<h2>Врача в смене не было?</h2><p class="hint">Если на филиале сегодня физически не было врача, подтвердите это. Фиктивного врача с нулём выбирать не нужно.</p><button class="btn" data-act="doctornone">Да, врача не было</button><button class="btn sec" style="margin-top:8px" data-act="doctoradd">Вернуться и выбрать врача</button>');
       return;
     }
     if(!(await trapGate()))return; /* 2.0: ловушки отчёта (traps.js) */
@@ -290,6 +295,7 @@ function summaryText(d){
   const L=[];const bt=(BRANCHES.find(b=>b.id===d.branch)||{}).title;
   L.push('ЕВРОВЕТ '+bt+' — '+ruDate(d.date));
   L.push('Админ: '+d.admins.map(a=>a.name+(a.came?' (пришёл '+a.came+')':'')+(a.left?' (ушёл '+a.left+')':'')).join(', '));
+  if(d.no_doctor)L.push('Врача в смене не было — подтверждено администратором');
   d.doctors.forEach(x=>L.push(x.name+': '+x.val));
   d.others.forEach(x=>L.push(x.title+': '+x.val));
   L.push('Клиника общая: '+d.total);L.push('Нал: '+d.cash+'  Безнал: '+d.cashless);
@@ -313,7 +319,7 @@ function summaryText(d){
 /*HELP_END*/
 const HINTS={
   admins:['Администраторы смены','Отметьте тех, кто работал администратором в этот день. Смена считается с 9:00 до 21:00. Время прихода и ухода вписывайте, только если было иначе, например подмена: пришёл не в 9:00 или ушёл не в 21:00. Вычет или добавку считает система, самому считать не нужно. Добавку за поздний уход руководитель подтверждает отдельно.'],
-  docs:['Вал врачей','Вал врача — сумма, которую клиенты реально оплатили по проведённым счетам этого врача за день в Vetmanager. Если счёт оплачен частично, берите только оплаченную часть, остаток вписывается в блок «Долги клиентов». Отметьте работавших врачей и введите вал каждого. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
+  docs:['Вал врачей','Вал врача — сумма, которую клиенты реально оплатили по проведённым счетам этого врача за день в Vetmanager. Если счёт оплачен частично, берите только оплаченную часть, остаток вписывается в блок «Долги клиентов». Отметьте работавших врачей и введите вал каждого. Если врача физически не было, нажмите «Врача сегодня не было» — выбирать случайного врача с нулём не нужно. Врач-замена или сумма не по списку добавляются отдельной строкой внизу.'],
   others:['Строка не из списка','Нужна, если был врач-замена или есть сумма, которой нет среди врачей выше. Напишите, кто или за что, и сумму. Она войдёт в «Сумма врачей».'],
   total:['Клиника общая','Общий вал клиники за день по Vetmanager: сколько клиенты оплатили по проведённым счетам. Должна совпадать с суммой вала врачей и с «Нал + Безнал». Аванс и неоплаченные долги сюда не входят.'],
   pay:['Деньги клиники','«Наличные клиники» и «Безнал клиники» — все деньги клиники за сегодня, вместе с суммами, положенными на аванс, но без аптеки. Приложение отдельно учтёт, сколько положили на аванс, сколько сняли с аванса и сколько погасили прошлого долга.'],
@@ -397,6 +403,7 @@ function viewForm(){
 
   h+='<div class="card k-docs"><h2>Вал врачей'+hbtn('docs')+'</h2><p class="hint">Отметьте врачей, которые работали, и введите вал каждого.</p><div class="tiles">'+
     c.doctors.map(d=>'<button class="tile'+(f.doctors[d.id]?' on':'')+'" data-act="tog" data-g="doctors" data-id="'+d.id+'">'+esc(d.name)+(d.note?'<small>'+esc(d.note)+'</small>':'')+'</button>').join('')+'</div>';
+  h+='<button class="btn sec small'+(f.no_doctor?' on':'')+'" style="margin-top:8px" data-act="doctorflag">'+(f.no_doctor?'✓ Врача сегодня не было':'Врача сегодня не было')+'</button>';
   Object.keys(f.doctors).forEach(id=>{h+=nfield('doctors.'+id+'.val',esc(docName(id)||id)+' — вал, ₽',f.doctors[id].val)});
   f.others.forEach((o,i)=>{
     h+='<div class="person"><b>Не из списка'+hbtn('others')+'</b><label class="f"><span>Кто или за что (например, врач-замена)</span><input data-p="others.'+i+'.title" value="'+esc(o.title)+'"></label>'+nfield('others.'+i+'.val','Сумма, ₽',o.val)+'<button class="btn sec small" data-act="delOther" data-i="'+i+'">Удалить строку</button></div>';

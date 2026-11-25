@@ -655,6 +655,7 @@ document.addEventListener('click',async e=>{
       const g=d.g,id=d.id,f=S.form;
       if(f[g][id])delete f[g][id];
       else f[g][id]=g==='doctors'?{val:''}:g==='admins'?{left:'',came:''}:{fn:0,fx:0,left:'',came:''};
+      if(g==='doctors'&&f[g][id])f.no_doctor=false;
       if(g==='assistants')f.no_assistant=false;
       saveDraft();render();break}
     case'inc':{
@@ -670,6 +671,9 @@ document.addEventListener('click',async e=>{
     case'trap-pharm-closed':case'trap-pharm-fill':case'trap-sched-absent':case'trap-sched-add':case'trap-subst-yes':case'trap-subst-drop':await trapAct(a,b);break;
     case'assistantnone':S.form.no_assistant=true;saveDraft();closeOv();await submit();break;
     case'assistantadd':closeOv();setTimeout(()=>{const e=document.querySelector('.k-assist');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);break;
+    case'doctornone':S.form.no_doctor=true;saveDraft();closeOv();await submit();break;
+    case'doctoradd':closeOv();setTimeout(()=>{const e=document.querySelector('.k-docs');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);break;
+    case'doctorflag':S.form.no_doctor=!S.form.no_doctor;if(S.form.no_doctor)S.form.doctors={};saveDraft();render();break;
     case'copy':if(S.done)clip(S.done.summary);break;
     case'headfix':headFix();break; /* L34a */
     case'repback':repBackToForm();break; /* L34 */
