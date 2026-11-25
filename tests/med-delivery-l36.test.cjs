@@ -144,7 +144,7 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     ok(await noWide(page),'L36c: 375 px без прокрутки');
     await shot(page,'l36c-otkrytyh-net');
     await page.locator('[data-mact="sumbr"][data-id="marksa"]').click();await wait(500);
-    ok(/Открытых заявок нет/.test(await page.locator('#app').innerText()),'L36c: в филиале без заявки — то же');
+    ok(/У филиала Маркса открытой заявки нет/.test(await page.locator('#app').innerText()),'L36c: в филиале без заявки — «У филиала Маркса открытой заявки нет»');
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
     await page.context().close();
   }

@@ -163,7 +163,7 @@ function mdSumHtml(){
   if(open.length)h+='<div class="md-open"><b>Открытых заявок: '+open.length+'</b>'+(open.length?' · '+open.map(b=>esc(b.title)+' '+cn[b.id]).join(', '):'')+'</div>';
   h+='<div class="chips">'+f.map((b,i)=>'<button class="chip'+((MD.sumBranch||'')===b?' on':'')+'" data-mact="sumbr" data-id="'+b+'">'+fl[i]+(b&&cn[b]?' '+cn[b]:'')+'</button>').join('')+(mdHead()?'<button class="chip" data-mact="edit">Справочник</button>':'')+'</div>';
   /* L36c: открытых позиций нет — без пустой шапки таблицы, без «Копировать/Excel» и подсказки о закрытии */
-  if(!(s.rows||[]).length)return h+'<div class="mdd-card md-empty"><p>Открытых заявок нет</p></div><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button>';
+  if(!(s.rows||[]).length)return h+'<div class="mdd-card md-empty"><p>'+(MD.sumBranch?'У филиала '+esc(mdBrTitle(MD.sumBranch))+' открытой заявки нет':'Открытых заявок нет')+'</p></div><button class="go md-mk" data-mact="mkorder">Сделать заявку филиала</button>';
   let t='<table class="md-t"><thead><tr><th>Позиция</th>'+MD_BR.map(b=>'<th>'+esc(b.title)+'</th>').join('')+'<th class="tot">Итого</th></tr></thead><tbody>';
   Object.keys(MD_SEC).forEach(sec=>{const rs=(s.rows||[]).filter(r=>r.section===sec);if(!rs.length)return;
     t+='<tr class="sh"><td colspan="5">'+MD_SEC[sec]+' · '+rs.length+'</td></tr>'+rs.map(r=>{ /* история «было → стало» в сводной не показывается (слово Михаила 22.11); в базе журнал остаётся */
