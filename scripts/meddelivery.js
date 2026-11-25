@@ -7,7 +7,8 @@
    в истории закрытой заявки — серая пометка «Привезено 5 из 10 · остальное …» (ev_med_history).
    Нет функций L36 на сервере (SQL ещё не применён) — блоки «ждёт» и история просто не показываются. */
 const MDD={wait:null,waitOpen:false,repOk:{},all:null,tab:'open',brOpen:null,wm:{},dm:{},hist:null,busy:false};
-const MDD_REASON={extra:'Лишнее количество',no_supplier:'Нет у поставщика',other:'Другое'};
+/* подписи кнопок (коды в базе прежние): «Нет на складе» = no_supplier, «Заказали лишнее» = extra, «Другое» = other (с текстом) */
+const MDD_REASON={no_supplier:'Нет на складе',extra:'Заказали лишнее',other:'Другое'};
 const mddDm=s=>{const m=/^\d{4}-(\d{2})-(\d{2})/.exec(String(s||''));return m?m[2]+'.'+m[1]:''};
 const mddUnit=r=>r&&r.unit?' '+esc(r.unit):' шт.';
 /* ---- данные ---- */
@@ -42,13 +43,15 @@ async function mddHistOpen(){
   try{const r=await rpc('ev_med_history',{p_token:S.token,p_branch:MD.branch},8000);MDD.hist=(r&&r.ok)?r:{err:'История пока недоступна.'}}catch(e){MDD.hist={err:e.net?'Нет связи.':'История пока недоступна.'}}
   paint();
 }
+/* причина «не везём» для врача: «нет на складе» / «заказали лишнее» / текст «другого» */
+const mddWhy=(r,note)=>r==='other'?((note||'').trim()||'другое'):(MDD_REASON[r]||'').toLowerCase();
 function mddLineNote(l){
   if(l.delivered==null)return '';                                     // старая заявка без отметок — как раньше
   const u=mddUnit(l);
   if(l.delivered>=l.qty)return '<div class="mdd-gm ok">Привезено всё: '+l.qty+u+'</div>';
   const head='Привезено '+l.delivered+' из '+l.qty;
-  if(l.rest==='drop')return '<div class="mdd-gm">'+head+' · остальное не везём: '+esc((MDD_REASON[l.reason]||'').toLowerCase())+(l.reason==='other'&&l.note?' ('+esc(l.note)+')':'')+'</div>';
-  if(l.wait_status==='dropped')return '<div class="mdd-gm">'+head+' · остальное не везём: '+esc((MDD_REASON[l.wait_reason]||'').toLowerCase())+'</div>';
+  if(l.rest==='drop')return '<div class="mdd-gm">'+head+' · остальное не везём: '+esc(mddWhy(l.reason,l.note))+'</div>';
+  if(l.wait_status==='dropped')return '<div class="mdd-gm">'+head+' · остальное не везём: '+esc(mddWhy(l.wait_reason,l.wait_note))+'</div>';
   if(l.wait_status==='done')return '<div class="mdd-gm">'+head+' · остальное привезли позже</div>';
   return '<div class="mdd-gm">'+head+' · остальное ждёт доставки</div>';
 }
@@ -68,15 +71,18 @@ function mddTabs(openN){
 /* (а/а2) отметки привоза и закрытие заявки филиала */
 function mddDeliverRows(){const b=MD.sumBranch;return ((MD.sum&&MD.sum.rows)||[]).filter(r=>Number((r.qty||{})[b])>0).map(r=>({item:r.item,name:r.name,unit:r.unit,qty:Number(r.qty[b])}))}
 const mddDm0=item=>MDD.dm[item]||(MDD.dm[item]={d:'',rest:'wait',reason:'',note:''});
-function mddReasons(m,attr){
-  return '<div class="mdd-rsn">'+Object.keys(MDD_REASON).map(k=>'<button class="mdd-rb'+(m.reason===k?' on':'')+'" data-dact="reason" '+attr+' data-r="'+k+'">'+MDD_REASON[k]+'</button>').join('')+'</div>'
-    +(m.reason==='other'?'<input class="mdd-note" '+attr+' maxlength="200" placeholder="Причина словами" value="'+esc(m.note||'')+'">':'');
+/* выбор одним нажатием: opts — [[код, подпись]], cur — выбранный код; «Другое» открывает поле текста */
+function mddOpts(opts,cur,act,attr,note){
+  return '<div class="mdd-opts">'+opts.map(o=>'<button class="mdd-op'+(cur===o[0]?(o[0]==='wait'?' on':' on no'):'')+'" data-dact="'+act+'" '+attr+' data-v="'+o[0]+'">'+o[1]+'</button>').join('')+'</div>'
+    +(cur==='other'?'<input class="mdd-note" '+attr+' maxlength="200" placeholder="Причина словами" value="'+esc(note||'')+'">':'');
 }
+const MDD_OPTS_REST=[['wait','Ждём на склад'],['no_supplier','Нет на складе'],['extra','Заказали лишнее'],['other','Другое']];
+const MDD_OPTS_DROP=[['no_supplier','Нет на складе'],['extra','Заказали лишнее'],['other','Другое']];
 function mddDeliverHtml(){
   const rows=mddDeliverRows();let full=0,part=0,none=0;
   let h='<button class="md-back" data-mact="back">‹ Назад</button><h1 class="screen-title">Заявка · '+esc(mdBrTitle(MD.sumBranch))+'</h1><div class="mute">'+rows.length+' поз.</div>';
   if(!rows.length)return h+'<p class="mute">В заявке нет позиций.</p>';
-  h+='<div class="mdd-card"><p class="mdd-hint">✓ — привезли всё. Число — привезли меньше. «Не везём» — остаток не повезём.</p>';
+  h+='<div class="mdd-card"><p class="mdd-hint">✓ — привезли всё. Число — привезли меньше. Остаток: «Ждём на склад» или почему не везём.</p>';
   rows.forEach(r=>{
     const m=mddDm0(r.item),d=m.d===''?null:Number(m.d),all=d===r.qty,left=r.qty-(d||0),a='data-item="'+r.item+'"';
     if(all)full++;else if(d>0)part++;else none++;
@@ -84,19 +90,19 @@ function mddDeliverHtml(){
       +'<div class="mdd-ctl"><input class="mdd-qty'+(d!=null&&!all?' v':'')+'" inputmode="numeric" '+a+' data-max="'+r.qty+'" value="'+(d!=null&&!all?d:'')+'" placeholder="—" aria-label="Сколько привезли"><span class="mdd-of">из '+r.qty+'</span>'
       +'<button class="mdd-chk'+(all?' on':'')+'" data-dact="dfull" '+a+' data-max="'+r.qty+'" aria-label="Привезли всё">'+(all?'✓':'')+'</button></div>';
     if(all)h+='<div class="mdd-st ok">Привезли всё</div>';
-    else h+='<div class="mdd-rest"><div class="mdd-rl">'+(d>0?'Остальные '+left:'Не привезли: '+left)+mddUnit(r)+'</div><div class="mdd-seg"><button class="mdd-sg'+(m.rest!=='drop'?' on':'')+'" data-dact="rest" '+a+' data-v="wait">Ждёт доставки</button><button class="mdd-sg'+(m.rest==='drop'?' on no':'')+'" data-dact="rest" '+a+' data-v="drop">Не везём</button></div>'
-      +(m.rest==='drop'?mddReasons(m,a):'')+'</div>';
+    else h+='<div class="mdd-rest"><div class="mdd-rl">'+(d>0?'Остальные '+left:'Не привезли: '+left)+mddUnit(r)+':</div>'
+      +mddOpts(MDD_OPTS_REST,m.rest==='drop'?m.reason:'wait','opt',a,m.note)+'</div>';
     h+='</div>';
   });
   h+='</div><div class="mdd-sum">Привезли полностью: '+full+' · частично: '+part+' · не привезли: '+none+'</div>';
-  return h+'<button class="go mdd-go" data-dact="close"'+(MDD.busy?' disabled':'')+'>Закрыть заявку</button>';
+  return h+'<button class="btn mdd-go" data-dact="close"'+(MDD.busy?' disabled':'')+'>Закрыть заявку</button>';
 }
 function mddMarksOk(list){return list.every(m=>m.rest!=='drop'||(m.reason&&(m.reason!=='other'||(m.note||'').trim())))}
 async function mddClose(){
   if(MDD.busy)return;const rows=mddDeliverRows();
   const marks=rows.map(r=>{const m=mddDm0(r.item),d=m.d===''?0:Math.max(0,Math.min(r.qty,Number(m.d)||0));const left=r.qty-d;
     return {item:r.item,qty:r.qty,delivered:d,rest:left>0?m.rest:null,reason:left>0&&m.rest==='drop'?m.reason:null,note:left>0&&m.rest==='drop'&&m.reason==='other'?(m.note||'').trim():null}});
-  if(!mddMarksOk(marks)){toast('У «Не везём» выберите причину (для «Другое» — напишите словами)',6000);return}
+  if(!mddMarksOk(marks)){toast('Для «Другое» напишите причину словами',6000);return}
   const w=marks.filter(m=>m.rest==='wait').length;
   if(!confirm('Закрыть заявку '+mdBrTitle(MD.sumBranch)+'?'+(w?' В «Ждёт доставки» уйдёт позиций: '+w+'.':'')))return;
   MDD.busy=true;paint();
@@ -123,17 +129,17 @@ function mddWaitAllHtml(){
         +'<div class="mdd-ctl"><input class="mdd-wq'+(d!=null&&!all?' v':'')+'" inputmode="numeric" '+a+' data-max="'+w.qty+'" value="'+(d!=null&&!all?d:'')+'" placeholder="—" aria-label="Сколько привезли"'+(m.drop?' disabled':'')+'><span class="mdd-of">из '+w.qty+'</span>'
         +'<button class="mdd-chk'+(all?' on':'')+'" data-dact="wfull" '+a+' data-max="'+w.qty+'" aria-label="Привезли всё"'+(m.drop?' disabled':'')+'>'+(all?'✓':'')+'</button></div>'
         +(all?'<div class="mdd-st ok">Привезли всё</div>':d>0?'<div class="mdd-st part">Привезли '+d+' из '+w.qty+' — '+(w.qty-d)+mddUnit(w)+' ещё ждёт</div>':'')
-        +'<div class="mdd-rest"><button class="mdd-nob'+(m.drop?' on':'')+'" data-dact="wdrop" '+a+'>Не везём</button>'+(m.drop?mddReasons(m,a):'')+'</div></div>';
+        +'<div class="mdd-rest"><div class="mdd-rl">Не везём:</div>'+mddOpts(MDD_OPTS_DROP,m.drop?m.reason:'','wopt',a,m.note)+'</div></div>';
     });
   });
-  h+='</div><div class="mdd-hint" style="padding:0 4px">Оранжевым — ждёт больше 4 дней. «Не везём» — строка уйдёт из «Ждёт доставки», у врача она пропадёт.</div>';
-  return h+'<button class="go mdd-go" data-dact="wsave"'+(MDD.busy?' disabled':'')+'>Сохранить отметки</button>';
+  h+='</div><div class="mdd-hint mdd-out">Оранжевым — ждёт больше 4 дней. «Нет на складе», «Заказали лишнее», «Другое» — строка уйдёт из «Ждёт доставки», у врача она пропадёт.</div>';
+  return h+'<button class="btn mdd-go" data-dact="wsave"'+(MDD.busy?' disabled':'')+'>Сохранить отметки</button>';
 }
 async function mddWaitSave(){
   if(MDD.busy)return;
   const marks=Object.keys(MDD.wm).map(id=>{const m=MDD.wm[id];return m.drop?{id:Number(id),drop:true,reason:m.reason||null,note:m.reason==='other'?(m.note||'').trim():null}:(Number(m.d)>0?{id:Number(id),delivered:Number(m.d)}:null)}).filter(Boolean);
   if(!marks.length){toast('Нет отметок: поставьте галочку, число или «Не везём».');return}
-  if(marks.some(m=>m.drop&&(!m.reason||(m.reason==='other'&&!m.note)))){toast('У «Не везём» выберите причину (для «Другое» — напишите словами)',6000);return}
+  if(marks.some(m=>m.drop&&(!m.reason||(m.reason==='other'&&!m.note)))){toast('Для «Другое» напишите причину словами',6000);return}
   MDD.busy=true;paint();
   let r=null;try{r=await rpc('ev_med_wait_mark',{p_token:S.token,p_marks:marks},12000)}catch(e){r=e.net?{error:'net'}:null}
   MDD.busy=false;
@@ -150,10 +156,9 @@ document.addEventListener('click',async ev=>{
   else if(a==='tab'){MDD.tab=el.dataset.id;paint();if(MDD.tab==='wait'){await mddAllLoad();paint()}}
   else if(a==='br'){MDD.brOpen=MDD.brOpen===el.dataset.id?null:el.dataset.id;paint()}
   else if(a==='dfull'){const m=mddDm0(item);m.d=(Number(m.d)===Number(el.dataset.max))?'':String(el.dataset.max);paint()}
-  else if(a==='rest'){const m=mddDm0(item);m.rest=el.dataset.v;if(m.rest!=='drop'){m.reason='';m.note=''}paint()}
-  else if(a==='reason'){const m=item?mddDm0(item):mddWm0(wid);m.reason=el.dataset.r;if(m.reason!=='other')m.note='';paint()}
+  else if(a==='opt'){const m=mddDm0(item),v=el.dataset.v;if(v==='wait'){m.rest='wait';m.reason='';m.note=''}else{m.rest='drop';if(m.reason!==v)m.note='';m.reason=v}paint()}
   else if(a==='wfull'){const m=mddWm0(wid);m.d=(Number(m.d)===Number(el.dataset.max))?'':String(el.dataset.max);paint()}
-  else if(a==='wdrop'){const m=mddWm0(wid);m.drop=!m.drop;if(m.drop)m.d='';else{m.reason='';m.note=''}paint()}
+  else if(a==='wopt'){const m=mddWm0(wid),v=el.dataset.v;if(m.drop&&m.reason===v){m.drop=false;m.reason='';m.note=''}else{m.drop=true;m.d='';if(m.reason!==v)m.note='';m.reason=v}paint()} /* повторное нажатие снимает выбор */
   else if(a==='close')await mddClose();
   else if(a==='wsave')await mddWaitSave();
 });

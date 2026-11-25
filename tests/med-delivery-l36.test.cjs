@@ -89,11 +89,10 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     await page.locator('[data-mact="deliver"]').click();await wait(300);
     await page.fill('.mdd-qty[data-item="101"]','5');await page.locator('.mdd-qty[data-item="101"]').dispatchEvent('change');await wait(200);
     await page.fill('.mdd-qty[data-item="102"]','5');await page.locator('.mdd-qty[data-item="102"]').dispatchEvent('change');await wait(200);
-    await page.locator('[data-dact="rest"][data-item="102"][data-v="drop"]').click();await wait(200);
-    await page.locator('[data-dact="reason"][data-item="102"][data-r="extra"]').click();await wait(200);
+    await page.locator('[data-dact="opt"][data-item="102"][data-v="extra"]').click();await wait(200);
     await page.locator('[data-dact="dfull"][data-item="103"]').click();await wait(200);
     s=await st(page);
-    ok(/Остальные 5 шт\./.test(s.app)&&/Остальные 3 уп\./.test(s.app)&&/Привезли всё/.test(s.app)&&/Привезли полностью: 1 · частично: 2 · не привезли: 0/.test(s.app),'(а2) 5 из 10 → «Остальные 5 шт.», выбор «Ждёт / Не везём», ✓ — «Привезли всё»');
+    ok(/Остальные 5 шт\.:\s*Ждём на склад\s*Нет на складе\s*Заказали лишнее\s*Другое/.test(s.app)&&/Остальные 3 уп\./.test(s.app)&&!/mdd-note/.test(await page.locator('#app').innerHTML())&&/Привезли всё/.test(s.app)&&/Привезли полностью: 1 · частично: 2 · не привезли: 0/.test(s.app),'(а2) остаток — 4 кнопки одним нажатием (Ждём на склад / Нет на складе / Заказали лишнее / Другое), поле текста только у «Другое»');
     ok(await noWide(page),'(а2) 375 px без прокрутки');
     await shot(page,'l36-a2-zakupshik-ostatok');
     db.orders[0].lines[105]=50; /* врач добавил строку, пока закупщик отмечал → сервер: conflict, список обновлён, заявка не закрыта */
@@ -119,12 +118,14 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     await shot(page,'l36-b2-zhdet-raskryto');
     await page.locator('[data-dact="br"][data-id="pereleta"]').click();await wait(300);
     const pid=db.wait.find(x=>x.item===104).id;
-    await page.locator(`[data-dact="wdrop"][data-wid="${pid}"]`).click();await wait(200);
-    await page.locator(`[data-dact="reason"][data-wid="${pid}"][data-r="no_supplier"]`).click();await wait(200);
+    await page.locator(`[data-dact="wopt"][data-wid="${pid}"][data-v="other"]`).click();await wait(200);
+    ok(await page.locator(`.mdd-note[data-wid="${pid}"]`).count()===1,'«Другое» — появилось поле текста');
+    await page.locator(`[data-dact="wopt"][data-wid="${pid}"][data-v="no_supplier"]`).click();await wait(200);
+    ok(await page.locator(`.mdd-note[data-wid="${pid}"]`).count()===0,'«Нет на складе» — одним нажатием, поля текста нет');
     await shot(page,'l36-b3-ne-vezem');
     await page.locator('[data-dact="wsave"]').click();await wait(900);
     s=await st(page);
-    ok(db.wait.find(x=>x.id===pid).status==='dropped'&&db.wait.find(x=>x.id===pid).reason==='no_supplier'&&!/Пропофол/.test(s.app),'(б3) «Не везём: нет у поставщика» → строка ушла из «Ждёт доставки»');
+    ok(db.wait.find(x=>x.id===pid).status==='dropped'&&db.wait.find(x=>x.id===pid).reason==='no_supplier'&&!/Пропофол/.test(s.app),'(б3) «Нет на складе» → строка ушла из «Ждёт доставки» (код no_supplier)');
     const kid=db.wait.find(x=>x.from===1).id;
     await page.locator('[data-dact="br"][data-id="marksa"]').click();await wait(300);
     await page.fill(`.mdd-wq[data-wid="${kid}"]`,'2');await page.locator(`.mdd-wq[data-wid="${kid}"]`).dispatchEvent('change');await wait(200);
@@ -161,7 +162,7 @@ const noWide=page=>page.evaluate(()=>document.documentElement.scrollWidth<=docum
     ok((db.calls.ev_med_line_set||0)===n0+1&&db.orders.find(o=>o.branch==='marksa'&&o.status==='open').lines[101]===2,'«Да, ещё» — добавлено (подсказка, не запрет)');
     await page.locator('[data-mact="hist"]').click();await wait(500);
     s=await st(page);
-    ok(/Привезено 5 из 10 · остальное ждёт доставки/.test(s.app)&&/Привезено 5 из 8 · остальное не везём: лишнее количество/.test(s.app)&&/Привезено всё: 3 шт\./.test(s.app),'(д) история закрытой заявки: серые пометки «Привезено 5 из 8 · остальное не везём: лишнее количество»');
+    ok(/Привезено 5 из 10 · остальное ждёт доставки/.test(s.app)&&/Привезено 5 из 8 · остальное не везём: заказали лишнее/.test(s.app)&&/Привезено всё: 3 шт\./.test(s.app),'(д) история: «Привезено 5 из 8 · остальное не везём: заказали лишнее»');
     ok(await noWide(page),'(д) 375 px без прокрутки');
     await shot(page,'l36-d-vrach-istoriya');
     ok(!(await page.locator('[data-dact="close"],[data-dact="wsave"],[data-mact="deliver"]').count()),'врач: кнопок отметок и закрытия нет');
