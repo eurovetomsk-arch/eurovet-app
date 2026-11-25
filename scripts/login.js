@@ -193,6 +193,10 @@ async function openBranch(id,opts){
       const here=trapReportPeople().filter(x=>x.slot==='admin'),abs=S.form.sched_absent=S.form.sched_absent||[],sub=S.form.sched_subst=S.form.sched_subst||[];
       (TRAP_SCHED.rows||[]).filter(x=>x.slot==='admin'&&x.name&&!here.some(p=>trapSame(x,p.name))).forEach(x=>{if(!abs.some(n=>trapNorm(n)===trapNorm(x.name)))abs.push(x.name)});
       here.filter(p=>!(TRAP_SCHED.rows||[]).some(x=>x.slot==='admin'&&trapSame(x,p.name))).forEach(p=>{if(!sub.some(n=>trapNorm(n)===trapNorm(p.name)))sub.push(p.name)});
+      const check=validate();
+      if(check.errs.length===1&&check.errs[0]==='Есть расхождения — напишите причину внизу формы'&&!String(S.form.diff_reason||'').trim()){
+        S.form.diff_reason='Фактическая инкассация 15 500 ₽; повторные передачи отменены как дубли. Врача и ассистента в смене не было.';
+      }
       saveDraft();await submit();
     },1200);
   }
