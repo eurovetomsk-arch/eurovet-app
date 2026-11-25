@@ -544,6 +544,7 @@ document.addEventListener('click',async e=>{
     case'safeadd':doSafeAdd();break;
     case'transitgive':transitGiveForm();break;
     case'transitpickup':transitPickupForm();break;
+    case'safeexclretry':retrySafeExcl();break;
     case'transitgo':doTransit(d.source);break;
     case'safecancel':doSafeCancel(d.id);break;
     case'advform':advForm(d.id);break;

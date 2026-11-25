@@ -33,11 +33,32 @@ for(const [rows,c] of CASES){
 ok(true,'цифры сейфа (остаток к выплате, не входит, остаток в сейфе, нехватка) совпадают со старой формулой: '+CASES.length+' наборов');
 const t=safeTotals(ROWS,EX,{balance:20000});
 ok(Math.abs(t.need-(8400+1999.99))<1e-9&&Math.abs(t.skip-(12000.5+5000))<1e-9&&Math.abs(t.short-(8400+1999.99-20000))<1e-9,'контрольные суммы на вымышленных данных');
-// 3. если список не загрузился (null) — в остаток входят все, сумма не занижается
-const f=safeTotals(ROWS,null,{balance:20000}),all=oldFormula(ROWS,[],{balance:20000});
-ok(f.skipRows.length===0&&f.need===all.need&&f.need>=t.need,'список не загрузился → никто не исключён, «остаток к выплате» не меньше');
-ok(/S\.cashExcl===null\?'<p class="hint">/.test(acc),'при незагруженном списке показывается подсказка');
-
+// 3. если список не загрузился (null) — остаток к выплате и «хватает/не хватает» НЕ считаются (ТЗ-2, п.3)
+const f=safeTotals(ROWS,null,{balance:20000});
+ok(f.failed===true&&f.need===null&&f.short===null&&f.skipRows.length===0&&f.bal===20000,'список не загрузился → остаток к выплате и нехватка не считаются, остаток в сейфе виден');
+ok(safeTotals(ROWS,[],{balance:1}).failed===false&&safeTotals(ROWS,[],{balance:1}).need===oldFormula(ROWS,[],{balance:1}).need,'пустой список с сервера ≠ ошибка: считаем как обычно');
+// 3a. экран сейфа целиком (safeBody) с подставными зависимостями
+function grab(name){const i=acc.indexOf((name.startsWith('async ')?'':'function ')+name+'(');assert.ok(i>=0,name);let d=0,j=acc.indexOf('{',i);for(let k=j;k<acc.length;k++){if(acc[k]==='{')d++;else if(acc[k]==='}'){d--;if(!d)return acc.slice(i,k+1)}}}
+const env='const money=v=>String(Math.round(Number(v)*100)/100)+" ₽",esc=v=>String(v),ruDate=v=>String(v),omskToday=()=>"2026-11-25",uid=()=>"u1";let painted=0;const paint=()=>{painted++};';
+const mk=(S,rpc)=>new Function('S','rpc',env+src+grab('safeBody')+grab('async function retrySafeExcl')+';return{safeBody,retrySafeExcl,get painted(){return painted}}')(S,rpc);
+const PAY={rows:ROWS,total:{accrued:100,paid:50}},CASH={ok:true,balance:20000,on_hand:30000,taken:10000,from:'2026-11-01'};
+const S1={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true};
+let h=mk(S1,null).safeBody();
+ok(h.includes('Список исключений не загрузился — остаток не показан')&&h.includes('data-act="safeexclretry"')&&h.includes('>Повторить<'),'экран: сообщение «Список исключений не загрузился — остаток не показан» и кнопка «Повторить»');
+ok(!h.includes('Кэша хватает')&&!h.includes('Не хватает кэша')&&!h.includes(String(8400+1999.99+12000.5+5000)),'экран: ни «хватает/не хватает», ни остатка по всем людям');
+const S2={pay:PAY,cash:CASH,cashExcl:EX,view:'pay',paySafe:true};h=mk(S2,null).safeBody();
+ok(!h.includes('не загрузился')&&/Остаток к выплате<\/span><b>10399\.99 ₽/.test(h)&&h.includes('Не хватает кэша')===false&&h.includes('Кэша хватает'),'экран: список есть → остаток 10399.99 и вердикт как раньше');
+(async()=>{
+  const calls=[];const S3={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true,token:'t'};
+  const m=mk(S3,async(n,b)=>{calls.push(n);return{ok:true,person_ids:EX}});await m.retrySafeExcl();
+  ok(calls.join()==='ev_cash_exclusions'&&JSON.stringify(S3.cashExcl)===JSON.stringify(EX)&&m.painted===2,'«Повторить» запрашивает только ev_cash_exclusions и перерисовывает');
+  const S4={pay:PAY,cash:CASH,cashExcl:null,view:'pay',paySafe:true,token:'t'};await mk(S4,async()=>{throw{net:true}}).retrySafeExcl();
+  ok(S4.cashExcl===null,'«Повторить» без связи → снова «не загрузился», остаток не показан');
+  ok(/case'safeexclretry':retrySafeExcl\(\)/.test(rd('scripts/view.js')),'кнопка подключена в обработчике data-act');
+  ok(/const V='ev2-shell-14'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-14');
+  rest();
+})().catch(e=>{console.error(e);process.exit(1)});
+function rest(){
 // 4. подпись ассистента берётся из поля сервера atype
 const r0=sch.match(/const SCH_R=\{[^}]*\};/)[0],at=atLine+';',rl=(sch.match(/const schRole=r=>\{[^\n]*\};/)||[''])[0];
 const schRole=new Function(r0+at+rl+';return schRole')();
@@ -46,3 +67,4 @@ ok(schRole({slot:'assistant',atype:'tech'})==='Ассистент техниче
 ok(schRole({slot:'assistant'})==='Ассистент'&&schRole({slot:'assistant',atype:null})==='Ассистент','нет поля (старый сервер) → просто «Ассистент», без ошибки');
 ok(schRole({slot:'doctor',atype:'tech'})==='Врач','у врача тип ассистента не дописывается');
 console.log('ALL PASS '+n);
+}
