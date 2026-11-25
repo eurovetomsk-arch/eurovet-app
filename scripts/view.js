@@ -108,12 +108,43 @@ async function loadTransit(branch,date){
   if(!S.token)return;
   try{const r=await rpc('ev_collection_transit_list',{p_token:S.token,p_branch:branch||null,p_date:date||omskToday()},8000);if(r&&r.ok){S.transit=r;if(S.view==='form'||S.view==='branch')paint()}}catch(e){}
 }
-function transitGiveForm(){S.transitUid=S.transitUid||uid();overlay('<h2>Отдал инкассацию</h2><p class="hint">Запишем факт передачи сейчас. В отчёте сумму введите отдельно.</p><label class="f"><span>Сумма, ₽</span><input id="tra" inputmode="decimal"></label><label class="f"><span>Кому</span><input id="trr" maxlength="80" value="Михаил"></label><button class="btn" data-act="transitgo" data-source="admin">Отдал</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>')}
+function activeAdminTransit(){return((S.transit&&S.transit.items)||[]).find(x=>String(x.branch)===String(S.branch)&&String(x.date)===String(S.date)&&x.source==='admin'&&x.status!=='cancelled')||null}
+function transitGiveForm(){
+  const cur=activeAdminTransit();
+  if(cur){
+    overlay('<h2>Инкассация уже записана</h2><p>Передано <b>'+money(Number(cur.amount))+'</b>'+(cur.recipient?' · '+esc(cur.recipient):'')+'.</p><p class="hint">Повторная запись не создаётся. Если сумма или получатель указаны неверно, исправьте запись с обязательной причиной.</p><button class="btn" data-act="transitfix">Исправить</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Закрыть</button>');
+    return;
+  }
+  S.transitUid=S.transitUid||uid();overlay('<h2>Отдал инкассацию</h2><p class="hint">Запишем факт передачи сейчас. В отчёте сумму введите отдельно.</p><label class="f"><span>Сумма, ₽</span><input id="tra" inputmode="decimal"></label><label class="f"><span>Кому</span><input id="trr" maxlength="80" value="Михаил"></label><button class="btn" data-act="transitgo" data-source="admin">Отдал</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>')
+}
+function transitFixForm(){
+  const cur=activeAdminTransit();
+  if(!cur){closeOv();toast('Активная инкассация не найдена',5000);return}
+  S.transitUid=uid();
+  overlay('<h2>Исправить инкассацию</h2><p class="hint">Старая запись '+money(Number(cur.amount))+' останется в истории как отменённая. Будет создана новая запись.</p><label class="f"><span>Правильная сумма, ₽</span><input id="tra" inputmode="decimal" value="'+esc(cur.amount)+'"></label><label class="f"><span>Кому</span><input id="trr" maxlength="80" value="'+esc(cur.recipient||'Михаил')+'"></label><label class="f"><span>Причина исправления</span><input id="trwhy" maxlength="300" placeholder="что было указано неверно"></label><button class="btn" data-act="transitfixgo">Сохранить исправление</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>');
+}
 function transitPickupForm(){S.transitUid=S.transitUid||uid();overlay('<h2>Забрал с филиала</h2><label class="f"><span>Филиал</span><select id="trb">'+BRANCHES.filter(x=>!x.testOnly).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title)+'</option>').join('')+'</select></label><label class="f"><span>Сумма, ₽</span><input id="tra" inputmode="decimal"></label><button class="btn" data-act="transitgo" data-source="head">Забрал</button><button class="btn sec" style="margin-top:8px" data-act="ovclose">Отмена</button>')}
-async function doTransit(source){
+let transitBusy=false;
+async function doTransit(source,correct){
+  if(transitBusy)return;
   const amount=num((($('#tra')||{}).value)),branch=source==='admin'?S.branch:(($('#trb')||{}).value),recipient=(($('#trr')||{}).value||'').trim();
   if(amount==null||amount<=0){toast('Введите сумму');return}
-  try{const fn=source==='admin'?'ev_collection_handoff':'ev_collection_pickup',args=source==='admin'?{p_token:S.token,p_branch:branch,p_amount:amount,p_recipient:recipient,p_uid:S.transitUid}:{p_token:S.token,p_branch:branch,p_amount:amount,p_uid:S.transitUid};const r=await rpc(fn,args,10000);if(!r||!r.ok){toast('Не удалось: '+(r&&r.error),6000);return}S.transitUid=null;closeOv();toast(source==='admin'?'Передача записана':'Получение записано');await loadTransit(branch,omskToday())}catch(e){toast(e.net?'Нет связи':'Ошибка сервера',6000)}
+  const reason=correct?((($('#trwhy')||{}).value||'').trim()):'';
+  if(correct&&reason.length<5){toast('Напишите причину исправления',5000);return}
+  transitBusy=true;
+  const btn=document.querySelector('[data-act="'+(correct?'transitfixgo':'transitgo')+'"]');if(btn)btn.disabled=true;
+  try{
+    const fn=correct?'ev_collection_handoff_correct':source==='admin'?'ev_collection_handoff':'ev_collection_pickup';
+    const args=source==='admin'?{p_token:S.token,p_branch:branch,p_amount:amount,p_recipient:recipient,p_uid:S.transitUid}:{p_token:S.token,p_branch:branch,p_amount:amount,p_uid:S.transitUid};
+    if(correct)args.p_reason=reason;
+    const r=await rpc(fn,args,10000);
+    if(!r||!r.ok){
+      if(r&&r.error==='handoff_exists'){await loadTransit(branch,omskToday());closeOv();toast('Инкассация уже записана. Для изменения нажмите «Исправить».',7000);return}
+      if(r&&r.error==='no_change'){toast('Сумма и получатель не изменились',5000);return}
+      toast('Не удалось: '+(r&&r.error),6000);return
+    }
+    S.transitUid=null;closeOv();toast(correct?'Исправление сохранено':source==='admin'?(r.already_recorded?'Инкассация уже была записана':'Передача записана'):'Получение записано');await loadTransit(branch,omskToday())
+  }catch(e){toast(e.net?'Нет связи':'Ошибка сервера',6000)}finally{transitBusy=false;if(btn)btn.disabled=false}
 }
 /* 1.57: «ушёл позже / пришёл раньше» ждёт подтверждения руководителя (ev_leave_pending / ev_leave_decide) */
 function lvHtml(){
@@ -543,6 +574,8 @@ document.addEventListener('click',async e=>{
     case'payaddgo':doPayAdd(d.id);break;
     case'safeadd':doSafeAdd();break;
     case'transitgive':transitGiveForm();break;
+    case'transitfix':transitFixForm();break;
+    case'transitfixgo':doTransit('admin',true);break;
     case'transitpickup':transitPickupForm();break;
     case'safeexclretry':retrySafeExcl();break;
     case'transitgo':doTransit(d.source);break;

@@ -189,7 +189,7 @@ async function submit(){
   submitting=true;
   try{
     const v=validate();
-    if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);toast('Проверьте обязательные поля',5000);return}
+    if(v.errs.length){S.formErrors=v.errs.slice();render();setTimeout(()=>{const e=document.getElementById('form-errors');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},0);overlay('<h2>Что нужно заполнить</h2><ul>'+v.errs.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><button class="btn" data-act="ovclose">Вернуться к отчёту</button>');toast('Не заполнено: '+v.errs[0],6000);return}
     S.formErrors=[];
     if(!Object.keys(S.form.assistants).length&&S.form.no_assistant!==true){
       overlay('<h2>В смене не было ассистента?</h2><p class="hint">Подтвердите это отдельно или вернитесь к форме и добавьте ассистента. Без выбора отчёт не отправится.</p><button class="btn" data-act="assistantnone">Да, не было</button><button class="btn sec" style="margin-top:8px" data-act="assistantadd">Добавить ассистента</button>');
@@ -361,7 +361,7 @@ function handoverHtml(){
   return x+'</div>';
 }
 
-function transitExpected(){return ((S.transit&&S.transit.items)||[]).filter(x=>String(x.branch)===String(S.branch)&&String(x.date)===String(S.date)&&x.status!=='cancelled').reduce((q,x)=>q+Number(x.amount||0),0)}
+function transitExpected(){return ((S.transit&&S.transit.items)||[]).filter(x=>String(x.branch)===String(S.branch)&&String(x.date)===String(S.date)&&x.source==='admin'&&x.status!=='cancelled').reduce((q,x)=>q+Number(x.amount||0),0)}
 function transitDeclared(){return (S.form.expenses||[]).filter(x=>/инкассац/i.test(String(x.article||''))).reduce((q,x)=>q+N(x.amount),0)}
 function updateTransitCheck(){
   const e=$('#transit-check');if(!e)return;
@@ -448,7 +448,8 @@ function viewForm(){
   }else if(op.mode==='manual'&&!S.ctxOffline)h+='<p class="hint">Утренний приём кассы недоступен или предыдущего отчёта нет — впишите начало смены по факту.</p>';
   h+='<h3>Расходы'+hbtn('exp')+'</h3>';
   const tx=transitExpected();
-  h+='<div class="sum"><span>Передано в инкассацию сегодня</span><b>'+money(tx)+'</b></div><p class="hint">Сумму в расходе введите сами: приложение не подставляет её за вас.</p><div id="transit-check" class="chk wait"></div><button class="btn sec small" data-act="transitgive">Отдал инкассацию</button>';
+  const txActive=((S.transit&&S.transit.items)||[]).find(x=>String(x.branch)===String(S.branch)&&String(x.date)===String(S.date)&&x.source==='admin'&&x.status!=='cancelled');
+  h+='<div class="sum"><span>Передано в инкассацию сегодня</span><b>'+money(tx)+'</b></div><p class="hint">Сумму в расходе введите сами: приложение не подставляет её за вас.</p><div id="transit-check" class="chk wait"></div><button class="btn sec small" data-act="transitgive">'+(txActive?'Инкассация записана · Исправить':'Отдал инкассацию')+'</button>';
   f.expenses.forEach((e,i)=>{
     h+='<div class="person"><label class="f"><span>Статья</span><select data-p="expenses.'+i+'.article"><option value="">— выберите —</option>'+
       c.articles.map(a=>'<option'+(e.article===a.title?' selected':'')+'>'+esc(a.title)+'</option>').join('')+'</select></label>'+
