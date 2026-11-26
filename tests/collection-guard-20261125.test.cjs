@@ -13,6 +13,6 @@ ok(/<h2>Что нужно заполнить<\/h2>/.test(report)&&/v\.errs\.map/
 ok(/create unique index if not exists ev_collection_one_admin_per_branch_day/.test(migration),'серверная уникальность филиал+день');
 ok(/cancelled_from_status=status/.test(migration)&&/supersedes_id/.test(migration),'исправление сохраняет старую строку и связь аудита');
 ok(/set search_path to ''/.test(migration)&&/ev_session_person\(p_token\)/.test(migration),'RPC защищён сессией и пустым search_path');
-ok(/appVer:'2\.0\.17'/.test(rd('scripts/common.js'))&&/content="2\.0\.17"/.test(rd('index.html')),'версия клиента обновлена');
-ok(/const V='ev2-shell-32'/.test(rd('sw.js')),'service worker обновит телефон');
+ok(/appVer:'2\.0\.18'/.test(rd('scripts/common.js'))&&/content="2\.0\.18"/.test(rd('index.html')),'версия клиента обновлена');
+ok(/const V='ev2-shell-33'/.test(rd('sw.js')),'service worker обновит телефон');
 console.log('ALL PASS '+n);

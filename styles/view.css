@@ -62,7 +62,9 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 .bar .st{flex:1;font-size:13px}
 .bar .btn{width:auto;flex:0 0 auto;min-width:150px}
 .big{font-size:18px;padding:18px 16px;text-align:left}
-.toast{position:fixed;left:16px;right:16px;bottom:96px;max-width:608px;margin:0 auto;background:#222;color:#fff;border-radius:12px;padding:12px 14px;z-index:20;font-size:14px}
+.toast{position:fixed;left:16px;right:16px;bottom:96px;max-width:608px;margin:0 auto;background:#222;color:#fff;border-radius:12px;padding:8px 8px 8px 14px;z-index:20;font-size:14px;display:flex;align-items:center;gap:10px}
+.toast>span{flex:1;min-width:0}.toast-x{flex:0 0 44px;width:44px;height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;font:700 28px/1 system-ui;cursor:pointer}
+.toast-x:focus-visible{outline:3px solid #7fe7ff;outline-offset:2px}
 .ov{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:30;display:flex;align-items:flex-end;justify-content:center}
 .ov>.card{width:100%;max-width:640px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
 .rm{background:none;border:0;color:var(--bad);font-size:20px;min-width:40px;min-height:46px}

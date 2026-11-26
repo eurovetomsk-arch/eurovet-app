@@ -11,8 +11,8 @@ function setHeader(){
 }
 function netBadge(){
   const q=S.queue.length+S.handoverQueue.length;
-  const nr=S.queue.some(x=>x.status==='needs_reason');
-  const lab=q?('ждёт: '+q+(nr?' · причина':'')):(S.online?'онлайн':'нет связи');
+  const action=S.queue.filter(x=>x.status==='error'||x.status==='needs_reason').length+S.handoverQueue.filter(x=>x.status==='error').length;
+  const lab=action?('нужно действие: '+action):(q?('ждёт: '+q):(S.online?'онлайн':'нет связи'));
   return '<button class="pill" data-act="queue" title="'+(S.online?'Связь есть':'Нет связи')+'"><span class="net'+(S.online?'':' off')+'"></span>'+lab+'</button>';
 }
 
@@ -475,12 +475,14 @@ function subAdminConfirm(id){
 }
 function showQueue(){
   let h='<h2>Отправка данных</h2><p class="hint">'+(S.online?'Связь есть.':'Связи нет — записи ждут на устройстве.')+'</p>';
+  if(S.queue.some(x=>x.status==='error'))h+='<p class="hint"><b>Старая ошибочная отправка сама больше не повторяется.</b> Сначала можно скопировать итоги, затем убрать её из очереди. Это не удаляет уже принятые отчёты и не затрагивает сегодняшний отчёт.</p>';
   if(!S.queue.length&&!S.handoverQueue.length)h+='<p>Всё отправлено, очередь пуста.</p>';
   S.queue.forEach(it=>{
-    h+='<div class="person"><b>'+esc(it.branchTitle)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc({new:'ожидает',offline:'нет связи, повторим',error:'ошибка: '+(it.err||''),needs_reason:'нужна причина исправления',need_login:'нужно войти заново'}[it.status]||it.status)+'</small>';
+    h+='<div class="person"><b>'+esc(it.branchTitle)+' · '+ruDate(it.date)+'</b><small style="color:var(--mute)">'+esc({new:'ожидает',offline:'нет связи, повторим',error:'не отправится само: '+(it.err||'ошибка'),needs_reason:'нужна причина исправления',need_login:'нужно войти заново'}[it.status]||it.status)+'</small>';
     if(it.status==='needs_reason')h+='<label class="f"><span>Причина исправления</span><input id="rs-'+it.uid+'"></label><button class="btn small" data-act="setReason" data-id="'+it.uid+'">Отправить с причиной</button>';
     h+=' <button class="btn sec small" data-act="copyq" data-id="'+it.uid+'">Копировать итоги</button>';
-    if(it.status==='error'||it.status==='need_login'||it.status==='needs_reason')h+=' <button class="btn sec small" data-act="dropq" data-id="'+it.uid+'">Убрать из очереди</button>';
+    if(it.status==='error')h+=' <button class="btn small" data-act="retryq" data-id="'+it.uid+'">Повторить один раз</button>';
+    if(it.status==='error'||it.status==='need_login'||it.status==='needs_reason')h+=' <button class="btn sec small" data-act="dropq" data-id="'+it.uid+'">'+(it.status==='error'?'Убрать старую отправку':'Убрать из очереди')+'</button>';
     h+='</div>';
   });
   S.handoverQueue.forEach(it=>{
@@ -488,7 +490,9 @@ function showQueue(){
     if(it.status==='error')h+=' <button class="btn sec small" data-act="drophq" data-id="'+it.uid+'">Убрать из очереди</button>';
     h+='</div>';
   });
-  h+='<button class="btn" style="margin:6px 0" data-act="flush">Отправить сейчас</button><button class="btn sec" data-act="ovclose">Закрыть</button>';
+  const retryable=S.queue.some(x=>x.status==='new'||x.status==='offline'||x.status==='need_login')||S.handoverQueue.some(x=>x.status!=='error');
+  if(retryable)h+='<button class="btn" style="margin:6px 0" data-act="flush">Отправить сейчас</button>';
+  h+='<button class="btn sec" data-act="ovclose">Закрыть</button>';
   overlay(h);
 }
 function showPin(){
@@ -705,7 +709,8 @@ document.addEventListener('click',async e=>{
     case'headfix':headFix();break; /* L34a */
     case'repback':repBackToForm();break; /* L34 */
     case'copyq':{const it=S.queue.find(x=>x.uid===d.id);if(it)clip(it.summary);break}
-    case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать этот отчёт ('+it.branchTitle+', '+ruDate(it.date)+') из очереди? Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);saveQueue();showQueue();render();break}
+    case'dropq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать старую отправку ('+it.branchTitle+', '+ruDate(it.date)+') из очереди на этом устройстве? Уже принятые отчёты и сегодняшний отчёт не изменятся. Итоги можно сначала скопировать.'))break;S.queue=S.queue.filter(x=>x.uid!==d.id);if(S.done&&S.done.uid===it.uid){S.done=null;if(S.view==='done')S.view='branch'}clearTimeout(toast.t);$('#toastwrap').innerHTML='';saveQueue();showQueue();render();break}
+    case'retryq':{const it=S.queue.find(x=>x.uid===d.id);if(!it)break;it.status='new';it.err='';saveQueue();closeOv();await flush(false,it.uid);break}
     case'drophq':{const it=S.handoverQueue.find(x=>x.uid===d.id);if(!it)break;if(!confirm('Убрать неотправленную приёмку кассы из очереди?'))break;S.handoverQueue=S.handoverQueue.filter(x=>x.uid!==d.id);saveHandoverQueue();showQueue();render();break}
     case'vmwfix':{S.vmw=null;S.done=null;S.form=null;openBranch(d.branch);break}
     case'vmwhome':S.vmw=null;
@@ -728,12 +733,13 @@ document.addEventListener('click',async e=>{
     case'help':openHelp();break;
     case'helpback':closeHelp();break;
     case'queue':showQueue();break;
+    case'toastclose':clearTimeout(toast.t);$('#toastwrap').innerHTML='';break;
     case'ovclose':closeOv();break;
     case'tochecks':{const e=$('#chkcard');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});break}
     case'hint':{const h=HINTS[d.h];if(!h)break;if(isField(document.activeElement))document.activeElement.blur();
       overlay('<h2>'+esc(h[0])+'</h2><p style="margin:0 0 14px">'+esc(h[1])+'</p><button class="btn" data-act="ovclose">Понятно</button>');break}
     case'logout':closeOv();if((S.queue.length||S.handoverQueue.length)&&!confirm('Есть неотправленные данные. Они останутся на устройстве и уйдут после следующего входа. Выйти?'))break;logout();break;
-    case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')&&!S.handoverQueue.length){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});closeOv();kick();break;
+    case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason'||x.status==='error')&&!S.handoverQueue.length){toast('Выберите действие у конкретной записи: причину, однократный повтор или удаление',5000);break}S.queue.forEach(x=>{if(x.status==='offline')x.status='new'});S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});closeOv();kick(false);break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim(),it=S.queue.find(x=>x.uid===d.id),mn=(it&&it.minLen)||3;if(v.length<mn){toast(mn>3?'Причина — не короче '+mn+' знаков':'Напишите причину');break}if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
     case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='vac')showVac();else if(v==='dose')doseOpen();else if(v==='med')showMed();else if(v==='an')showAnalytics();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay()}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay()}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}

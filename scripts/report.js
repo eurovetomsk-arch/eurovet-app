@@ -135,15 +135,16 @@ function buildData(calc){
 
 /* ====== Отправка и очередь ====== */
 let flushing=false,wantAgain=false;const flushRef={c:null};
-async function flush(auto){
+async function flush(auto,onlyUid){
   if(flushing||!S.queue.length)return;
   if(!S.token){if(!auto)render();return} // 1.64: фоновая отправка без входа НЕ перерисовывает экран входа (раньше раз в 8 с стирала PIN)
   flushing=true;
   const sig=()=>S.queue.map(x=>x.uid+(x.status==='new'?'offline':x.status)).join()+S.online;const sig0=sig();
   try{
     for(const it of S.queue.slice()){
+      if(onlyUid&&it.uid!==onlyUid)continue;
       if(it.status==='needs_reason')continue;
-      if(auto&&it.status==='error')continue; // ошибки сервера сами не повторяем, только по кнопке
+      if(it.status==='error')continue; // постоянный отказ не повторяем вместе с новыми отчётами
       let res;
       try{
         res=await rpc('ev_submit',{p_token:S.token,p_branch:it.branch,p_date:it.date,p_data:it.data,p_device:DEV,p_client_time:it.client_time,p_client_uid:it.uid,p_reason:it.reason||null},12000,flushRef);
@@ -170,15 +171,16 @@ async function flush(auto){
     flushing=false;saveQueue();
     // автоповтор не должен перерисовывать форму, пока человек печатает: рисуем только если что-то изменилось
     if(!auto||sig()!==sig0)render();
-    if(wantAgain){wantAgain=false;setTimeout(()=>{resetOffline();flush()},300)}
+    if(wantAgain){wantAgain=false;setTimeout(()=>{resetOffline();flush(true)},300)}
   }
 }
 function resetOffline(){S.queue.forEach(x=>{if(x.status==='offline')x.status='new'})}
-// «пнуть» отправку: вернулась связь, приложение снова на экране, нажата кнопка
-function kick(){
+// Фоновый «пинок»: постоянные отказы (error) не повторяем.
+// Повторить их можно только явной кнопкой в очереди.
+function kick(auto=true){
   if(S.queue.length){
     if(flushing){wantAgain=true;try{flushRef.c&&flushRef.c.abort()}catch(e){}}
-    else{resetOffline();flush()}
+    else{resetOffline();flush(auto)}
   }
   kickHandover();
 }

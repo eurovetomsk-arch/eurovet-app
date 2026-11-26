@@ -9,6 +9,6 @@
   /* под автоматизацией (navigator.webdriver: тесты Playwright и сквозные прогоны) sw не ставится, иначе WebKit перестаёт отдавать подменённые ответы route; тест офлайна открывает адрес с ?sw=1 */
   if('serviceWorker' in navigator&&(!navigator.webdriver||/[?&]sw=1\b/.test(location.search)))navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(S.view==='login'){await loadLoginList();render()}
-  else if(S.queue.length)flush();
+  else if(S.queue.length)flush(true);
   setTimeout(()=>checkUpdate(true),2500);
 })();

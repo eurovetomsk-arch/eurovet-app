@@ -4,7 +4,7 @@ const CFG={
   url:window.STAGE1.url,
   key:window.STAGE1?.key||'',
   tol:10,                // допустимая погрешность включительно, ₽
-  appVer:'2.0.17'
+  appVer:'2.0.18'
 };
 const BRANCHES=[
   {id:'marksa',title:'Маркса, 45'},
@@ -119,6 +119,6 @@ const saveHandoverQueue=()=>LS.set('ev_handover_queue',S.handoverQueue);
 
 function toast(msg,ms=4000){
   /* c27: при открытой шторке (#ovwrap) сообщение показываем сверху и выше шторки: внизу его закрывала карточка («Смена PIN: ничего не происходит») */
-  const w=$('#toastwrap'),ovOpen=!!($('#ovwrap')&&$('#ovwrap').innerHTML);w.innerHTML='<div class="toast'+(ovOpen?' on-ov':'')+'" role="status">'+esc(msg)+'</div>';
+  const w=$('#toastwrap'),ovOpen=!!($('#ovwrap')&&$('#ovwrap').innerHTML);w.innerHTML='<div class="toast'+(ovOpen?' on-ov':'')+'" role="status"><span>'+esc(msg)+'</span><button type="button" class="toast-x" data-act="toastclose" aria-label="Закрыть сообщение">×</button></div>';
   clearTimeout(toast.t);toast.t=setTimeout(()=>{w.innerHTML=''},ms);
 }

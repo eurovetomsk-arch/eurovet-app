@@ -195,8 +195,41 @@ const st=page=>page.evaluate(()=>({view:S.view,q:S.queue.length,done:S.done&&{se
     await openForm(page,'70let',FORM());
     await page.locator('[data-act="submit"]').first().click();await wait(900);
     const s=await page.evaluate(()=>({q:S.queue.map(x=>x.status),rej:S.done&&S.done.rejected&&S.done.rejected.text}));
-    const n0=db.calls.ev_submit;await wait(9000);
-    ok(s.q.length===1&&s.q[0]==='error'&&/Нет доступа/.test(s.rej||'')&&db.calls.ev_submit===n0,'forbidden: отчёт в очереди (ошибка, «Копировать итоги»), экран отказа, без автоповтора');
+    const n0=db.calls.ev_submit;
+    await page.evaluate(()=>toast('Старая отправка не принята',10000));
+    await page.locator('[data-act="toastclose"]').click();await wait(100);
+    ok(!(await page.locator('#toastwrap').innerText()),'чёрное сообщение закрывается отдельной кнопкой');
+    await page.evaluate(()=>kick());
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    await page.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+    await wait(9000);
+    ok(s.q.length===1&&s.q[0]==='error'&&/Нет доступа/.test(s.rej||'')&&db.calls.ev_submit===n0,'forbidden: запуск, focus, pageshow и таймер не повторяют постоянный отказ');
+    const badge=await page.locator('[data-act="queue"]').innerText();
+    ok(/нужно действие:\s*1/.test(badge),'шапка честно показывает «нужно действие: 1», а не «ждёт»');
+
+    // Старый error не должен примешиваться к обычной сдаче нового отчёта; needs_reason ждёт своего действия.
+    db.forbid=false;
+    const idsMix=await page.evaluate(()=>{const old=S.queue[0],clone=(uid,status)=>Object.assign({},old,{uid,status,err:status==='error'?'ещё одна старая ошибка':'',minLen:status==='needs_reason'?3:null});
+      const second=clone('old-error-2','error'),reason=clone('old-reason-1','needs_reason'),fresh=clone('fresh-today-1','new');fresh.branch='marksa';fresh.branchTitle='Маркса, 45';
+      S.queue.push(second,reason,fresh);saveQueue();render();return{old:old.uid,second:second.uid,reason:reason.uid,fresh:fresh.uid}});
+    const n1=db.calls.ev_submit;await page.evaluate(()=>flush(false));await wait(700);
+    const mixed=await page.evaluate(()=>S.queue.map(x=>({uid:x.uid,status:x.status})));
+    ok(db.calls.ev_submit===n1+1&&!mixed.some(x=>x.uid===idsMix.fresh)&&mixed.filter(x=>x.status==='error').length===2&&mixed.some(x=>x.status==='needs_reason'),'новый отчёт отправлен один; две старые ошибки и запись с причиной не повторились');
+
+    await page.locator('[data-act="queue"]').click();await wait(200);
+    const qtxt=await page.locator('#ovwrap').innerText();
+    ok(/не отправится само/.test(qtxt)&&/Копировать итоги/.test(qtxt)&&/Убрать старую отправку/.test(qtxt)&&/Повторить один раз/.test(qtxt)&&!/Отправить сейчас/.test(qtxt),'очередь объясняет отказ и даёт точечные действия без общего повтора ошибок');
+    const n2=db.calls.ev_submit;await page.locator('[data-act="retryq"][data-id="'+idsMix.old+'"]').click();await wait(700);
+    const targeted=await page.evaluate(()=>S.queue.map(x=>({uid:x.uid,status:x.status})));
+    ok(db.calls.ev_submit===n2+1&&!targeted.some(x=>x.uid===idsMix.old)&&targeted.some(x=>x.uid===idsMix.second&&x.status==='error')&&targeted.some(x=>x.uid===idsMix.reason&&x.status==='needs_reason'),'«Повторить один раз» отправляет только выбранную ошибку');
+
+    await page.locator('[data-act="queue"]').click();await wait(100);
+    page.once('dialog',d=>d.accept());
+    await page.locator('[data-act="dropq"][data-id="'+idsMix.second+'"]').click();await wait(150);
+    page.once('dialog',d=>d.accept());
+    await page.locator('[data-act="dropq"][data-id="'+idsMix.reason+'"]').click();await wait(300);
+    const after=await page.evaluate(()=>({q:S.queue.length,badge:document.querySelector('[data-act="queue"]')?.innerText||'',toast:document.getElementById('toastwrap').innerText}));
+    ok(after.q===0&&/онлайн/.test(after.badge)&&!after.toast,'после удаления старая запись исчезла, экран свободен, связь остаётся онлайн');
     ok(errs.length===0,'ошибок JS нет'+(errs.length?': '+errs.join('; '):''));
     await page.context().close();
   }

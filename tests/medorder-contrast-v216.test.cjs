@@ -10,9 +10,9 @@ const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
 
 assert.match(css,/\.md-it \.nm\{color:var\(--ink\);-webkit-text-fill-color:var\(--ink\)\}/);
 assert.match(css,/\.md-grp\{[^}]*color:var\(--mute\);-webkit-text-fill-color:var\(--mute\)/);
-assert.match(html,/name="evrovet-version" content="2\.0\.17"/);
-assert.match(html,/styles\/view\.css\?v=217/);
-assert.match(sw,/const V='ev2-shell-32'/);
+assert.match(html,/name="evrovet-version" content="2\.0\.18"/);
+assert.match(html,/styles\/view\.css\?v=218/);
+assert.match(sw,/const V='ev2-shell-33'/);
 
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/, '')||'index.html',f=path.resolve(root,rel);if(!f.startsWith(root)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){s.writeHead(404).end();return}s.writeHead(200,{'content-type':mime[path.extname(f)]||'application/octet-stream','cache-control':'no-store'});s.end(fs.readFileSync(f))});
@@ -59,5 +59,5 @@ function contrast(a,b){const x=lum(rgb(a)),y=lum(rgb(b));return (Math.max(x,y)+.
     await browser.close();
     console.log(engine,'medorder contrast PASS');
   }
-  server.close();console.log('PASS medorder contrast v2.0.17 (3 engines × 2 themes × 3 viewports)');
+  server.close();console.log('PASS medorder contrast v2.0.18 (3 engines × 2 themes × 3 viewports)');
 })().catch(e=>{console.error(e);server.close();process.exit(1)});
