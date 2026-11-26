@@ -112,7 +112,7 @@ const HOME_TILE_META={
   where_i_work:{section:'work',size:'wide',title:'Где я работаю',sub:'Мои смены и кто где сегодня',view:'sched'},
   vaccines:{section:'preparations',size:'sm',title:'Вакцины',sub:'Остатки по филиалам',view:'vac',prepare:'Здесь будут остатки вакцин и их движение по филиалам.'},
   vaccines_all_branches:{section:'preparations',size:'sm',title:'Вакцины по филиалам',sub:'Остатки во всех клиниках',view:'vac',prepare:'Здесь будут остатки вакцин по всем филиалам.'},
-  dose_calculator:{section:'preparations',size:'sm',title:'Расчёт дозы',sub:'8 препаратов уже считают · пилот',view:'dose'},
+  dose_calculator:{section:'preparations',size:'sm',title:'Препараты и дозы',sub:'107 препаратов · 8 с быстрым расчётом',view:'dose'},
   supplies:{section:'preparations',size:'sm',title:'Врачебная заявка',sub:'Препараты и расходники',view:'med',prepare:'Скоро: заявка препаратов и расходников — здесь же будут остатки.'},
   supplies_all_requests:{section:'preparations',size:'sm',title:'Врачебные заявки',sub:'Сводная по филиалам',view:'med',prepare:'Здесь будут заявки филиалов на препараты и расходники.'},
   card_vtb:{section:'finance',size:'sm',title:'Карта ВТБ',sub:'Остаток на карте закупщика',view:'card'},

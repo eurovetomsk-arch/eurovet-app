@@ -1,12 +1,12 @@
 'use strict';
-/* Калькулятор доз 2.0.13: клинический пилот без записи в Supabase.
+/* Калькулятор доз 2.0.14: рабочий справочник без записи в Supabase.
    Каталог и структурированные правила загружаются только при открытии модуля. */
 const DOSE={
-  state:'idle',data:null,rules:null,error:null,species:'dog',weight:'',doseValue:'',route:'',query:'',group:'all',status:'calc',selected:null,lastItem:null,patientCarried:false,limit:24,listScroll:0,scrollTimer:null,
-  feedback:LS.get('ev_dose_feedback_test_v1',{})
+  state:'idle',data:null,rules:null,error:null,species:'dog',weight:'',doseValue:'',route:'',query:'',group:'all',status:'all',selected:null,lastItem:null,patientCarried:false,limit:24,listScroll:0,scrollTimer:null,
+  feedback:LS.get('ev_dose_feedback_v1',LS.get('ev_dose_feedback_test_v1',{}))
 };
 const DOSE_STATUS={
-  'ПРОЕКТ СХЕМЫ':{key:'draft',label:'Проект схемы',help:'Есть структурированная схема для тестирования врачами.'},
+  'ПРОЕКТ СХЕМЫ':{key:'draft',label:'Проект схемы',help:'Есть структурированная схема для врачебной проверки, но быстрый расчёт ещё не подготовлен.'},
   'РУЧНОЙ РЕЖИМ':{key:'manual',label:'Только вручную',help:'Нужны дополнительные клинические параметры, титрование или мониторинг.'},
   'ЗАБЛОКИРОВАНО':{key:'blocked',label:'Заблокировано',help:'Не хватает точной формы, концентрации или надёжного основания.'},
   'НЕ ПРИМЕНЯЕТСЯ':{key:'na',label:'Без расчёта',help:'Это материал, среда или процедура без универсальной лекарственной дозы.'},
@@ -27,7 +27,7 @@ function doseMatch(item,q){
   return query.split(' ').filter(Boolean).every(p=>hay.includes(p)||compact.includes(p.replace(/\s+/g,'')));
 }
 function doseResetPatient(){DOSE.species='dog';DOSE.weight='';DOSE.doseValue='';DOSE.route='';DOSE.patientCarried=false}
-function doseOpen(){closeOv();doseResetPatient();DOSE.selected=null;DOSE.lastItem=null;DOSE.query='';DOSE.group='all';DOSE.status='calc';DOSE.limit=24;DOSE.listScroll=0;S.view='dose';render();window.scrollTo(0,0);doseLoad()}
+function doseOpen(){closeOv();doseResetPatient();DOSE.selected=null;DOSE.lastItem=null;DOSE.query='';DOSE.group='all';DOSE.status='all';DOSE.limit=24;DOSE.listScroll=0;S.view='dose';render();window.scrollTo(0,0);doseLoad()}
 async function doseLoad(){
   if(DOSE.state==='loading'||DOSE.state==='ready')return;
   DOSE.state='loading';DOSE.error=null;if(S.view==='dose')render();
@@ -38,8 +38,8 @@ async function doseLoad(){
     ]);
     if(!catalogRes.ok||!rulesRes.ok)throw Error('HTTP '+catalogRes.status+'/'+rulesRes.status);
     const [d,rr]=await Promise.all([catalogRes.json(),rulesRes.json()]);
-    if(!d||d.schema!=='evrovet.dose_catalog_test/v1'||d.test_only!==true||!Array.isArray(d.items)||d.items.length!==107)throw Error('catalog contract');
-    if(!rr||rr.schema!=='evrovet.dose_rules_test/v1'||rr.test_only!==true||!Array.isArray(rr.rules)||rr.rules.length!==14)throw Error('rules contract');
+    if(!d||d.schema!=='evrovet.dose_catalog/v1'||d.test_only!==false||!Array.isArray(d.items)||d.items.length!==107)throw Error('catalog contract');
+    if(!rr||rr.schema!=='evrovet.dose_rules/v1'||rr.test_only!==false||!Array.isArray(rr.rules)||rr.rules.length!==14)throw Error('rules contract');
     DOSE.data=d;DOSE.rules=rr;DOSE.state='ready';
   }catch(e){DOSE.state='error';DOSE.error='Калькулятор не загрузился. Проверьте связь и попробуйте ещё раз.'}
   if(S.view==='dose')render();
@@ -57,12 +57,12 @@ function doseItems(){
 function doseCatalogMatches(){return !DOSE.data||!DOSE.query?[]:DOSE.data.items.filter(x=>doseMatch(x,DOSE.query))}
 function doseFeedbackCount(){return Object.keys(DOSE.feedback||{}).length}
 function doseTop(){
-  return '<section class="dose-head"><button class="dose-back" data-act="go" data-v="branch">‹ Назад</button><span class="dose-test">ПИЛОТ</span><h1>Расчёт дозы</h1><p>Быстрый расчёт на одно введение. Препарат, дозу и путь введения подтверждает врач.</p></section>';
+  return '<section class="dose-head"><button class="dose-back" data-act="go" data-v="branch">‹ Назад</button><h1>Препараты и расчёт дозы</h1><p>В справочнике 107 позиций. Быстрый расчёт доступен только там, где подготовлено проверяемое правило; препарат, дозу и путь подтверждает врач.</p></section>';
 }
 function doseLoading(){return doseTop()+'<div class="card dose-loading" aria-live="polite"><span></span><b>Открываю калькулятор…</b><small>Каталог загружается только на этом экране.</small></div>'}
 function doseFilters(){
   const gs=[['all','Все 107'],['Медицинские','Медицинские 78'],['Ветеринарные','Ветеринарные 29']];
-  const ss=[['calc','Расчёт доступен · 8'],['all','Весь справочник'],['manual','Только вручную'],['blocked','Заблокировано'],['na','Без расчёта']];
+  const ss=[['all','Весь справочник · 107'],['calc','Расчёт доступен · 8'],['manual','Только вручную'],['draft','Проекты схем'],['blocked','Заблокировано'],['na','Без расчёта']];
   return '<div class="card dose-search"><label for="dose-q">Найти препарат</label><input id="dose-q" class="srch" data-dose-input="search" type="search" autocomplete="off" enterkeyhint="search" placeholder="Название или концентрация" value="'+esc(DOSE.query)+'">'
     +'<div class="dose-filter-scroll" aria-label="Группа">'+gs.map(x=>'<button data-dose-act="group" data-value="'+esc(x[0])+'" class="chip'+(DOSE.group===x[0]?' on':'')+'">'+esc(x[1])+'</button>').join('')+'</div>'
     +'<div class="dose-filter-scroll dose-status-filter" aria-label="Статус">'+ss.map(x=>'<button data-dose-act="status" data-value="'+esc(x[0])+'" class="chip'+(DOSE.status===x[0]?' on':'')+'">'+esc(x[1])+'</button>').join('')+'</div></div>';
@@ -138,7 +138,7 @@ function doseCalcPanel(item,rule){
     +doseImmediateWarnings(rule)
     +'<div class="dose-route"><label>Место введения</label><div>'+routes+'</div></div>'
     +doseResultHtml(rule)
-    +'<p class="dose-guard">Пилотный расчёт. Дозу, показание и форму препарата подтверждает врач.</p></section>';
+    +'<p class="dose-guard">Расчёт является вспомогательным. Дозу, показание и форму препарата подтверждает врач.</p></section>';
 }
 function doseDetails(item,scheme,rule){
   const warnings=rule&&rule.warnings_short||[];
@@ -150,7 +150,7 @@ function doseDetails(item,scheme,rule){
     +'</div></details>';
 }
 function doseFeedbackSection(item){
-  const fb=DOSE.feedback[item.id];return '<details class="dose-review"><summary>Дать отзыв по карточке</summary><div class="dose-feedback"><p>Отзыв сохраняется только на тестовом устройстве.</p><div><button data-dose-act="feedback" data-value="correct" class="btn">Всё верно</button><button data-dose-act="feedback" data-value="fix" class="btn sec">Нужно исправить</button><button data-dose-act="feedback" data-value="unused" class="btn sec">Не используем</button></div>'+(fb?'<p class="dose-feedback-saved">✓ Сохранено: '+esc({correct:'верно',fix:'нужно исправить',unused:'не используем'}[fb.verdict]||fb.verdict)+(fb.note?' — '+esc(fb.note):'')+'</p>':'')+'</div></details>'}
+  const fb=DOSE.feedback[item.id];return '<details class="dose-review"><summary>Дать отзыв по карточке</summary><div class="dose-feedback"><p>Отзыв сохраняется на этом устройстве.</p><div><button data-dose-act="feedback" data-value="correct" class="btn">Всё верно</button><button data-dose-act="feedback" data-value="fix" class="btn sec">Нужно исправить</button><button data-dose-act="feedback" data-value="unused" class="btn sec">Не используем</button></div>'+(fb?'<p class="dose-feedback-saved">✓ Сохранено: '+esc({correct:'верно',fix:'нужно исправить',unused:'не используем'}[fb.verdict]||fb.verdict)+(fb.note?' — '+esc(fb.note):'')+'</p>':'')+'</div></details>'}
 function doseSearchBack(bottom){return '<button class="dose-search-back'+(bottom?' bottom':'')+'" data-dose-act="close"><span aria-hidden="true">‹</span><b>К результатам поиска</b><small>Вернуться к списку без сброса</small></button>'}
 function doseDetail(item){
   const s=doseStatus(item.release_status),scheme=DOSE.species==='cat'?item.cat:item.dog,rule=doseActiveRule(item),allRules=doseRulesFor(item);
@@ -195,7 +195,7 @@ function doseFeedbackForm(verdict){
 function doseSaveFeedback(verdict){
   const note=String((document.getElementById('dose-fb-note')||{}).value||'').trim();
   if(verdict!=='correct'&&note.length<3){toast('Напишите коротко, что нужно проверить');return}
-  DOSE.feedback[DOSE.selected]={verdict,note,at:new Date().toISOString()};LS.set('ev_dose_feedback_test_v1',DOSE.feedback);closeOv();render();toast('Отзыв сохранён на тестовом устройстве');
+  DOSE.feedback[DOSE.selected]={verdict,note,at:new Date().toISOString()};LS.set('ev_dose_feedback_v1',DOSE.feedback);closeOv();render();toast('Отзыв сохранён на этом устройстве');
 }
 function doseInputValue(el){
   const value=el.value.replace(/\./g,',').replace(/\s/g,'');if(el.value!==value)el.value=value;

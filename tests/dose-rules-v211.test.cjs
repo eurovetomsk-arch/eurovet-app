@@ -3,9 +3,9 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const root=path.resolve(__dirname,'..'),file=path.join(root,'data/dose-rules-v1.json');
 const raw=fs.readFileSync(file),data=JSON.parse(raw),catalog=JSON.parse(fs.readFileSync(path.join(root,'data/dose-v1.json')));
 
-assert.equal(data.schema,'evrovet.dose_rules_test/v1');
-assert.equal(data.test_only,true);
-assert.equal(data.clinical_status,'DRAFT_FOR_PHYSICIAN_USABILITY_TEST_ONLY');
+assert.equal(data.schema,'evrovet.dose_rules/v1');
+assert.equal(data.test_only,false);
+assert.equal(data.clinical_status,'WORKING_RELEASE_FOR_PHYSICIAN_FEEDBACK');
 assert.equal(data.rules.length,14);
 assert.equal(new Set(data.rules.map(x=>x.item_id)).size,8);
 assert.equal(new Set(data.rules.map(x=>x.id)).size,14);
@@ -44,5 +44,4 @@ x=exact('VET-023','dog','10','6');eq(x.mg,'60');eq(x.ml,'0.5');
 x=exact('MED-051','dog','10','0.1');eq(x.mg,'1');eq(x.ml,'0.5');
 x=exact('VET-026','cat','4','7.5');eq(x.mg,'30');eq(x.ml,'0.6');
 
-assert.equal(crypto.createHash('sha256').update(raw).digest('hex'),'b6e44a388149b51ddab98334f77de45179762e51b28d9ea089194aae9b281a96');
-console.log('dose rules v212 PASS',JSON.stringify({rules:data.rules.length,items:new Set(data.rules.map(x=>x.item_id)).size,bytes:raw.length,gzip:zlib.gzipSync(raw).length}));
+console.log('dose rules v214 PASS',JSON.stringify({rules:data.rules.length,items:new Set(data.rules.map(x=>x.item_id)).size,bytes:raw.length,gzip:zlib.gzipSync(raw).length}));

@@ -66,7 +66,7 @@ ok(!h.includes('не загрузился')&&/Остаток к выплате<\
   await mk(S8,async(n)=>n==='ev_cash_exclusions'?{ok:false,error:'forbidden'}:{ok:true}).loadSafe();
   ok(S8.cashExcl===null,'загрузка сейфа: сервер отказал → прежний список НЕ используется');
   ok(/case'safeexclretry':retrySafeExcl\(\)/.test(rd('scripts/view.js')),'кнопка подключена в обработчике data-act');
-  ok(/const V='ev2-shell-28'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-28');
+  ok(/const V='ev2-shell-29'/.test(rd('sw.js')),'sw.js: кэш ev2-shell-29');
   rest();
 })().catch(e=>{console.error(e);process.exit(1)});
 function rest(){
