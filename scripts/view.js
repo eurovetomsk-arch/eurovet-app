@@ -79,11 +79,12 @@ function render(){
   else if(S.view==='prepare')html=prepareHtml();
   else if(S.view==='vac')html=vacHtml();
   else if(S.view==='med')html=medHtml();
+  else if(S.view==='dose')html=doseHtml();
   else if(S.view==='an')html=analyticsHtml();
   else if(S.view==='card')html=cardHtml();
   stableHtml(app,html,true);
   if(S.view==='form'){if(!S.nosub)updateChecks();roLock()}
-  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','an','card'].includes(S.view))barHtml=navHtml();
+  if(S.person&&['branch','ctl','rev','sal','cc','work','pay','sched','prepare','vac','med','dose','an','card'].includes(S.view))barHtml=navHtml();
   stableBottomBar(bar,barHtml);
   document.body.classList.toggle('has-bottom-bar',!!barHtml);
 }
@@ -92,9 +93,10 @@ window.addEventListener('popstate',e=>{
   const x=e.state&&e.state.evrovet;if(!x)return;
   evHistoryApplying=true;
   S.view=x.view||homeView();S.branch=x.branch||null;S.date=x.date||omskToday();
+  if(S.view==='dose'&&typeof doseRestoreHistory==='function')doseRestoreHistory(e.state&&e.state.dose);
   if(x.wkFrom){S.wkFrom=x.wkFrom;S.wkTo=x.wkTo}
   if(x.sch){const s=schEnsure();s.m=x.sch.m;s.tab=x.sch.tab;s.day=x.sch.day;s.flt=x.sch.flt||''}
-  closeOv();render();window.scrollTo(0,0);evHistoryApplying=false;evHistoryView=S.view;
+  closeOv();render();if(S.view==='dose'&&typeof doseAfterHistory==='function')doseAfterHistory();else window.scrollTo(0,0);evHistoryApplying=false;evHistoryView=S.view;
 });
 function currentHelpHtml(){return HELP_HTML
   .replace('разница до 10 рублей включительно','разница до 10 рублей включительно')
@@ -734,7 +736,7 @@ document.addEventListener('click',async e=>{
     case'flush':if(S.queue.length&&S.queue.every(x=>x.status==='needs_reason')&&!S.handoverQueue.length){toast('Сначала впишите причину исправления и нажмите «Отправить с причиной»',5000);break}S.queue.forEach(x=>{if(x.status==='offline'||x.status==='error')x.status='new'});S.handoverQueue.forEach(x=>{if(x.status==='offline')x.status='new'});closeOv();kick();break;
     case'setReason':{const v=(($('#rs-'+d.id)||{}).value||'').trim(),it=S.queue.find(x=>x.uid===d.id),mn=(it&&it.minLen)||3;if(v.length<mn){toast(mn>3?'Причина — не короче '+mn+' знаков':'Напишите причину');break}if(it){it.reason=v;it.status='new'}saveQueue();closeOv();await flush();break}
     case'doUpdate':reloadNew();break;
-    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='vac')showVac();else if(v==='med')showMed();else if(v==='an')showAnalytics();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay()}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay()}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
+    case'go':{closeOv();const v=d.v;if(v==='work')showWork(S.wkFrom,S.wkTo);else if(v==='cc')showCC();else if(v==='sched')showSched();else if(v==='branch'){S.view='branch';render();window.scrollTo(0,0)}else if(v==='ctl')showControl();else if(v==='vac')showVac();else if(v==='dose')doseOpen();else if(v==='med')showMed();else if(v==='an')showAnalytics();else if(v==='rev')showRevenue();else if(v==='pay'){S.pplMode=false;S.paySafe=false;showPay()}else if(v==='safe'){S.pplMode=false;S.paySafe=true;showPay(S.payFrom,S.payTo);loadSafe()}else if(v==='ppl'){S.pplMode=true;S.paySafe=false;S.pplId=null;showPay()}else if(v==='sal')showSalary(S.salFrom,S.salTo);break}
     case'salcopy':copyPay();break;
     case'salper':showSalary(d.from,d.to);break;
     case'saldates':S.salDates=!S.salDates;paint();break;

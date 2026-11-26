@@ -5,13 +5,14 @@
    Тот же адрес sw.js, что у 1.92: клиенты со старым sw.js получают этот файл сами, без повторной установки приложения.
    Версия V меняется, только когда меняется список файлов; содержимое файлов обновляется само при каждом удачном запросе.
    Тест tests/offline-c21.test.cjs сверяет список с файлами проекта. Данные (Supabase) не кэшируются: другой домен, запросы POST. */
-const V='ev2-shell-25';
+const V='ev2-shell-28';
 const SHELL=[
  "./",
  "index.html",
  "config.js",
  "manifest.webmanifest",
  "styles/view.css",
+ "styles/dose.css",
  "ui2-common.css",
  "xlsx.core.min.js",
  "icon-v3.svg",
@@ -29,6 +30,7 @@ const SHELL=[
  "scripts/schedule.js",
  "scripts/traps.js",
  "scripts/vaccines.js",
+ "scripts/dose.js",
  "scripts/medorder.js",
  "scripts/meddelivery.js",
  "scripts/vmcheck.js",
