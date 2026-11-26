@@ -11,10 +11,10 @@ assert.match(vaccines,/const low=new Set\(\(b\.low\|\|\[\]\)\.map\(Number\)\)/,'
 assert.match(vaccines,/isLow\?'?<em>мало<\/em>/,'individual current low rows stay visible');
 assert.match(vaccines,/data-act="vachist"/,'daily history remains a separate explicit screen');
 assert.match(vaccines,/Остатки вакцин не внесены/,'missing-today reminder remains intact');
-assert.match(html,/content="2\.0\.15"/);
-assert.match(common,/appVer:'2\.0\.15'/);
+assert.match(html,/content="2\.0\.16"/);
+assert.match(common,/appVer:'2\.0\.16'/);
 assert.match(html,/scripts\/home\.js\?v=215/);
 assert.match(html,/scripts\/vaccines\.js\?v=215/);
-assert.match(sw,/const V='ev2-shell-30'/);
+assert.match(sw,/const V='ev2-shell-31'/);
 
-console.log('vaccine current-low UI v2.0.15 PASS');
+console.log('vaccine current-low UI v2.0.16 PASS');
