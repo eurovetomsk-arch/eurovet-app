@@ -3,8 +3,8 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const root=path.resolve(__dirname,'..'),rd=f=>fs.readFileSync(path.join(root,f),'utf8');
 const html=rd('index.html'),config=rd('config.js'),common=rd('scripts/common.js'),home=rd('scripts/home.js'),view=rd('scripts/view.js'),sw=rd('sw.js'),dose=rd('scripts/dose.js'),css=rd('styles/dose.css');
 
-assert.match(html,/name="evrovet-version" content="2\.0\.14"/);
-assert.match(common,/appVer:'2\.0\.14'/);
+assert.match(html,/name="evrovet-version" content="2\.0\.15"/);
+assert.match(common,/appVer:'2\.0\.15'/);
 assert.match(html,/styles\/dose\.css\?v=214/);
 assert.match(html,/scripts\/dose\.js\?v=214/);
 assert.match(config,/dose_calculator:true/);
@@ -16,7 +16,7 @@ assert.match(home,/dose_calculator:\{[^\n]+view:'dose'/);
 assert.match(view,/v==='dose'\)doseOpen\(\)/);
 assert.match(view,/S\.view==='dose'\)html=doseHtml\(\)/);
 assert.match(view,/\[[^\]]*'dose'[^\]]*\]\.includes\(S\.view\)\)barHtml=navHtml\(\)/);
-assert.match(sw,/const V='ev2-shell-29'/);
+assert.match(sw,/const V='ev2-shell-30'/);
 assert.match(sw,/"styles\/dose\.css"/);
 assert.match(sw,/"scripts\/dose\.js"/);
 assert.doesNotMatch(sw,/data\/dose-(?:v1|rules-v1)\.json/,'clinical data stays lazy-loaded');
@@ -46,4 +46,4 @@ assert.equal(catalog.schema,'evrovet.dose_catalog/v1');
 assert.equal(catalog.test_only,false);
 assert.equal(rules.schema,'evrovet.dose_rules/v1');
 assert.equal(rules.test_only,false);
-console.log('dose production catalog 2.0.14 PASS (107 visible by default, 8 calculable, 14 rules, doctor/head only, lazy data)');
+console.log('dose production catalog 2.0.15 PASS (107 visible by default, 8 calculable, 14 rules, doctor/head only, lazy data)');

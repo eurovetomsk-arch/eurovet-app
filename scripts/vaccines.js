@@ -21,13 +21,7 @@ async function loadVacOverview(force){
 const vacItems=()=>(VX.data&&VX.data.items)||[];
 const vacBranches=()=>(VX.data&&VX.data.branches)||[];
 const vacItemName=id=>{const i=vacItems().find(x=>Number(x.id)===Number(id));return i?i.name:'#'+id};
-function vacLowList(){
-  const out=[];vacBranches().forEach(b=>(b.low||[]).forEach(id=>{const i=vacItems().find(x=>Number(x.id)===Number(id));out.push({branch:b.branch,title:b.title,id,name:i?i.name:'#'+id,qty:(b.qty||{})[id],min:i?i.min:null})}));
-  return out;
-}
 const vacShortTitle=t=>String(t||'').replace(/,\s*\d+$/,'');
-/* метка «мало: N» на плитке «Вакцины» главной каждой роли */
-function vacTileBadge(){const n=VX.data?Number(VX.data.low_total||0):0;return n>0?'<span class="vac-low">мало: '+n+'</span>':''}
 /* после 21:30: напоминание «остатки не внесены» (админ и руководитель) */
 function vacReminderHtml(){
   if(!VX.data||!(vacCanEnter()))return '';
@@ -49,13 +43,9 @@ function vacGroups(items){
 function vacBranchChips(act){
   return '<div class="chips" id="vacbr">'+vacBranches().map(b=>'<button class="chip'+(VX.branch===b.branch?' on':'')+'" data-act="'+act+'" data-id="'+esc(b.branch)+'" style="--bd:'+({marksa:'#e0457f','70let':'#2fbf8f',pereleta:'#4f7bff'}[b.branch]||'var(--line)')+'">'+esc(vacShortTitle(b.title))+'</button>').join('')+'</div>';
 }
-function vacLowCard(){
-  const low=vacLowList();if(!low.length)return '<div class="chk ok"><i>✓</i><div><b>Всё в норме</b><br>Ниже порога позиций нет.</div></div>';
-  return '<div class="chk bad vac-lowcard"><i>!</i><div><b>Ниже нормы: '+low.length+'</b><br>'+low.map(x=>'<span>'+esc(vacShortTitle(x.title))+': '+esc(x.name)+' — '+(x.qty==null?'?':x.qty)+(x.min!=null?' (норма от '+x.min+')':'')+'</span>').join('<br>')+'</div></div>';
-}
 function vacListHtml(){
   const b=vacBranches().find(x=>x.branch===VX.branch);
-  let h='<h1 class="screen-title">Вакцины</h1>'+vacLowCard()+vacBranchChips('vacbranch');
+  let h='<h1 class="screen-title">Вакцины</h1>'+vacBranchChips('vacbranch');
   if(!b)return h;
   const when=b.stock_date?('на вечер '+ruDate(b.stock_date)+' · внесено в '+vacHm(b.entered_at)+(b.by?' · '+esc(b.by):'')):'пока не внесены';
   h+='<div class="card"><h2>'+esc(b.title)+'</h2><p class="hint" style="margin:0 0 8px">Остатки '+when+'</p>';
