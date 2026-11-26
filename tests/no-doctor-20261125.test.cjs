@@ -35,6 +35,6 @@ const login=rd('scripts/login.js');
 ok(!/rescue2511|Фактическая инкассация 15 500 ₽/.test(login),'разовый сценарий закрытого отчёта удалён из клиента');
 ok(/appVer:'2\.0\.19'/.test(rd('scripts/common.js'))&&/content="2\.0\.19"/.test(rd('index.html')),'версия приложения обновлена');
 ok(/scripts\/report\.js\?v=218/.test(rd('index.html'))&&/scripts\/login\.js\?v=219/.test(rd('index.html')),'изменённые файлы имеют принудительно новый URL');
-ok(/const V='ev2-shell-33'/.test(rd('sw.js')),'телефон получит новый service worker');
+ok(/const V='ev2-shell-34'/.test(rd('sw.js')),'телефон получит новый service worker');
 ok(/clients\.matchAll\(\{type:'window',includeUncontrolled:true\}\)/.test(rd('sw.js'))&&/postMessage\(\{type:'EV_UPDATE_READY'/.test(rd('sw.js'))&&!/c\.navigate\(u\.href\)/.test(rd('sw.js')),'service worker сообщает об обновлении без навигации внутри activate');
 console.log('ALL PASS '+n);

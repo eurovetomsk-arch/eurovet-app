@@ -16,7 +16,7 @@ assert.match(home,/dose_calculator:\{[^\n]+view:'dose'/);
 assert.match(view,/v==='dose'\)doseOpen\(\)/);
 assert.match(view,/S\.view==='dose'\)html=doseHtml\(\)/);
 assert.match(view,/\[[^\]]*'dose'[^\]]*\]\.includes\(S\.view\)\)barHtml=navHtml\(\)/);
-assert.match(sw,/const V='ev2-shell-33'/);
+assert.match(sw,/const V='ev2-shell-34'/);
 assert.match(sw,/"styles\/dose\.css"/);
 assert.match(sw,/"scripts\/dose\.js"/);
 assert.doesNotMatch(sw,/data\/dose-(?:v1|rules-v1)\.json/,'clinical data stays lazy-loaded');

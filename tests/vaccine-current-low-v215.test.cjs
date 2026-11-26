@@ -15,6 +15,6 @@ assert.match(html,/content="2\.0\.19"/);
 assert.match(common,/appVer:'2\.0\.19'/);
 assert.match(html,/scripts\/home\.js\?v=219/);
 assert.match(html,/scripts\/vaccines\.js\?v=219/);
-assert.match(sw,/const V='ev2-shell-33'/);
+assert.match(sw,/const V='ev2-shell-34'/);
 
 console.log('vaccine current-low UI v2.0.19 PASS');

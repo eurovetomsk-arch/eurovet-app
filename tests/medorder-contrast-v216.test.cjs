@@ -12,7 +12,7 @@ assert.match(css,/\.md-it \.nm\{color:var\(--ink\);-webkit-text-fill-color:var\(
 assert.match(css,/\.md-grp\{[^}]*color:var\(--mute\);-webkit-text-fill-color:var\(--mute\)/);
 assert.match(html,/name="evrovet-version" content="2\.0\.19"/);
 assert.match(html,/styles\/view\.css\?v=218/);
-assert.match(sw,/const V='ev2-shell-33'/);
+assert.match(sw,/const V='ev2-shell-34'/);
 
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/, '')||'index.html',f=path.resolve(root,rel);if(!f.startsWith(root)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){s.writeHead(404).end();return}s.writeHead(200,{'content-type':mime[path.extname(f)]||'application/octet-stream','cache-control':'no-store'});s.end(fs.readFileSync(f))});

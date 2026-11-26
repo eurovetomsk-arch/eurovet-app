@@ -816,8 +816,12 @@ async function checkUpdate(force){
     const m=(await r.text()).match(/name="evrovet-version"\s+content="([^"]+)"/);
     if(!m||m[1]===CFG.appVer)return;
     S.newVer=m[1];
+    const numberActive=S.view==='login'&&S.loginScreen==='keypad'&&S.loginStep==='number'&&S.loginNumber.length>0;
     const pinActive=S.view==='login'&&S.loginScreen==='keypad'&&(S.loginPin.length>0||S.busy);
-    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc'||S.view==='work')&&!$('#ovwrap').innerHTML&&!flushing&&!pinActive;
+    /* Тихо применяем обновление только до входа и только когда человек ещё
+       ничего не набирает. После входа всегда показываем кнопку: сессия и
+       текущая работа не должны исчезать из-за visibilitychange или таймера. */
+    const calm=S.view==='login'&&!S.token&&!numberActive&&!pinActive&&!$('#ovwrap').innerHTML&&!flushing;
     let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
     if(calm&&now-last>120000){try{sessionStorage.setItem('ev_upd_try',String(now))}catch(e){}reloadNew();return}
     $('#updwrap').innerHTML='<div class="upd"><span>Вышла новая версия '+esc(m[1])+'. Данные сохранены.</span><button data-act="doUpdate">Обновить</button></div>';

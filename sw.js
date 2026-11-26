@@ -3,11 +3,11 @@
    Как у 1.92: сеть первой (чтобы обновления приходили сразу), если сети нет или она молчит 4 секунды — берём сохранённую копию.
    Оболочка (страница, скрипты, стили, шрифты, иконки, xlsx) сохраняется при установке, остальное — по мере открытия.
    Тот же адрес sw.js, что у 1.92: клиенты со старым sw.js получают этот файл сами, без повторной установки приложения.
-   Версия V меняется, только когда меняется список файлов; содержимое файлов обновляется само при каждом удачном запросе.
+   Версия V меняется с выпуском оболочки: новый SW сначала собирает полную согласованную офлайн-копию и только затем активируется.
    Тест tests/offline-c21.test.cjs сверяет список с файлами проекта. Данные (Supabase) не кэшируются: другой домен, запросы POST. */
-/* Имя кэша меняем только при изменении состава SHELL. Обычный выпуск кода
-   обновляется network-first и не должен заново скачивать всю оболочку. */
-const V='ev2-shell-33';
+/* Отдельный кэш на выпуск не даёт offline fallback смешать HTML и скрипты
+   разных версий. */
+const V='ev2-shell-34';
 const BUILD='2.0.19';
 const SHELL=[
  "./",
@@ -84,12 +84,10 @@ const OPTIONAL=[
 ];
 let badUntil=0;
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.keys().then(async keys=>{
-    /* При первом запуске создаём полную офлайн-копию. При обновлении кода в
-       том же составе файлов оставляем готовый кэш: новые файлы положит
-       network-first при обычной загрузке страницы. */
-    if(keys.includes(V))return;
-    const c=await caches.open(V);
+  e.waitUntil(caches.open(V).then(async c=>{
+    /* Каждая версия оболочки получает отдельный полный кэш. Старый кэш нельзя
+       переиспользовать: ignoreSearch fallback иначе мог поднять прежний HTML
+       и прежние скрипты после первого же перехода offline. */
     await c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})));
     await Promise.all(OPTIONAL.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})));
   }).then(()=>self.skipWaiting()));
@@ -118,7 +116,10 @@ self.addEventListener('fetch',e=>{
     return;
   }
   const net=fetch(e.request,{cache:'no-cache'}).then(r=>{if(r&&r.ok){const cp=r.clone();caches.open(V).then(c=>c.put(e.request,cp)).catch(()=>{})}return r});
-  const saved=()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||(e.request.mode==='navigate'?caches.match('./',{ignoreSearch:true}):undefined));
+  /* Ищем fallback только в кэше текущего выпуска. Старый worker может успеть
+     завершить сетевой запрос уже после activate и временно воссоздать свой
+     кэш; глобальный caches.match тогда снова отдал бы прежнюю оболочку. */
+  const saved=()=>caches.open(V).then(c=>c.match(e.request,{ignoreSearch:true}).then(r=>r||(e.request.mode==='navigate'?c.match('./',{ignoreSearch:true}):undefined)));
   /* ждём сеть 4 с; если недавно сеть уже подвела (молчала или оборвалась) — только 0,8 с, иначе 12 файлов оболочки грузились бы по 4 с подряд */
   const wait=Date.now()<badUntil?800:4000;
   const slow=new Promise(res=>setTimeout(()=>{badUntil=Date.now()+60000;res(saved().then(r=>r||net))},wait));
