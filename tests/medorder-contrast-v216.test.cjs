@@ -10,9 +10,9 @@ const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
 
 assert.match(css,/\.md-it \.nm\{color:var\(--ink\);-webkit-text-fill-color:var\(--ink\)\}/);
 assert.match(css,/\.md-grp\{[^}]*color:var\(--mute\);-webkit-text-fill-color:var\(--mute\)/);
-assert.match(html,/name="evrovet-version" content="2\.0\.16"/);
-assert.match(html,/styles\/view\.css\?v=216/);
-assert.match(sw,/const V='ev2-shell-31'/);
+assert.match(html,/name="evrovet-version" content="2\.0\.17"/);
+assert.match(html,/styles\/view\.css\?v=217/);
+assert.match(sw,/const V='ev2-shell-32'/);
 
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.webmanifest':'application/manifest+json'};
 const server=http.createServer((q,s)=>{const rel=decodeURIComponent(q.url.split('?')[0]).replace(/^\/+/, '')||'index.html',f=path.resolve(root,rel);if(!f.startsWith(root)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){s.writeHead(404).end();return}s.writeHead(200,{'content-type':mime[path.extname(f)]||'application/octet-stream','cache-control':'no-store'});s.end(fs.readFileSync(f))});
@@ -49,10 +49,15 @@ function contrast(a,b){const x=lum(rgb(a)),y=lum(rgb(b));return (Math.max(x,y)+.
       assert.ok(got.overflow<=0,tag+': no horizontal overflow');
       assert.equal(escaped.length,0,tag+': no external requests');
       if(process.env.MEDORDER_SCREENSHOT&&engine==='chromium'&&colorScheme==='dark'&&viewport.width===390)await page.screenshot({path:process.env.MEDORDER_SCREENSHOT,fullPage:false});
+      const warning=await page.evaluate(()=>{MD.lines={1:99};MD.step='review';render();const row=document.querySelector('.md-rr.wr'),ask=document.querySelector('.md-ask'),cs=e=>{const x=getComputedStyle(e);return{color:x.color,bg:x.backgroundColor}};return{row:cs(row),ask:cs(ask)}});
+      assert.ok(contrast(warning.row.color,warning.row.bg)>=4.5,tag+': unusual-quantity row contrast');
+      assert.ok(contrast(warning.ask.color,warning.ask.bg)>=4.5,tag+': unusual-quantity prompt contrast');
+      const summary=await page.evaluate(()=>{MD.step='sum';MD.sumBranch=null;MD.sumCounts={marksa:1,pereleta:0,'70let':0};MD.sum={ok:true,rows:[{id:1,section:'supply',name:'Перчатки смотровые XS',unit:'пачка',qty:{marksa:2,pereleta:0,'70let':0},total:2}],open:[]};render();const th=document.querySelector('.md-t th'),x=getComputedStyle(th);return{color:x.color,bg:x.backgroundColor}});
+      assert.ok(contrast(summary.color,summary.bg)>=4.5,tag+': buyer summary header contrast');
       await ctx.close();
     }
     await browser.close();
     console.log(engine,'medorder contrast PASS');
   }
-  server.close();console.log('PASS medorder contrast v2.0.16 (3 engines × 2 themes × 3 viewports)');
+  server.close();console.log('PASS medorder contrast v2.0.17 (3 engines × 2 themes × 3 viewports)');
 })().catch(e=>{console.error(e);server.close();process.exit(1)});

@@ -33,8 +33,8 @@ ok(/x\.slot==='doctor'&&S\.form\.no_doctor===true/.test(traps),'график н�
 ok(/x\.slot==='assistant'&&S\.form\.no_assistant===true/.test(traps),'подтверждённое отсутствие ассистента не требует фиктивной строки');
 const login=rd('scripts/login.js');
 ok(!/rescue2511|Фактическая инкассация 15 500 ₽/.test(login),'разовый сценарий закрытого отчёта удалён из клиента');
-ok(/appVer:'2\.0\.16'/.test(rd('scripts/common.js'))&&/content="2\.0\.16"/.test(rd('index.html')),'версия приложения обновлена');
+ok(/appVer:'2\.0\.17'/.test(rd('scripts/common.js'))&&/content="2\.0\.17"/.test(rd('index.html')),'версия приложения обновлена');
 ok(/scripts\/report\.js\?v=208/.test(rd('index.html'))&&/scripts\/login\.js\?v=210/.test(rd('index.html')),'изменённые файлы имеют принудительно новый URL');
-ok(/const V='ev2-shell-31'/.test(rd('sw.js')),'телефон получит новый service worker');
+ok(/const V='ev2-shell-32'/.test(rd('sw.js')),'телефон получит новый service worker');
 ok(/clients\.matchAll\(\{type:'window',includeUncontrolled:true\}\)/.test(rd('sw.js'))&&/c\.navigate\(u\.href\)/.test(rd('sw.js')),'открытое приложение само перезагрузится после активации');
 console.log('ALL PASS '+n);
