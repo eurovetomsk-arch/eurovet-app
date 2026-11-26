@@ -1,4 +1,14 @@
 'use strict';
+/* Фоновые ответы главной приходят почти одновременно. Собираем их короткой
+   пачкой, чтобы не перестраивать плитки после каждого отдельного RPC. */
+let homePaintTimer=0,homePaintSince=0;
+function homePaint(){
+  if(S.view!=='branch')return;
+  const now=Date.now();if(!homePaintSince)homePaintSince=now;
+  clearTimeout(homePaintTimer);
+  const wait=now-homePaintSince>=900?0:250;
+  homePaintTimer=setTimeout(()=>{homePaintTimer=0;homePaintSince=0;if(S.view==='branch')paint()},wait);
+}
 function homeTab(){const t=S.homeTab||LS.get('ev_htab');return t==='cc'?'cc':'adm'}
 function homeTabs(){const t=homeTab();return '<div class="chips tabs" style="margin:0 0 10px">'+[['adm','Администраторы'],['cc','Колл-центр']].map(x=>'<button class="chip'+(t===x[0]?' on':'')+'" data-act="htab" data-t="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'}
 function stageGreetingWord(h=(new Date()).getHours()){return h>=5&&h<12?'Доброе утро':h>=12&&h<17?'Добрый день':h>=17&&h<23?'Добрый вечер':'Здравствуйте';}
@@ -26,7 +36,7 @@ async function loadHomeWho(){
     if(!r||!r.ok)HOME_WHO.error='Сегодняшняя смена пока не загрузилась.';
     else HOME_WHO.rows=Array.isArray(r.shifts)?r.shifts:(Array.isArray(r.rows)?r.rows:[]); /* 2.0: сервер отдаёт shifts */
   }catch(e){HOME_WHO.error=e.net?'Нет связи: сегодняшняя смена пока не загрузилась.':'Сегодняшняя смена пока не загрузилась.'}
-  HOME_WHO.loading=false;if(S.view==='branch')paint();
+  HOME_WHO.loading=false;homePaint();
 }
 function homeBranchTitle(id){
   const b=BRANCHES.find(x=>String(x.id)===String(id));
@@ -40,7 +50,7 @@ async function loadCCToday(force){
   CC_TODAY.key=key;CC_TODAY.loading=true;CC_TODAY.err=null;
   try{const r=await rpc('ev_cc_today',{p_token:S.token},8000);if(r&&r.ok)CC_TODAY.r=r;else CC_TODAY.err='Не удалось загрузить отметку.'}
   catch(e){CC_TODAY.err=e.net?'Нет связи: отметка пока не загрузилась.':'Не удалось загрузить отметку.'}
-  CC_TODAY.loading=false;if(S.view==='branch')paint();
+  CC_TODAY.loading=false;homePaint();
 }
 function ccMarkHtml(){
   const c=CC_TODAY,tm=t=>{try{return new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Omsk',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(t))}catch(e){return ''}};

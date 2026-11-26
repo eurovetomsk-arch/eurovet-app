@@ -5,7 +5,10 @@
    Тот же адрес sw.js, что у 1.92: клиенты со старым sw.js получают этот файл сами, без повторной установки приложения.
    Версия V меняется, только когда меняется список файлов; содержимое файлов обновляется само при каждом удачном запросе.
    Тест tests/offline-c21.test.cjs сверяет список с файлами проекта. Данные (Supabase) не кэшируются: другой домен, запросы POST. */
+/* Имя кэша меняем только при изменении состава SHELL. Обычный выпуск кода
+   обновляется network-first и не должен заново скачивать всю оболочку. */
 const V='ev2-shell-33';
+const BUILD='2.0.19';
 const SHELL=[
  "./",
  "index.html",
@@ -81,18 +84,24 @@ const OPTIONAL=[
 ];
 let badUntil=0;
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(V).then(async c=>{
+  e.waitUntil(caches.keys().then(async keys=>{
+    /* При первом запуске создаём полную офлайн-копию. При обновлении кода в
+       том же составе файлов оставляем готовый кэш: новые файлы положит
+       network-first при обычной загрузке страницы. */
+    if(keys.includes(V))return;
+    const c=await caches.open(V);
     await c.addAll(SHELL.map(u=>new Request(u,{cache:'reload'})));
     await Promise.all(OPTIONAL.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})));
   }).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).then(()=>
-    self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>Promise.all(cs.map(c=>{
-      const u=new URL(c.url);if(u.origin!==location.origin||u.searchParams.get('shell')==='25')return;
-      u.searchParams.set('shell','25');return c.navigate(u.href);
-    })))
-  ));
+  e.waitUntil(caches.keys()
+    .then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k))))
+    .then(()=>self.clients.claim())
+    /* Никакой navigate() внутри activate: Safari/Chromium могли ждать
+       завершения activate и одновременно блокировать сам activate до минуты. */
+    .then(()=>self.clients.matchAll({type:'window',includeUncontrolled:true}))
+    .then(cs=>cs.forEach(c=>c.postMessage({type:'EV_UPDATE_READY',version:BUILD}))));
 });
 /* c24: картинки (иконки плиток, подсказки, шрифты) — «сначала копия, обновление в фоне»: возврат на экран не перезагружает их по сети и не мигает.
    Страница, config.js, скрипты и стили остаются «сеть первой» (иначе после выкладки страница и скрипты могли бы оказаться из разных версий). */

@@ -12,7 +12,7 @@ async function doLogin(pin){
   if(!/^\d{6}$/.test(pin)){toast('PIN — 6 цифр');return}
   S.busy=true;render();
   try{
-    const r=await rpc('ev_login_number',{p_number:number,p_pin:pin,p_device:DEV,p_shared:shared});
+    const r=await rpc('ev_login_number',{p_number:number,p_pin:pin,p_device:DEV,p_shared:shared},10000);
     // 2.0 deliberately opens the role-aware home for every authenticated role.
     // The former showCC/showWork redirects hid the new main screen from those roles.
     /* c20: роль без экрана (например, аутсорс; screen_access/список ролей экрана пуст) — приложение для неё не строится */

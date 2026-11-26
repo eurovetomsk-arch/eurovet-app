@@ -916,11 +916,14 @@ function copyPayroll(){
   try{navigator.clipboard.writeText(txt).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'))}catch(e){toast('Не удалось скопировать')}
 }
 /* ====== Руководитель: статус отчётов «Сегодня» (ev_day_status, только чтение) ====== */
+let dayStatusLoading=false;
 async function loadDayStatus(){
   const dt=omskToday();
-  if(S.day&&S.day.date===dt&&Date.now()-S.day.at<60000)return;
+  if(dayStatusLoading||(S.day&&S.day.date===dt&&Date.now()-S.day.at<60000))return;
+  dayStatusLoading=true;
   try{const r=await rpc('ev_day_status',{p_token:S.token,p_date:dt},6000);
-    if(r&&r.ok){S.day={date:dt,at:Date.now(),list:r.branches||[]};if(S.view==='branch')paint()}}catch(e){}
+    if(r&&r.ok){S.day={date:dt,at:Date.now(),list:r.branches||[]};homePaint()}}catch(e){}
+  finally{dayStatusLoading=false}
 }
 function dayStatusHtml(){
   const d=S.day;if(!d||d.date!==omskToday())return '';
@@ -996,13 +999,16 @@ const CTL_VM_CODES=['vm_not_checked','vm_partial'];
 const ctlOldDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(String(d||''))&&String(d)<addDays(omskToday(),-14);
 const ctlOldFlag=f=>CTL_VM_CODES.includes(f&&f.code)&&ctlOldDate(f.date);
 const ctlOldCov=x=>!!x&&x.status!=='complete'&&ctlOldDate(x.date);
+let revStatusLoading=false;
 async function loadRevStatus(){
-  if(!isHead())return;
+  if(!isHead()||revStatusLoading)return;
+  revStatusLoading=true;
   try{const r=await rpc('ev_flags_pending',{p_token:S.token},20000);
     if(r&&r.ok){S.ctl=r.pending||[];S.ctlAccepted=r.accepted||[];S.ctlCoverage=r.coverage||[];const cv=S.ctlCoverage;
       S.revStatus={open:(S.ctl||[]).filter(f=>!f.blocked&&!['vm_not_checked','vm_partial'].includes(f.code)).length,incomplete:cv.filter(x=>!['complete','pending','missing'].includes(x.status)&&!ctlOldCov(x)).length}}
     else S.revStatus={err:true}}catch(e){S.revStatus={err:true}}
-  S.revStatusAt=Date.now();if(S.view==='rev'||S.view==='branch')paint();
+  finally{revStatusLoading=false}
+  S.revStatusAt=Date.now();if(S.view==='rev')paint();else if(S.view==='branch')homePaint();
 }
 function revStatusHtml(){
   const s=S.revStatus;if(!isHead())return '';

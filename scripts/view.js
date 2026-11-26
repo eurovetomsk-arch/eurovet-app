@@ -30,9 +30,13 @@ let _renderedView=null;
    переносим совпадающие картинки в новую разметку: декодированные иконки не
    исчезают между несколькими фоновыми обновлениями одного экрана. */
 function stableHtml(el,html,keepImages){
-  if(!el||el.innerHTML===html)return false;
-  if(!keepImages){el.innerHTML=html;return true}
+  if(!el)return false;
+  /* Сравниваем две браузерные сериализации. Сырая строка содержит NBSP,
+     innerHTML превращает его в &nbsp;, поэтому прежняя проверка всегда считала
+     одинаковую главную новой и пересобирала все плитки. */
   const t=document.createElement('template');t.innerHTML=html;
+  if(el.innerHTML===t.innerHTML)return false;
+  if(!keepImages){el.replaceChildren(t.content);return true}
   const pool={};el.querySelectorAll('img[src]').forEach(img=>{const k=img.getAttribute('src');(pool[k]||(pool[k]=[])).push(img)});
   t.content.querySelectorAll('img[src]').forEach(img=>{const a=pool[img.getAttribute('src')];if(a&&a.length&&a[0].outerHTML===img.outerHTML)img.replaceWith(a.shift())});
   el.replaceChildren(t.content);return true;
@@ -812,7 +816,8 @@ async function checkUpdate(force){
     const m=(await r.text()).match(/name="evrovet-version"\s+content="([^"]+)"/);
     if(!m||m[1]===CFG.appVer)return;
     S.newVer=m[1];
-    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc'||S.view==='work')&&!$('#ovwrap').innerHTML&&!flushing&&!(($('#pin')||{}).value);
+    const pinActive=S.view==='login'&&S.loginScreen==='keypad'&&(S.loginPin.length>0||S.busy);
+    const calm=(S.view==='branch'||S.view==='login'||S.view==='cc'||S.view==='work')&&!$('#ovwrap').innerHTML&&!flushing&&!pinActive;
     let last=0;try{last=+sessionStorage.getItem('ev_upd_try')||0}catch(e){}
     if(calm&&now-last>120000){try{sessionStorage.setItem('ev_upd_try',String(now))}catch(e){}reloadNew();return}
     $('#updwrap').innerHTML='<div class="upd"><span>Вышла новая версия '+esc(m[1])+'. Данные сохранены.</span><button data-act="doUpdate">Обновить</button></div>';

@@ -16,7 +16,7 @@ async function loadVacOverview(force){
     else VX.err=(r&&r.error==='session')?'Сессия закончилась, войдите заново.':'Остатки пока недоступны.';
   }catch(e){VX.err=e.net?'Нет связи: остатки пока не загрузились.':'Остатки пока недоступны.'}
   VX.loading=false;
-  if(S.view==='vac'||S.view==='branch')paint();
+  if(S.view==='vac')paint();else if(S.view==='branch')(typeof homePaint==='function'?homePaint():paint());
 }
 const vacItems=()=>(VX.data&&VX.data.items)||[];
 const vacBranches=()=>(VX.data&&VX.data.branches)||[];

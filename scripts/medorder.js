@@ -262,7 +262,7 @@ async function mdBadgeLoad(force){
     else if(r&&r.error==='forbidden'){MDB.ok=false;MDB.count=0}
   }catch(e){}
   MDB.busy=false;MDB.at=Date.now();
-  if(MDB.changed&&S.view==='branch'&&typeof paint==='function'){MDB.changed=false;paint()}
+  if(MDB.changed&&S.view==='branch'&&typeof homePaint==='function'){MDB.changed=false;homePaint()}
 }
 /* на плитке: вызывается при каждой отрисовке главной (обновление при входе на главную); не закупщикам запрос один раз и больше не повторяется */
 function medTileBadge(){mdBadgeLoad(false);return MDB.ok&&MDB.count>0?'<span class="med-pend" aria-label="Не закрытых заявок">'+MDB.count+'</span>':''}

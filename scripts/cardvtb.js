@@ -32,7 +32,7 @@ async function cardProbe(){
   CARD.probing=true;
   try{const r=await cardCall('state');if(r&&r.ok){CARD.ok=true;CARD.role=r.role;CARD.st=r}else if(r&&(r.error==='forbidden')){CARD.ok=false}}catch(e){}
   CARD.probing=false;
-  if(CARD.ok===true&&S.view&&['branch','card'].includes(S.view))paint();
+  if(CARD.ok===true&&S.view==='card')paint();else if(CARD.ok===true&&S.view==='branch')(typeof homePaint==='function'?homePaint():paint());
 }
 async function cardLoad(){
   try{const r=await cardCall('state');if(r&&r.ok){CARD.st=r;CARD.err=null}else CARD.err=r&&r.error==='session'?'Сессия закончилась. Войдите заново.':'Нет доступа.'}
@@ -49,7 +49,7 @@ async function cardFlush(){
     const rest=cardQ().filter(y=>y.uid!==x.uid);cardQSave(rest);
     if(r&&r.ok){CARD.st=r;sent=true}else{try{toast('Операция не принята: '+(({amount:'сумма',date:'дата',forbidden:'нет доступа',already_fixed:'уже исправлено'})[r&&r.error]||'ошибка'),6000)}catch(e){}}
   }
-  CARD.busy=false;if(S.view==='card'||S.view==='branch')paint();
+  CARD.busy=false;if(S.view==='card')paint();else if(S.view==='branch')(typeof homePaint==='function'?homePaint():paint());
   return sent;
 }
 async function cardSubmit(fn,args){
